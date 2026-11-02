@@ -3,9 +3,9 @@
     "metaflow@groele": {
       "updates": [
         {
-          "version": "13.4.14",
-          "update_link": "https://github.com/groele/Zotero-MetaFlow/releases/download/v13.4.14/zotero-metaflow.xpi",
-          "update_hash": "sha512:6813c80bfad6ce34920beb0303694861bcdc6fa0b9c4769a88be98c11c84c78c2cfc4b93f8a0789b6d08c0d35ffc2637f739186845348b162b661f0fba89032e",
+          "version": "13.4.15",
+          "update_link": "https://github.com/groele/Zotero-MetaFlow/releases/download/v13.4.15/zotero-metaflow.xpi",
+          "update_hash": "sha512:d1f6d32f290e80acffac5206afd19570ac03422e42e579566e89b79fcdc495773332dd6480acab2daeb6fce7a61f27a6e938c92f1ab8e9228229ea10ae2d0ce4",
           "applications": {
             "zotero": {
               "strict_min_version": "10.0",
