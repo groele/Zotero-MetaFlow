@@ -37,6 +37,11 @@ export function ensureJournalPaneStyles(doc?: Document | null) {
       height: 28px !important;
       min-width: 28px !important;
       padding: 4px !important;
+      overflow: hidden !important;
+      font-size: 0 !important;
+      line-height: 0 !important;
+      color: transparent !important;
+      white-space: nowrap !important;
       box-sizing: border-box !important;
     }
     .metaref-journal-pane-wrap {

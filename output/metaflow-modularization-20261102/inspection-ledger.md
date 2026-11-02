@@ -90,3 +90,24 @@
    - SHA-256：`bfed4c3dcac9799bfd8a49d06076e958288a68326ea6e3e39783b87f86aeb925`（100% 匹配）
    - SHA-512：`6813c80bfad6ce34920beb0303694861bcdc6fa0b9c4769a88be98c11c84c78c2cfc4b93f8a0789b6d08c0d35ffc2637f739186845348b162b661f0fba89032e`（100% 匹配）
    - 结论：远端 Release 产物逐字节核对全部通过，发布闭环完成！
+
+---
+
+## 4. v13.4.16 侧边栏与期刊面板回退修复验证（2026-11-02）
+
+### 4.1 根因分析与纠偏
+1. **侧边栏图标文字重叠**：
+   - 根因：`main-window.ftl` 中的 `journal-insights-heading` 误赋予了文本值，导致 Fluent 将本地化字符串作为 `textContent` 写入侧边栏窄条 28px 图标按钮内部；
+   - 修复：完全恢复 `v13.4.14` 规范，保留空的文本值（仅定义 `.label` 与 `.tooltiptext`），并在 `styles.ts` 中针对 `item-pane-sidenav .btn[data-pane*="metaref-journal-insights"]` 声明强力防文字重叠保护（`overflow: hidden; font-size: 0; line-height: 0; color: transparent;`）。
+2. **期刊面板内容空白**：
+   - 根因：`ensureSectionTitle` 强行修改宿主 Web Components 元素的 `label` 与 DOM，干扰了 Zotero 原生 `collapsible-section` 的异步渲染链路；
+   - 修复：完全回滚 `index.ts` 至 `v13.4.14` 的原生生命周期架构，移除人工注入的 `ensureSectionTitle` 与伪测试，由 Zotero 原生 ItemPaneManager 与 `onAsyncRender` 负责卡片内容调度。
+
+### 4.2 验证结果
+- **单元测试**：93 passed, 678 passed (100%)
+- **静态类型与构建**：`zotero-plugin build && tsc --noEmit` 耗时 3.5s，零错误
+- **代码规范**：`eslint . && autocorrect --lint` 零警告零错误
+- **标签自检**：`python scripts/release-tags.py --self-test` 校验通过
+- **XPI 大小**：3,509,891 字节
+- **SHA-256**：`6c300a6bc78ff0ac311a58b6eddb081da6679f7c8a3ee2524764d1083b4aa469`
+- **SHA-512**：`29cd67bb64fb7ce9310f900e8228701af9f46809e718640bf6bd923d11397e7076e72096a64330f3a76e207e8a1f66b87cad80805998e17b895e816b9164faa2`

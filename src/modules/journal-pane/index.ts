@@ -47,38 +47,6 @@ function navigationQueryKey(item: Zotero.Item) {
 }
 const logger = createLogger("journal-pane");
 
-export function ensureJournalPaneLocalization(doc?: Document | null) {
-  if (!doc)
-    return;
-  const file = `${addon.data.config.addonRef}-main-window.ftl`;
-  if (doc.querySelector?.(`link[rel="localization"][href="${file}"]`))
-    return;
-  try {
-    (doc.defaultView as any)?.MozXULElement?.insertFTLIfNeeded?.(file);
-    (doc as any).l10n?.addResourceIds?.([file]);
-  }
-  catch {
-    // ignore
-  }
-}
-
-function ensureSectionTitle(body: HTMLElement, doc?: Document | null) {
-  const targetDoc = doc || body.ownerDocument;
-  ensureJournalPaneLocalization(targetDoc);
-  const section = (body.closest("collapsible-section") || body.parentElement) as (HTMLElement & { label?: string }) | null;
-  if (!section)
-    return;
-  const heading = getString("journal-insights-heading") || "Zotero MetaFlow 期刊索引";
-  if (!section.getAttribute("label") || !section.label) {
-    section.setAttribute("label", heading);
-    section.label = heading;
-  }
-  const titleEl = section.querySelector<HTMLElement>(".head .title-box .title, .title");
-  if (titleEl && !titleEl.textContent?.trim()) {
-    titleEl.textContent = heading;
-  }
-}
-
 export function registerJournalPane() {
   if (sectionID)
     return;
@@ -89,20 +57,16 @@ export function registerJournalPane() {
     header: { icon, l10nID: getLocaleID("journal-insights-heading")! },
     sidenav: { icon, l10nID: getLocaleID("journal-insights-heading")! },
     onInit({ body, doc, refresh, setEnabled }) {
-      const targetDoc = doc || body.ownerDocument;
-      ensureJournalPaneLocalization(targetDoc);
-      ensureJournalPaneStyles(targetDoc);
-      ensureSectionTitle(body, targetDoc);
+      ensureJournalPaneStyles(doc || body.ownerDocument);
       const hideSummary = () => {
-        ensureSectionTitle(body, targetDoc);
         const summary = (body.closest("collapsible-section") || body.parentElement)?.querySelector<HTMLElement>(".head .title-box .summary, .summary");
         if (summary && !summary.textContent?.trim())
           summary.style.display = "none";
       };
       hideSummary();
-      const raf = targetDoc?.defaultView?.requestAnimationFrame;
+      const raf = (doc || body.ownerDocument)?.defaultView?.requestAnimationFrame;
       if (typeof raf === "function")
-        raf.call(targetDoc!.defaultView, hideSummary);
+        raf.call((doc || body.ownerDocument)!.defaultView, hideSummary);
       if (!navigationListeners.has(doc)) {
         const listener: EventListener = (event) => {
           const mouse = event as MouseEvent;
@@ -148,7 +112,6 @@ export function registerJournalPane() {
       const enabled = supportsSection(item);
       setEnabled(enabled);
       ensureJournalPaneStyles(body.ownerDocument);
-      ensureSectionTitle(body, body.ownerDocument);
       const summary = (body.closest("collapsible-section") || body.parentElement)?.querySelector<HTMLElement>(".head .title-box .summary, .summary");
       if (summary && !summary.textContent?.trim())
         summary.style.display = "none";
@@ -161,7 +124,6 @@ export function registerJournalPane() {
       setEnabled(enabled);
       const doc = body.ownerDocument || Zotero.getMainWindow()?.document;
       ensureJournalPaneStyles(doc);
-      ensureSectionTitle(body, doc);
       body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
       const summary = (body.closest("collapsible-section") || body.parentElement)?.querySelector<HTMLElement>(".head .title-box .summary, .summary");
       if (summary && !summary.textContent?.trim())
