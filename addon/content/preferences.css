@@ -603,7 +603,18 @@
   display: none !important;
 }
 
-/* Card inner layout breathing room & label indentation */
+/* ==========================================================================
+   Preferences Hierarchy & Edge Distance Specification (设置界面层级与边缘距离规范)
+   - Level 1 (一级): 卡片外边缘距离 16px (标题栏背景通栏，文字与全局描述距外框 16px)
+   - Level 2 (二级): 控件图标左边缘距外框 16px (相对内容区 0px)；
+                    文字标签左边缘距外框 40px (16px + 16px + 8px，相对内容区 24px)；
+                    二级分组标题左边缘距外框 16px
+   - Level 3 (三级): 三级从属标题、从属控件图标与描述文字左边缘严格对齐于 40px (相对内容区缩进 24px，与二级文字齐平)；
+                    三级控件文字标签左边缘距外框 64px (40px + 16px + 8px，相对内容区 48px)；
+                    三级嵌套配置子卡片外框距外框 16px，内部水平内边距严格规范为 16px (内部文字距外框 32px)
+   ========================================================================== */
+
+/* Level 1: Overview Description */
 #metaref .metaref-collapsible-card > p {
   margin-inline: 0;
   margin-block: 0 10px;
@@ -612,10 +623,12 @@
   line-height: 1.6;
 }
 
+/* Level 2: Primary Check Options */
 #metaref .metaref-collapsible-card > .metaref-check-option {
   margin-inline: 0;
 }
 
+/* Level 3: Subordinate Descriptions (Flush with Level 2 text at 40px from card border) */
 #metaref .metaref-collapsible-card > description,
 #metaref .metaref-collapsible-card > .metaref-pref-description {
   display: block;
@@ -627,6 +640,7 @@
   line-height: 1.6;
 }
 
+/* Level 3: Subordinate Priority Container (Flush with Level 2 text at 40px from card border) */
 #metaref .metaref-collapsible-card > #metaref-metadata-source-priority-container,
 #metaref .metaref-collapsible-card > #metaref-metadata-source-priority-row {
   margin-inline: 0;
@@ -634,6 +648,7 @@
   margin-block: 4px 10px;
 }
 
+/* Level 3 Sub-heading (元数据来源优先级) */
 #metaref
   .metaref-collapsible-card
   > #metaref-metadata-source-priority-container
@@ -646,6 +661,7 @@
   margin-block-end: 4px;
 }
 
+/* Level 3 Radiogroup & Radio Options (Radio circle aligns at 40px, radio text at 64px) */
 #metaref .metaref-collapsible-card > #metaref-metadata-source-priority-container > [role="radiogroup"],
 #metaref .metaref-collapsible-card > #metaref-metadata-source-priority-row > radiogroup {
   display: flex;
@@ -660,16 +676,71 @@
   font-size: 14px;
 }
 
-#metaref .metaref-collapsible-card > #metaref-tldr-options {
+/* Level 3: Subordinate Checkboxes & General Indented Preferences */
+#metaref .metaref-collapsible-card > #metaref-tldr-options,
+#metaref .indented-pref {
+  margin-inline-start: 24px;
+  margin-block: 2px 6px;
+}
+
+#metaref .indented-pref .indented-pref {
+  margin-inline-start: 24px;
+}
+
+#metaref description.indented-pref,
+#metaref .metaref-pref-description.indented-pref {
   margin-inline-start: 24px;
   margin-block: 2px 8px;
 }
 
-#metaref .metaref-collapsible-card > #metaref-metadata-provider-options {
+/* Level 3: Nested Service Configuration Card (数据服务设置) */
+#metaref .metaref-collapsible-card > #metaref-metadata-provider-options,
+#metaref #metaref-metadata-provider-options {
   margin-inline: 0;
-  margin-top: 12px;
-  padding: 10px 14px;
+  margin-block: 12px 4px;
+  padding: 12px 16px;
   border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
-  border-radius: 6px;
-  background-color: color-mix(in srgb, currentColor 1%, transparent);
+  border-radius: 8px;
+  background-color: color-mix(in srgb, currentColor 2%, transparent);
+  box-sizing: border-box;
+}
+
+#metaref #metaref-metadata-provider-options > label,
+#metaref #metaref-metadata-provider-options > label > h3 {
+  display: block;
+  margin: 0 0 8px 0;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: inherit;
+}
+
+#metaref #metaref-metadata-provider-options > hbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 4px 6px;
+}
+
+#metaref #metaref-metadata-provider-options > hbox > label {
+  font-size: 13px;
+  margin: 0;
+}
+
+#metaref #metaref-metadata-provider-options > hbox > input {
+  font-size: 13px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background-color: Field;
+  color: inherit;
+}
+
+#metaref #metaref-metadata-provider-options > description,
+#metaref #metaref-metadata-provider-options > .metaref-pref-description {
+  display: block;
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fill-secondary);
 }

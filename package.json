@@ -1,7 +1,7 @@
 {
   "name": "zotero-metaflow",
   "type": "module",
-  "version": "13.4.13",
+  "version": "13.4.14",
   "packageManager": "pnpm@12.3.4",
   "description": "Validate, normalize, and enrich reference metadata.",
   "config": {

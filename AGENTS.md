@@ -6,7 +6,7 @@ This file provides guidance to AI coding agents when working with code in this r
 
 "Zotero MetaFlow" (package name `zotero-metaflow`, add-on ID `metaflow@groele`) is a Zotero plugin that validates and formats item metadata. It is built on the [zotero-plugin-template](https://github.com/windingwind/zotero-plugin-template) and [zotero-plugin-scaffold](https://github.com/northword/zotero-plugin-scaffold) toolchain, and bundled with esbuild into an ESM script loaded by Zotero (a Firefox/Gecko `firefox140` runtime — not Node).
 
-Target: Zotero 10.0-12.x (validated on Windows Zotero 10.0.6, Zotero 11 development builds, and compatible up to 12.*); build output targets Firefox 140. Package manager: **pnpm** (12.3.4, pinned in package.json). Node v22+ required for development.
+Target: Developed and perfected based on Zotero 10, forward-looking for future versions and upcoming platform features, with declared compatibility across Zotero 10.0-12.* (`strict_min_version: "10.0"`, `strict_max_version: "12.*"`). Build output targets Firefox 140 / Gecko 153 modern architecture. Package manager: **pnpm** (12.3.4, pinned in package.json). Node v22+ required for development.
 
 ## Repository source of truth
 
@@ -112,6 +112,15 @@ MetaFlow strictly decouples its core processing into two independent pipelines w
 Large reference datasets (journal abbreviations, conference abbreviations, university→place map, ISO language maps) live in `data/` and are bundled as assets (see `zotero-plugin.config.ts` `build.assets`). At runtime they are loaded lazily and cached via `src/utils/data-loader.ts` (`DataLoader.load(key, ...)`), resolving paths under `${rootURI}data/...`. Immutable built-in data and indexes survive batches; custom-file caches are cleared after each batch. Explicit database reload clears the full cache. Regenerate these files with `pnpm update-data`, not by hand.
 
 ## Conventions
+
+### Preferences UI hierarchy and edge distance specification (三级层级与边缘距离规范)
+
+All preference cards in `addon/content/preferences.xhtml` and `addon/content/preferences.css` follow the workspace-wide 3-level alignment standard based on `16px` card horizontal padding:
+
+- **Level 1 (一级)**: Card headings (`.metaref-card-heading` / `summary`) and top overview text (`.metaref-collapsible-card > p`) start at **`16px`** from the card outer border.
+- **Level 2 (二级)**: Main option checkbox/radio icons start at **`16px`** from the card outer border; option text starts at **`40px`** (`16px + 16px icon + 8px gap`), establishing the **40px vertical alignment guide line**.
+- **Level 3 (三级)**: Sub-headings (e.g. `元数据来源优先级`), subordinate descriptions (`description`, `.metaref-pref-description`), and sub-checkbox/radio icons (`#metaref-metadata-source-priority-container`, `.indented-pref`, `#metaref-tldr-options`) MUST align their left edges at **`40px`** from the card outer border (`margin-inline-start: 24px`), **flush with Level 2 text**. Sub-control text labels start at **`64px`** (`40px + 16px + 8px`).
+- **Nested Service Cards (嵌套服务配置子卡片)**: Inner horizontal padding is strictly **`padding: 12px 16px;`** (outer border at `16px`, inner text at `32px` from outer card border); arbitrary paddings such as `10px 14px` are prohibited.
 
 - ESLint config is `@antfu/eslint-config` + `@zotero-plugin/eslint-config` (double quotes, semicolons — see `eslint.config.mjs`). `autocorrect` fixes CJK/Latin spacing in text. Both run on staged files via husky + lint-staged.
 - Preference keys follow `rule.${id}.option-name`; read with `getPref` from `src/utils/prefs.ts`.
