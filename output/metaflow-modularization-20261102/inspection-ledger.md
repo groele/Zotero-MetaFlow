@@ -68,7 +68,7 @@
 
 ---
 
-## 3. 验证证据
+## 3. 验证与发布闭环证据
 
 1. **单元测试验证**：
    - 命令：`pnpm test:unit`
@@ -80,3 +80,13 @@
 3. **代码规范检查**：
    - 命令：`pnpm lint:check`（`eslint . && autocorrect --lint`）
    - 结果：`No issues found`，代码风格与 CJK 间距严格规范。
+4. **Git 提交与规范 Tag**：
+   - 提交：`79ddb3d` (`refactor(modules): modularize journal-pane and preference settings into cohesive submodules`)
+   - 标签：`v13.4.14`（符合规范的 Annotated Tag）
+   - 远端分支与标签均已成功推送至 `origin/main` 和 `origin/v13.4.14`。
+5. **GitHub Release 发布与远端下载逐字节校验（Byte-for-byte Verification）**：
+   - Release 地址：https://github.com/groele/Zotero-MetaFlow/releases/tag/v13.4.14
+   - 文件大小：`3509857` 字节（本地与远端完全一致，`SizeBytesMatch: True`）
+   - SHA-256：`bfed4c3dcac9799bfd8a49d06076e958288a68326ea6e3e39783b87f86aeb925`（100% 匹配）
+   - SHA-512：`6813c80bfad6ce34920beb0303694861bcdc6fa0b9c4769a88be98c11c84c78c2cfc4b93f8a0789b6d08c0d35ffc2637f739186845348b162b661f0fba89032e`（100% 匹配）
+   - 结论：远端 Release 产物逐字节核对全部通过，发布闭环完成！
