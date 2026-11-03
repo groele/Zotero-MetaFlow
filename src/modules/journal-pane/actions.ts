@@ -2,7 +2,6 @@ import { hasEnabledJournalMetrics } from "../../utils/journal-permissions";
 import { getPref } from "../../utils/prefs";
 import { normalizeArxiv } from "../review/policy";
 import { isSnapshotItem } from "../review/snapshot-reviver";
-import { extractTLDRFromItem } from "../rules/tool-update-metadata/tldr";
 
 export function extractArxivID(item?: Zotero.Item): string | undefined {
   if (!item || !item.isRegularItem())
@@ -79,7 +78,6 @@ export function supportsSection(item?: Zotero.Item): boolean {
     item && getPref("insights.showPane", true) && (
       isUnconvertedArxivPreprint(item)
       || isUnrevivedSnapshot(item)
-      || Boolean(extractTLDRFromItem(item))
       || (supportsRankings(item) && hasEnabledJournalMetrics())
     ),
   );

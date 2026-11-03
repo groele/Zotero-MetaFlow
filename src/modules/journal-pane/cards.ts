@@ -7,7 +7,6 @@ import { isJournalIndexEnabled } from "../../utils/journal-permissions";
 import { journalRankingRows } from "../../utils/journal-ranking-rows";
 import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
-import { extractTLDRFromItem } from "../rules/tool-update-metadata/tldr";
 import {
   extractArxivID,
   isUnconvertedArxivPreprint,
@@ -108,11 +107,6 @@ function renderPreprintCard(
   desc.setAttribute("style", "font-size:12px;line-height:1.5;color:var(--fill-secondary);margin-bottom:12px;");
   wrap.append(desc);
 
-  const tldr = extractTLDRFromItem(item);
-  if (tldr) {
-    wrap.append(createTLDRBox(doc, tldr));
-  }
-
   const convertBtn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button") as HTMLButtonElement;
   convertBtn.type = "button";
   convertBtn.textContent = `⚡ ${getString("rule-tool-review-preprint-menu-item") || "检查并转为正式发表版本…"}`;
@@ -198,11 +192,6 @@ function renderSnapshotCard(
   desc.setAttribute("style", "font-size:12px;line-height:1.5;color:var(--fill-secondary);margin-bottom:12px;");
   wrap.append(desc);
 
-  const tldr = extractTLDRFromItem(item);
-  if (tldr) {
-    wrap.append(createTLDRBox(doc, tldr));
-  }
-
   const reviveBtn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button") as HTMLButtonElement;
   reviveBtn.type = "button";
   reviveBtn.textContent = `🌐 ${getString("snapshot-card-button") || "一键嗅探并复活为学术论文…"}`;
@@ -229,23 +218,6 @@ function renderSnapshotCard(
   });
   wrap.append(reviveBtn);
   body.replaceChildren(wrap);
-}
-
-function createTLDRBox(doc: Document, tldr: string): HTMLElement {
-  const tldrBox = doc.createElementNS("http://www.w3.org/1999/xhtml", "div") as HTMLElement;
-  tldrBox.setAttribute("style", "margin:0 0 12px;padding:8px 10px;background:color-mix(in srgb, var(--accent-blue, #245ac7) 8%, transparent);border-radius:6px;border-left:3px solid var(--accent-blue, #245ac7);font-size:12px;line-height:1.5;color:var(--fill-primary);");
-  const tldrHead = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  tldrHead.setAttribute("style", "font-size:11px;font-weight:600;color:var(--accent-blue, #245ac7);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;");
-  const headTitle = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-  headTitle.textContent = `💡 ${getString("journal-insights-tldr-heading") || "核心论点 (TL;DR)"}`;
-  const headSrc = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-  headSrc.textContent = "Semantic Scholar";
-  headSrc.setAttribute("style", "font-size:10px;font-weight:400;opacity:0.75;");
-  tldrHead.append(headTitle, headSrc);
-  const tldrBody = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  tldrBody.textContent = tldr;
-  tldrBox.append(tldrHead, tldrBody);
-  return tldrBox;
 }
 
 async function renderInsightsCard(
@@ -375,29 +347,6 @@ async function renderInsightsCard(
       rankingSection.append(text("div", getString("journal-rankings-empty"), "font-size:12px;color:var(--fill-secondary);"));
     }
     container.append(rankingSection);
-  }
-
-  // TLDR 核心论点展示
-  const tldr = extractTLDRFromItem(item);
-  if (tldr) {
-    const tldrSection = doc.createElementNS("http://www.w3.org/1999/xhtml", "section");
-    tldrSection.setAttribute("data-journal-tldr", "true");
-    const tldrMargin = (supportsRankings(item) || hasIndexResults) ? "margin-top:14px;" : "margin-top:4px;";
-    tldrSection.setAttribute("style", `${tldrMargin}padding:10px 12px;background:color-mix(in srgb, var(--accent-blue, #245ac7) 6%, transparent);border-radius:6px;border-left:3px solid var(--accent-blue, #245ac7);`);
-    const tldrHeader = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    tldrHeader.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:8px;");
-    const tldrTitle = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-    tldrTitle.textContent = `💡 ${getString("journal-insights-tldr-heading") || "核心论点 (TL;DR)"}`;
-    tldrTitle.setAttribute("style", "font-size:12px;font-weight:600;color:var(--accent-blue, #245ac7);");
-    const tldrSource = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-    tldrSource.textContent = "Semantic Scholar";
-    tldrSource.setAttribute("style", "font-size:10px;color:var(--fill-secondary);opacity:0.8;");
-    tldrHeader.append(tldrTitle, tldrSource);
-    const tldrBody = doc.createElementNS("http://www.w3.org/1999/xhtml", "p");
-    tldrBody.textContent = tldr;
-    tldrBody.setAttribute("style", "font-size:13px;line-height:1.55;margin:0;color:var(--fill-primary);white-space:pre-wrap;");
-    tldrSection.append(tldrHeader, tldrBody);
-    container.append(tldrSection);
   }
 
   // 学科索引区 (ESI / Nature Index)

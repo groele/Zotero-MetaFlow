@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractArxivID, isUnconvertedArxivPreprint, isUnrevivedSnapshot } from "./journal-pane";
+import { extractArxivID, isUnconvertedArxivPreprint, isUnrevivedSnapshot, supportsSection } from "./journal-pane";
 
 function mockItem(fields: Record<string, string>, itemType = "preprint", regular = true): Zotero.Item {
   return {
@@ -103,5 +103,25 @@ describe("isUnrevivedSnapshot", () => {
       getAttachments: () => [123],
     } as unknown as Zotero.Item;
     expect(isUnrevivedSnapshot(item)).toBe(true);
+  });
+});
+
+describe("supportsSection", () => {
+  it("does not activate journal pane solely because item has paper-level TLDR", () => {
+    const bookWithTLDR = mockItem({
+      extra: "TLDR: This is a book takeaway summary.",
+      title: "Some Academic Book",
+    }, "book");
+    expect(supportsSection(bookWithTLDR)).toBe(false);
+  });
+
+  it("activates journal pane for unconverted arXiv preprints", () => {
+    const preprint = mockItem({ url: "https://arxiv.org/abs/2401.12345" }, "preprint");
+    expect(supportsSection(preprint)).toBe(true);
+  });
+
+  it("activates journal pane for unrevived snapshots", () => {
+    const snapshot = mockItem({ url: "https://example.com/page" }, "webpage");
+    expect(supportsSection(snapshot)).toBe(true);
   });
 });
