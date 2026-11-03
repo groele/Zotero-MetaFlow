@@ -93,8 +93,54 @@ export function reviewChanges(original: TransformedData, candidate: TransformedD
   });
 }
 
+export function isPlaceholderCreator(creator: any): boolean {
+  if (!creator)
+    return true;
+  const last = String(("lastName" in creator ? creator.lastName : "") || "").trim();
+  const first = String(("firstName" in creator ? creator.firstName : "") || "").trim();
+  const full = String(("name" in creator ? creator.name : "") || "").trim();
+
+  if (!last && !first && !full)
+    return true;
+
+  const placeholderRegex = /^(?:\(姓\)|姓|\(名\)|名|\(last\s*name\)|last\s*name|\(first\s*name\)|first\s*name|unknown|anonymous|未知|匿名|\?+|-+)$/i;
+  if (full && (placeholderRegex.test(full) || /^\(姓\)[,\s]*\(名\)$/.test(full)))
+    return true;
+  if (last && placeholderRegex.test(last) && (!first || placeholderRegex.test(first)))
+    return true;
+  if (!last && first && placeholderRegex.test(first))
+    return true;
+
+  return false;
+}
+
+export function creatorTokens(creator?: any): string[] {
+  if (!creator || isPlaceholderCreator(creator))
+    return [];
+  const parts: string[] = [];
+  if ("lastName" in creator && creator.lastName)
+    parts.push(creator.lastName);
+  if ("firstName" in creator && creator.firstName)
+    parts.push(creator.firstName);
+  if ("name" in creator && creator.name)
+    parts.push(...creator.name.split(/[\s,]+/));
+  return parts.map((p: string) => p.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean);
+}
+
+export function creatorsAgree(original: TransformedData, candidate: TransformedData): boolean {
+  const origCreator = original.creators?.find(c => c && !isPlaceholderCreator(c));
+  const candCreator = candidate.creators?.find(c => c && !isPlaceholderCreator(c));
+  if (!origCreator || !candCreator)
+    return true;
+  const aTokens = creatorTokens(origCreator);
+  const bTokens = creatorTokens(candCreator);
+  if (!aTokens.length || !bTokens.length)
+    return true;
+  return aTokens.some(token => token.length >= 2 && bTokens.includes(token));
+}
+
 export function firstCreator(data: TransformedData): string {
-  const creator = data.creators?.[0];
+  const creator = data.creators?.find(c => c && !isPlaceholderCreator(c));
   return creator ? (("name" in creator ? creator.name : creator.lastName) || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
 }
 
@@ -106,7 +152,7 @@ export function identityConflicts(original: TransformedData, candidate: Transfor
   const afterYear = candidate.date?.match(/\b\d{4}\b/)?.[0];
   if (!allowYearChange && beforeYear && afterYear && beforeYear !== afterYear)
     conflicts.push("date");
-  if (firstCreator(original) && firstCreator(candidate) && firstCreator(original) !== firstCreator(candidate))
+  if (!creatorsAgree(original, candidate))
     conflicts.push("creators");
   return conflicts;
 }

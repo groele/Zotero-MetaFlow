@@ -10,6 +10,7 @@ import { recordRuntimeResult } from "../utils/runtime-data-storage";
 import { REMOTE_STANDARD_RULES } from "../utils/workflow-policy";
 import { combineWorkflowResults, CoreWorkflowQueue } from "../utils/workflow-result";
 import { showCoreCompletionToast, updateBatchFeedback } from "./batch-feedback";
+import { inspectItemDefects } from "./item-diagnostics";
 import { refreshJournalPane, setJournalUpdateResult } from "./journal-pane";
 import { runReviewCommand } from "./review";
 import { Rules } from "./rules";
@@ -20,12 +21,30 @@ export function localDOICheck() {
     ...Rules.getByID("require-doi")!,
     cooldown: 0,
     apply({ item, report }: Parameters<typeof ToolUpdateEasyScholar.apply>[0]) {
-      if (!item.getField("DOI") && !ztoolkit.ExtraField.getExtraField(item, "DOI")) {
-        report({ level: "warning", message: getString("workflow-missing-doi"), action: { label: getString("rule-tool-update-metadata-menu-item"), callback: async () => {
-          const current = Zotero.Items.get(item.id);
-          if (current && !current.deleted)
-            await addon.hooks.onLintInBatch("tool-update-metadata", [current], { review: true });
-        } } });
+      const defects = inspectItemDefects(item);
+      if (!defects.length)
+        return;
+      for (const defect of defects) {
+        report({
+          level: defect.level === "suggestion" ? "info" : defect.level,
+          code: defect.code,
+          field: defect.field,
+          message: defect.message,
+          action: defect.fixAction
+            ? {
+                label: defect.fixAction === "update" ? getString("rule-tool-update-metadata-menu-item") : getString("menuitem-stdFormatFlow"),
+                callback: async () => {
+                  const current = Zotero.Items.get(item.id);
+                  if (current && !current.deleted) {
+                    if (defect.fixAction === "update")
+                      await addon.hooks.onLintInBatch("tool-update-metadata", [current], { review: true });
+                    else
+                      await addon.hooks.onLintInBatch("standard", [current], { core: true });
+                  }
+                },
+              }
+            : undefined,
+        });
       }
     },
   };

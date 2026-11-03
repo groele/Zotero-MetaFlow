@@ -1,7 +1,8 @@
 import type { DuplicateRecord } from "./duplicate-matching";
 import { describe, expect, it } from "vitest";
+import { sanitizeWebTitle, titlesAgree } from "../rules/tool-update-metadata/policy";
 import { duplicatePairs } from "./duplicate-matching";
-import { identifiersFromText, identityConflicts, isbnEquivalent, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
+import { identifiersFromText, identityConflicts, isbnEquivalent, isPlaceholderCreator, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
 
 function record(id: number, overrides: Partial<DuplicateRecord["data"]> = {}, libraryID = 1, preprint = false): DuplicateRecord {
   return {
@@ -13,6 +14,20 @@ function record(id: number, overrides: Partial<DuplicateRecord["data"]> = {}, li
 }
 
 describe("review identity policy", () => {
+  it("sanitizes web scraping suffixes and agrees with clean titles", () => {
+    const dirty = "Constructing slip stacking diversity in van der waals homobilayers - chen - 2024 - advanced materials - wiley online library";
+    const clean = "Constructing Slip Stacking Diversity in Van der Waals Homobilayers";
+    expect(sanitizeWebTitle(dirty)).toBe("Constructing slip stacking diversity in van der waals homobilayers");
+    expect(titlesAgree(dirty, clean)).toBe(true);
+  });
+
+  it("detects placeholder creators like (姓), (名)", () => {
+    expect(isPlaceholderCreator({ lastName: "(姓)", firstName: "(名)" })).toBe(true);
+    expect(isPlaceholderCreator({ name: "(姓), (名)" })).toBe(true);
+    expect(isPlaceholderCreator({ lastName: "unknown" })).toBe(true);
+    expect(isPlaceholderCreator({ lastName: "Chen", firstName: "Yun" })).toBe(false);
+  });
+
   it("includes an ISSN returned by metadata providers in review changes", () => {
     expect(reviewChanges({ ISSN: "" }, { ISSN: "1530-6984" })).toContainEqual({ field: "ISSN", before: "", after: "1530-6984" });
   });

@@ -9,7 +9,7 @@ export const PUBLIC_CACHE_BYTES = 4 * 1024 * 1024;
 export const SERVICE_MEMORY_BYTES = 16 * 1024 * 1024;
 
 export function serviceCacheTTL(namespace: string): number {
-  return namespace === "easyscholar" ? SERVICE_CACHE_TTL : namespace === "semantic-scholar" ? 24 * 60 * 60_000 : PUBLIC_CACHE_TTL;
+  return namespace === "easyscholar" || namespace === "crossref" ? SERVICE_CACHE_TTL : namespace === "semantic-scholar" ? 24 * 60 * 60_000 : PUBLIC_CACHE_TTL;
 }
 
 export function publicationCacheName(title: string): string {

@@ -1,8 +1,9 @@
 import type { TransformedData } from "../rules/tool-update-metadata/services/base-service";
 import type { IdentifierCandidate, MetadataDecision, ReviewProposal } from "./policy";
 
-import { normalizeDOI, titlesAgree } from "../rules/tool-update-metadata/policy";
-import { firstCreator, isbnEquivalent, normalizeArxiv } from "./policy";
+import { extractDOIFromUrl } from "../rules/tool-update-metadata/identifiers";
+import { normalizeDOI, sanitizeWebTitle, titlesAgree } from "../rules/tool-update-metadata/policy";
+import { firstCreator, isbnEquivalent, isPlaceholderCreator, normalizeArxiv } from "./policy";
 
 export function hasLocalCorroboration(original: TransformedData): boolean {
   return Boolean(original.title?.trim() && (original.date?.match(/\b\d{4}\b/) || firstCreator(original)));
@@ -26,7 +27,11 @@ export function automaticIdentifier(candidates: IdentifierCandidate[]): Identifi
 export function automaticSelection(proposal: ReviewProposal, overwrite = false, repairCreators = false): { selection?: MetadataDecision; reason?: "blocked" | "conflict" | "evidence" } {
   if (proposal.blocked)
     return { reason: "blocked" };
-  const originalDOI = normalizeDOI(proposal.original.DOI);
+  const originalDOI = normalizeDOI(
+    proposal.original.DOI
+    || extractDOIFromUrl(proposal.original.url || "")
+    || (typeof proposal.original.extra === "string" ? proposal.original.extra.match(/\b(?:doi:\s*|10\.)(10\.\d{4,9}\/[^\s?#&<>"]+)/i)?.[1] : ""),
+  );
   const returnedDOI = normalizeDOI(proposal.candidate.DOI);
   if (!proposal.preprintURL && originalDOI && returnedDOI && !originalDOI.startsWith("10/") && originalDOI !== returnedDOI)
     return { reason: "conflict" };
@@ -34,7 +39,22 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
   const verifiedDOI = !proposal.preprintURL && proposal.identifier.kind === "DOI" && !proposal.identifier.excerpt
     && originalDOI && !originalDOI.startsWith("10/") && originalDOI === returnedDOI
     && originalDOI === normalizeDOI(proposal.identifier.value);
-  if (proposal.conflicts.length && !(overwrite && verifiedDOI && proposal.conflicts.every(field => ["title", "date", "creators"].includes(field))))
+
+  const creatorsEmptyOrPlaceholder = !proposal.original.creators?.length || proposal.original.creators.every(isPlaceholderCreator);
+  const titleContaminated = Boolean(proposal.original.title && sanitizeWebTitle(proposal.original.title) !== proposal.original.title && titlesAgree(proposal.original.title, proposal.candidate.title || ""));
+
+  const beforeYear = proposal.original.date?.match(/\b\d{4}\b/)?.[0];
+  const afterYear = proposal.candidate.date?.match(/\b\d{4}\b/)?.[0];
+  const dateNear = Boolean(beforeYear && afterYear && Math.abs(Number(beforeYear) - Number(afterYear)) <= 1);
+
+  const allowableConflicts = proposal.conflicts.every(field =>
+    (field === "title" && titleContaminated)
+    || (field === "creators" && creatorsEmptyOrPlaceholder)
+    || (field === "date" && dateNear)
+    || (overwrite && ["title", "date", "creators"].includes(field)),
+  );
+
+  if (proposal.conflicts.length && !(verifiedDOI && allowableConflicts))
     return { reason: "conflict" };
   // A title search or PDF excerpt needs independent agreement with existing metadata.
   if (proposal.identifier.kind === "Title" || proposal.identifier.excerpt) {
@@ -50,7 +70,19 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
   // A revived snapshot's local title/date are capture artefacts: adopt the verified record.
   const revived = !!proposal.revival;
   const excluded = new Set<string>(proposal.excludedFields);
-  const fields = new Set(proposal.changes.filter(change => !excluded.has(change.field)
-    && (related || revived || overwrite || (repairCreators && change.field === "creators") || (Array.isArray(change.before) ? !change.before.length : !String(change.before ?? "").trim()))).map(change => change.field));
+  const fields = new Set(proposal.changes.filter((change) => {
+    if (excluded.has(change.field))
+      return false;
+    if (related || revived || overwrite)
+      return true;
+    if (change.field === "creators") {
+      const beforeList = Array.isArray(change.before) ? change.before : proposal.original.creators || [];
+      const hasBefore = beforeList.length > 0 && !beforeList.every(isPlaceholderCreator);
+      return repairCreators || !hasBefore;
+    }
+    if (verifiedDOI && titleContaminated && change.field === "title")
+      return true;
+    return Array.isArray(change.before) ? !change.before.length : !String(change.before ?? "").trim();
+  }).map(change => change.field));
   return { selection: { proposal, action: related ? "related" : "update", acknowledged: true, fields } };
 }

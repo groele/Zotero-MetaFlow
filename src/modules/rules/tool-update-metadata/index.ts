@@ -2,11 +2,12 @@ import type { MetadataContext, TransformedData } from "./services/base-service";
 import { getString } from "../../../utils/locale";
 import { getPref } from "../../../utils/prefs";
 import { isFieldValidForItemType } from "../../../utils/zotero";
+import { isPlaceholderCreator } from "../../review/policy";
 import { discoverSnapshotIdentifiers, isSnapshotItem, revivalExtra } from "../../review/snapshot-reviver";
 import { defineRule } from "../rule-base";
 import { extractIdentifiers, isPreprint } from "./identifiers";
 import { resolveMissingISSN } from "./issn-resolver";
-import { mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI } from "./policy";
+import { mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI, sanitizeWebTitle, titlesAgree } from "./policy";
 import { services } from "./services";
 import { backfillItemTLDR } from "./tldr";
 
@@ -117,9 +118,9 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
 
     // 3. request metadata and clean data
     let data: TransformedData | null = null;
-    const isAuthor = (creator: NonNullable<TransformedData["creators"]>[number]) => "creatorType" in creator
+    const isAuthor = (creator: NonNullable<TransformedData["creators"]>[number]) => !isPlaceholderCreator(creator) && ("creatorType" in creator
       ? creator.creatorType === "author"
-      : creator.creatorTypeID === Zotero.CreatorTypes.getID("author");
+      : creator.creatorTypeID === Zotero.CreatorTypes.getID("author"));
     const hasAuthors = (creators?: TransformedData["creators"]) => Boolean(creators?.some(isAuthor));
     const sources = new Map<string, string>();
     const successfulServices = new Set<string>();
@@ -307,7 +308,8 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
       if (!unchanged("creators", (item.toJSON() as TransformedData).creators))
         return;
 
-      if (item.getCreators().length && options.mode !== "all" && !options.repairCreators) {
+      const hasRealCreators = item.getCreators().some(c => !isPlaceholderCreator(c));
+      if (hasRealCreators && options.mode !== "all" && !options.repairCreators) {
         debug("Original item has creators, blank mode, skip to update creators.");
         return;
       }
@@ -324,7 +326,7 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
         const authors = creators.filter(isAuthor);
         if (!authors.length)
           return;
-        creators = [...authors, ...(original.creators || []).filter(creator => !isAuthor(creator))];
+        creators = [...authors, ...(original.creators || []).filter(creator => !isAuthor(creator) && !isPlaceholderCreator(creator))];
       }
       if (creators.length) {
         if (metadataValuesEqual("creators", (item.toJSON() as TransformedData).creators, creators))
@@ -342,8 +344,10 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
         let newFieldValue = "";
         const oldFieldValue = item.getField(field);
 
-        if (options.mode !== "all" && !!String(oldFieldValue || "").trim())
+        if (options.mode !== "all" && !!String(oldFieldValue || "").trim()
+          && !(field === "title" && sanitizeWebTitle(oldFieldValue) !== oldFieldValue && titlesAgree(oldFieldValue, String(value || "")))) {
           continue;
+        }
 
         if (!unchanged(field, oldFieldValue))
           continue;
@@ -422,7 +426,7 @@ export function normalizeMetadata(response: unknown): TransformedData | null {
         && (typeof creator.lastName === "string" || typeof creator.name === "string")
         && ((typeof creator.lastName === "string" && creator.lastName.trim()) || (typeof creator.name === "string" && creator.name.trim()))
         && (creator.firstName === undefined || typeof creator.firstName === "string"));
-      data.creators = creators.length === value.length ? creators : [];
+      data.creators = creators;
     }
     else if (typeof value === "string" && value.trim()) {
       if (field === "DOI") {

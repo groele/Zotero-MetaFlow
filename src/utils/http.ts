@@ -123,7 +123,13 @@ async function cachedGET(url: string, options: RequestOptions, signal: AbortSign
       if (store === serviceRequests) {
         try {
           const data = JSON.parse(String(result.responseText || result.response || ""));
-          valid = result.status === 200 && (key.startsWith("easyscholar:") ? data.code === 200 : typeof data.paperId === "string");
+          valid = result.status === 200 && (
+            key.startsWith("easyscholar:")
+              ? data.code === 200
+              : key.startsWith("crossref:")
+                ? (data.status === "ok" && typeof data.message === "object")
+                : typeof data.paperId === "string"
+          );
           if (key.startsWith("easyscholar:") && valid) {
             const all = data.data?.officialRank?.all;
             const custom = data.data?.customRank;

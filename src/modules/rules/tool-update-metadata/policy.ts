@@ -6,6 +6,38 @@ export function normalizeDOI(value?: string): string {
   return (extractDOIFromUrl(value || "") || value?.trim().match(/^10\/\S+$/)?.[0] || "").toLowerCase();
 }
 
+export function sanitizeWebTitle(title?: string): string {
+  if (!title || typeof title !== "string")
+    return "";
+  let clean = title.trim();
+  // 1. Wiley compound pattern: ' - author - 2024 - Journal Title - Wiley Online Library'
+  clean = clean.replace(/\s*-[^-]+-\s*(?:19|20)\d{2}\s*-[^-]+-\s*wiley\s+online\s+library\s*$/i, "");
+  // 2. Known academic publisher / aggregator suffixes
+  const publisherSuffixes = [
+    /\s*[-|:]\s*wiley\s+online\s+library\s*$/i,
+    /\s*[-|:]\s*sciencedirect\s*$/i,
+    /\s*[-|:]\s*springerlink\s*$/i,
+    /\s*[-|:]\s*ieee\s+xplore\s*$/i,
+    /\s*[-|:]\s*acs\s+publications\s*$/i,
+    /\s*[-|:]\s*oxford\s+academic\s*$/i,
+    /\s*[-|:]\s*iopscience\s*$/i,
+    /\s*[-|:]\s*frontiers\s*$/i,
+    /\s*[-|:]\s*mdpi\s*$/i,
+    /\s*[-|:]\s*nature(?:\s+\w+)*\s*$/i,
+    /\s*[-|:]\s*pubmed\s*$/i,
+    /\s*[-|:]\s*rsc\s+publishing\s*$/i,
+    /\s*[-|:]\s*aip\s+publishing\s*$/i,
+    /\s*[-|:]\s*taylor\s*&\s*francis(?:\s+online)?\s*$/i,
+    /\s*[-|:]\s*plos\s*$/i,
+    /\s*[-|:]\s*pnas\s*$/i,
+    /\s*[-|:]\s*biorxiv\s*$/i,
+    /\s*[-|:]\s*arxiv\s*$/i,
+  ];
+  for (const pattern of publisherSuffixes)
+    clean = clean.replace(pattern, "");
+  return clean.trim();
+}
+
 function normalizedTitle(value?: string): string {
   return (value || "").normalize("NFKC").replace(/<(?:[\w-]+:)?math\b[^>]*>[\s\S]*?<\/(?:[\w-]+:)?math\s*>/gi, math => math.replace(/<[^>]*>/g, "").replace(/\s+/g, "")).replace(/<(sub|sup)\b[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, content: string) => content.replace(/<[^>]*>/g, "").trim()).replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
@@ -22,7 +54,19 @@ export function titlesAgree(original: string, candidate: string): boolean {
   if (Math.min(left.size, right.size) < 5)
     return false;
   const common = [...left].filter(word => right.has(word)).length;
-  return common / Math.max(left.size, right.size) >= 0.9;
+  if (common / Math.max(left.size, right.size) >= 0.9)
+    return true;
+  // Fall back to comparing sanitized title
+  const sa = normalizedTitle(sanitizeWebTitle(original));
+  if (sa && sa === b)
+    return true;
+  const sleft = new Set(sa.split(" "));
+  if (Math.min(sleft.size, right.size) >= 5) {
+    const scommon = [...sleft].filter(word => right.has(word)).length;
+    if (scommon / Math.max(sleft.size, right.size) >= 0.85)
+      return true;
+  }
+  return false;
 }
 
 export function metadataIdentity(
