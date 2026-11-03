@@ -353,14 +353,14 @@ metadata-tldr-target-label = 回填目标位置：
 metadata-tldr-target-note =
     .label = 独立子笔记 (推荐，列表「撷论」列同步可读)
 metadata-tldr-target-extra =
-    .label = Extra 附加字段 (同步点亮「简记」与「撷论」列)
+    .label = Extra 附加字段 (写入「TLDR:」标准前缀，不干扰「简记」)
 metadata-tldr-target-both =
-    .label = 子笔记 + Extra 字段 (双重沉淀，同步点亮「简记」与「撷论」)
+    .label = 子笔记 + Extra 字段 (双重沉淀，不干扰「简记」)
 metadata-tldr-target-abstract =
     .label = 摘要字段 (Abstract)
 metadata-tldr-extra-format-label = Extra 写入格式：
 metadata-tldr-extra-format-remark =
-    .label = remark: (推荐，完美联动 Ethereal Style 列表「简记」列)
+    .label = TLDR: (标准学术前缀，与「简记」彻底隔离)
 metadata-tldr-extra-format-tldr =
     .label = TLDR: (标准学术前缀)
 

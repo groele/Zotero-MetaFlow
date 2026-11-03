@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   backfillItemTLDR,
+  cleanseTLDRFromExtra,
   escapeHTML,
   extractTLDRFromExtra,
   extractTLDRFromItem,
@@ -39,7 +40,7 @@ describe("tldr extraction and manipulation", () => {
     expect(unescapeHTML(escaped)).toBe("<script>alert('xss') & \"safe\"</script>");
   });
 
-  it("extracts TLDR from extra field", () => {
+  it("extracts TLDR from extra field without interfering with remark or 简记", () => {
     expect(extractTLDRFromExtra("")).toBeUndefined();
     expect(extractTLDRFromExtra("TLDR:   ")).toBeUndefined();
     expect(extractTLDRFromExtra("PMID: 123456\nTLDR: A concise paper summary.\nDOI: 10.1234/test"))
@@ -50,14 +51,17 @@ describe("tldr extraction and manipulation", () => {
       .toBe("中文冒号与前缀测试");
     expect(extractTLDRFromExtra("撷论：全角冒号测试"))
       .toBe("全角冒号测试");
-    expect(extractTLDRFromExtra("remark: Ethereal Style 简记测试"))
-      .toBe("Ethereal Style 简记测试");
-    expect(extractTLDRFromExtra("简记: 中文简记列测试"))
-      .toBe("中文简记列测试");
     expect(extractTLDRFromExtra("💡 撷论: 带灯泡图标的前缀"))
       .toBe("带灯泡图标的前缀");
+    // 用户的 remark / 简记 必须完全隔离，绝不被提取为 TLDR
+    expect(extractTLDRFromExtra("remark: Ethereal Style 简记测试"))
+      .toBeUndefined();
+    expect(extractTLDRFromExtra("简记: 中文简记列测试"))
+      .toBeUndefined();
     expect(extractTLDRFromExtra("💡 remark: 带灯泡的简记测试"))
-      .toBe("带灯泡的简记测试");
+      .toBeUndefined();
+    expect(extractTLDRFromExtra("remark: 用户个人简记\nTLDR: 真正的学术论点"))
+      .toBe("真正的学术论点");
   });
 
   it("extracts TLDR from HTML note formats and decodes entities", () => {
@@ -144,8 +148,8 @@ describe("tldr extraction and manipulation", () => {
     expect(resolvePaperIDForTLDR(item, {})).toBe("DOI:10.1000/182");
   });
 
-  it("saves TLDR to Extra field idempotently with remark and tldr formats", () => {
-    let extraValue = "Citation Key: test";
+  it("saves TLDR to Extra field idempotently with TLDR format while preserving remark", () => {
+    let extraValue = "Citation Key: test\nremark: 用户的个人重要简记";
     const item = {
       getField: (f: string) => f === "extra" ? extraValue : "",
       setField: (f: string, v: string) => {
@@ -154,33 +158,29 @@ describe("tldr extraction and manipulation", () => {
       },
     } as unknown as Zotero.Item;
 
-    // First write appends default remark: format
+    // First write appends standard TLDR: format without touching remark:
     const saved1 = saveTLDRToExtra(item, "First summary");
     expect(saved1).toBe(true);
-    expect(extraValue).toContain("remark: First summary");
+    expect(extraValue).toContain("TLDR: First summary");
+    expect(extraValue).toContain("remark: 用户的个人重要简记");
 
     // Second write with same content is no-op
     const saved2 = saveTLDRToExtra(item, "First summary");
     expect(saved2).toBe(false);
 
-    // Updating summary replaces the existing remark line with tldr format when specified
-    const saved3 = saveTLDRToExtra(item, "Updated summary", "tldr");
+    // Updating summary replaces only the existing TLDR line, preserving remark
+    const saved3 = saveTLDRToExtra(item, "Updated summary");
     expect(saved3).toBe(true);
     expect(extraValue).toContain("TLDR: Updated summary");
     expect(extraValue).not.toContain("First summary");
-    expect(extraValue).not.toContain("remark:");
+    expect(extraValue).toContain("remark: 用户的个人重要简记");
 
-    // Replaces TLDR line with remark line
-    const saved4 = saveTLDRToExtra(item, "Back to remark", "remark");
-    expect(saved4).toBe(true);
-    expect(extraValue).toContain("remark: Back to remark");
+    // Cleans only TLDR and preserves remark
+    const cleansed = cleanseTLDRFromExtra(item);
+    expect(cleansed).toBe(true);
     expect(extraValue).not.toContain("TLDR:");
-
-    // Deduplicates multiple existing lines (e.g. historical TLDR and remark)
-    extraValue = "Citation Key: test\nTLDR: Stale summary\nremark: Another old remark\nOther: field";
-    const saved5 = saveTLDRToExtra(item, "Consolidated summary", "remark");
-    expect(saved5).toBe(true);
-    expect(extraValue).toBe("Citation Key: test\nremark: Consolidated summary\nOther: field");
+    expect(extraValue).toContain("remark: 用户的个人重要简记");
+    expect(extraValue).toContain("Citation Key: test");
   });
 
   it("prioritizes data-metaflow-tldr child notes over generic notes with keywords", () => {
@@ -260,7 +260,7 @@ describe("tldr extraction and manipulation", () => {
   });
 
   it("runs backfillItemTLDR end-to-end", async () => {
-    let extraValue = "DOI: 10.1038/s41586\nremark: 旧的论点需要清洗";
+    let extraValue = "DOI: 10.1038/s41586\nTLDR: 旧的论点需要清洗\nremark: 用户手动写的个人简记";
     let noteContent = "";
     const mockNote = {
       deleted: false,
@@ -311,9 +311,9 @@ describe("tldr extraction and manipulation", () => {
     expect(result).toBe(true);
     // 沉淀至专属子笔记
     expect(noteContent).toContain("This paper presents a scalable method");
-    // 从 Extra 字段中彻底清洗旧的 remark/TLDR，杜绝重复填充
-    expect(extraValue).not.toContain("remark:");
+    // 从 Extra 字段中彻底清洗旧的 TLDR，但绝对保留用户的个人简记 (remark:)
     expect(extraValue).not.toContain("TLDR:");
+    expect(extraValue).toContain("remark: 用户手动写的个人简记");
     expect(extraValue).toContain("DOI: 10.1038/s41586");
     expect(report).toHaveBeenCalledWith(expect.objectContaining({
       level: "info",
@@ -322,7 +322,7 @@ describe("tldr extraction and manipulation", () => {
   });
 
   it("handles saveTLDRToItem for inline updates and clears", async () => {
-    let extra = "DOI: 10.1038/s41586\nremark: 初始论点";
+    let extra = "DOI: 10.1038/s41586\nTLDR: 初始论点\nremark: 用户的个人简记";
     const saveTx = vi.fn().mockResolvedValue(true);
     const item = {
       isRegularItem: () => true,
@@ -337,16 +337,18 @@ describe("tldr extraction and manipulation", () => {
 
     const saved = await saveTLDRToItem(item, "更新后的撷论论点");
     expect(saved).toBe(true);
-    // 默认 note 模式下，更新论点会从 Extra 中清洗掉历史 remark，杜绝「其他」与「撷论」双重填充
-    expect(extra).not.toContain("remark:");
+    // 默认 note 模式下，更新论点会从 Extra 中清洗掉历史 TLDR，但绝不触碰 remark:
+    expect(extra).not.toContain("TLDR: 初始论点");
+    expect(extra).toContain("remark: 用户的个人简记");
     expect(extra).toContain("DOI: 10.1038/s41586");
     expect(saveTx).toHaveBeenCalled();
 
     // Clearing
-    extra = "DOI: 10.1038/s41586\nremark: 待清除论点";
+    extra = "DOI: 10.1038/s41586\nTLDR: 待清除论点\nremark: 用户的个人简记";
     const cleared = await saveTLDRToItem(item, "");
     expect(cleared).toBe(true);
-    expect(extra).not.toContain("remark:");
+    expect(extra).not.toContain("TLDR:");
+    expect(extra).toContain("remark: 用户的个人简记");
     expect(extra).toContain("DOI: 10.1038/s41586");
   });
 
@@ -407,26 +409,29 @@ describe("tldr extraction and manipulation", () => {
     } as unknown as Zotero.Item);
 
     // 1. target = "extra"
-    extraValue = "";
+    extraValue = "remark: 用户的个人简记";
     noteContent = "";
-    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "extra", extraFormat: "remark" });
-    expect(extraValue).toContain("remark: This paper presents a scalable method");
+    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "extra" });
+    expect(extraValue).toContain("TLDR: This paper presents a scalable method");
+    expect(extraValue).toContain("remark: 用户的个人简记");
     expect(noteContent).toBe("");
 
     // 2. target = "both"
-    extraValue = "";
+    extraValue = "remark: 用户的个人简记";
     noteContent = "";
-    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "both", extraFormat: "tldr" });
+    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "both" });
     expect(extraValue).toContain("TLDR: This paper presents a scalable method");
+    expect(extraValue).toContain("remark: 用户的个人简记");
     expect(noteContent).toContain("This paper presents a scalable method");
 
     // 3. target = "abstract"
-    extraValue = "remark: 旧论点";
+    extraValue = "TLDR: 旧论点\nremark: 用户的个人简记";
     abstractValue = "";
     noteContent = "";
     await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "abstract" });
     expect(abstractValue).toContain("This paper presents a scalable method");
     expect(noteContent).toContain("This paper presents a scalable method");
-    expect(extraValue).not.toContain("remark:");
+    expect(extraValue).not.toContain("TLDR:");
+    expect(extraValue).toContain("remark: 用户的个人简记");
   });
 });

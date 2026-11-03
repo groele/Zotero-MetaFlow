@@ -315,7 +315,7 @@ pref("workflow.updateVersions", true);
 pref("workflow.reviveSnapshots", true);
 pref("workflow.tldrEnabled", true);
 pref("workflow.tldrTarget", "note");
-pref("workflow.tldrExtraFormat", "remark");
+pref("workflow.tldrExtraFormat", "tldr");
 pref("workflow.tldrShowInInfoPane", true);
 pref("workflow.formatAfterUpdate", true);
 pref("workflow.scanPDF", false);

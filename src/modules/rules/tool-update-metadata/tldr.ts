@@ -38,7 +38,6 @@ export function unescapeHTML(str: string): string {
 export function extractTLDRFromExtra(extra: string): string | undefined {
   if (!extra)
     return undefined;
-  let fallbackRemark: string | undefined;
   for (const line of extra.split(/\r?\n/)) {
     const trimmed = line.trim();
     if (/^(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(trimmed)) {
@@ -49,16 +48,8 @@ export function extractTLDRFromExtra(extra: string): string | undefined {
           return val;
       }
     }
-    else if (!fallbackRemark && /^(?:💡\s*)?(?:remark|简记)\s*[:：]/i.test(trimmed)) {
-      const colonMatch = trimmed.match(/[:：]/);
-      if (colonMatch && typeof colonMatch.index === "number") {
-        const val = trimmed.slice(colonMatch.index + 1).trim();
-        if (val)
-          fallbackRemark = val;
-      }
-    }
   }
-  return fallbackRemark;
+  return undefined;
 }
 
 export function extractTLDRFromNote(noteContent: string): string | undefined {
@@ -69,9 +60,8 @@ export function extractTLDRFromNote(noteContent: string): string | undefined {
     && !noteContent.includes("TL;DR (Semantic Scholar)")
     && !noteContent.includes("TL;DR 核心论点")
     && !noteContent.includes("撷论")
-    && !noteContent.includes("简记")
-    && !/<(?:h[1-6]|strong|b|p)[^>]*>\s*(?:💡\s*)?(?:TL;?DR|撷论|简记|remark)/i.test(noteContent)
-    && !/^(?:💡\s*)?(?:TL;?DR|撷论|简记|remark)\s*[:：]/i.test(noteContent.trim())
+    && !/<(?:h[1-6]|strong|b|p)[^>]*>\s*(?:💡\s*)?(?:TL;?DR|撷论)/i.test(noteContent)
+    && !/^(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(noteContent.trim())
   ) {
     return undefined;
   }
@@ -84,7 +74,7 @@ export function extractTLDRFromNote(noteContent: string): string | undefined {
   if (pMatch && pMatch.length > 1)
     return unescapeHTML(pMatch[pMatch.length - 1].replace(/<[^>]+>/g, "").trim());
 
-  const plain = noteContent.replace(/<[^>]+>/g, "").replace(/(?:💡\s*)?(?:TL;?DR|撷论|简记|remark)[^\n:：]*[:：]\s*/i, "").trim();
+  const plain = noteContent.replace(/<[^>]+>/g, "").replace(/(?:💡\s*)?(?:TL;?DR|撷论)[^\n:：]*[:：]\s*/i, "").trim();
   return unescapeHTML(plain);
 }
 
@@ -226,7 +216,7 @@ export function cleanseTLDRFromExtra(item: Zotero.Item): boolean {
     return false;
   const currentExtra = String(item.getField("extra") || "");
   const lines = currentExtra.split(/\r?\n/);
-  const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(line.trim());
+  const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(line.trim());
   if (lines.some(isMatch)) {
     const filtered = lines.filter(line => !isMatch(line));
     item.setField("extra", filtered.join("\n"));
@@ -235,7 +225,7 @@ export function cleanseTLDRFromExtra(item: Zotero.Item): boolean {
   return false;
 }
 
-export function saveTLDRToExtra(item: Zotero.Item, tldr: string, format?: "remark" | "tldr"): boolean {
+export function saveTLDRToExtra(item: Zotero.Item, tldr: string, _format?: "remark" | "tldr"): boolean {
   if (typeof item.getField !== "function" || typeof item.setField !== "function")
     return false;
   const cleanTLDR = tldr.replace(/<[^>]+>/g, "").replace(/[\r\n]+/g, " ").trim();
@@ -243,9 +233,9 @@ export function saveTLDRToExtra(item: Zotero.Item, tldr: string, format?: "remar
     return false;
   const currentExtra = String(item.getField("extra") || "");
   const lines = currentExtra.split(/\r?\n/);
-  const chosenFormat = format || (typeof getPref === "function" ? getPref("workflow.tldrExtraFormat" as any, "remark") : "remark");
-  const tldrLine = chosenFormat === "tldr" ? `TLDR: ${cleanTLDR}` : `remark: ${cleanTLDR}`;
-  const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(line.trim());
+  // 必须固定使用 TLDR: 前缀，与用户的个人简记 (remark:) 彻底解耦隔离
+  const tldrLine = `TLDR: ${cleanTLDR}`;
+  const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(line.trim());
   const existingIndex = lines.findIndex(isMatch);
   let updatedExtra: string;
   if (existingIndex >= 0) {
@@ -287,7 +277,7 @@ export async function saveTLDRToItem(item: Zotero.Item, value: string): Promise<
     if (typeof item.getField === "function" && typeof item.setField === "function") {
       const currentExtra = String(item.getField("extra") || "");
       const lines = currentExtra.split(/\r?\n/);
-      const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(line.trim());
+      const isMatch = (line: string) => /^(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(line.trim());
       if (lines.some(isMatch)) {
         const filtered = lines.filter(line => !isMatch(line));
         item.setField("extra", filtered.join("\n"));

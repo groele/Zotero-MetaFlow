@@ -77,28 +77,32 @@ export function registerInfoRows() {
 
           // 自动清洗历史条目 Extra 字段中残留的 TLDR，根治「两个都填充了」：
           // 若当前启用了「撷论」常驻行，且条目 Extra 字段仍残留有历史 TLDR 文本，
-          // 自动将论点沉淀至专属子笔记，并从 Extra 字段彻底移除保存，
+          // 自动将论点沉淀至专属子笔记，并从 Extra 字段彻底移除保存（仅当 target 偏好为 note 或 abstract 时），
           // 使「其他」字段恢复纯净（不再填充 TLDR），仅在专属的「撷论」行展示！
+          // 注意：此处仅处理 TLDR/撷论 格式，绝不触碰用户的个人简记 (remark/简记)！
           if (isTLDREnabled && item && typeof item.getField === "function") {
-            const currentExtra = String(item.getField("extra") || "");
-            const fromExtra = extractTLDRFromExtra(currentExtra);
-            const canEdit = typeof item.isEditable === "function" ? item.isEditable() : true;
-            if (fromExtra && canEdit) {
-              void (async () => {
-                try {
-                  const noteSaved = await saveTLDRToNote(item, fromExtra);
-                  const cleansed = cleanseTLDRFromExtra(item);
-                  if ((noteSaved || cleansed) && typeof item.saveTx === "function") {
-                    await item.saveTx();
-                    if (typeof Zotero !== "undefined" && Zotero.ItemPaneManager?.refreshInfoRow) {
-                      Zotero.ItemPaneManager.refreshInfoRow("tldr");
+            const target = getPref("workflow.tldrTarget" as any, "note");
+            if (target === "note" || target === "abstract") {
+              const currentExtra = String(item.getField("extra") || "");
+              const fromExtra = extractTLDRFromExtra(currentExtra);
+              const canEdit = typeof item.isEditable === "function" ? item.isEditable() : true;
+              if (fromExtra && canEdit) {
+                void (async () => {
+                  try {
+                    const noteSaved = await saveTLDRToNote(item, fromExtra);
+                    const cleansed = cleanseTLDRFromExtra(item);
+                    if ((noteSaved || cleansed) && typeof item.saveTx === "function") {
+                      await item.saveTx();
+                      if (typeof Zotero !== "undefined" && Zotero.ItemPaneManager?.refreshInfoRow) {
+                        Zotero.ItemPaneManager.refreshInfoRow("tldr");
+                      }
                     }
                   }
-                }
-                catch (err) {
-                  logger.error("Failed to auto-cleanse TLDR from extra:", err);
-                }
-              })();
+                  catch (err) {
+                    logger.error("Failed to auto-cleanse TLDR from extra:", err);
+                  }
+                })();
+              }
             }
           }
 
@@ -364,14 +368,15 @@ export function placeTLDRBeforeExtra(doc?: Document) {
         if (extraRow && extraRow.style) {
           if (isTLDRVisible) {
             const { extraText, valElem: extraValElem, inputElem: extraInputElem } = getExtraFieldValue(extraRow, infoTable);
-            const isTLDRLine = (line: string) => /(?:^|[:：\s])(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(line.trim()) || /^(?:其他|Extra)?[:：\s]*(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(line.trim());
-            const hasTLDR = /(?:💡\s*)?(?:TL;?DR|撷论|remark|简记)\s*[:：]/i.test(extraText);
+            const isTLDRLine = (line: string) => /(?:^|[:：\s])(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(line.trim()) || /^(?:其他|Extra)?[:：\s]*(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(line.trim());
+            const hasTLDR = /(?:💡\s*)?(?:TL;?DR|撷论)\s*[:：]/i.test(extraText);
 
             if (hasTLDR) {
               const lines = extraText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
               const nonTLDRLines = lines.filter(l => !isTLDRLine(l));
               if (nonTLDRLines.length === 0) {
-                // Extra 仅包含 TLDR/remark，且信息面板已有独立「撷论」行，隐藏原生「其他」行，彻底消除重复显示
+                // Extra 仅包含 TLDR，且信息面板已有独立「撷论」行，隐藏原生「其他」行，彻底消除重复显示
+                // 若包含用户的简记 (remark:) 或其他元数据，绝不隐藏！
                 extraRow.hidden = true;
                 extraRow.style.setProperty("display", "none", "important");
               }

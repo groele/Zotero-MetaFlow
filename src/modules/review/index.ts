@@ -134,7 +134,7 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
           const identifiers = extractIdentifiers(item);
           await backfillItemTLDR(item, identifiers, {
             target: getPref("workflow.tldrTarget" as any, "note"),
-            extraFormat: getPref("workflow.tldrExtraFormat" as any, "remark"),
+            extraFormat: getPref("workflow.tldrExtraFormat" as any, "tldr"),
             report,
           });
         }

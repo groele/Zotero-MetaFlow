@@ -1,1 +1,1 @@
-47aee81a49ffadedaa4b4d6c98f90cb3846aecfa63371667b11d0a3acb8f0eeb  zotero-metaflow.xpi
+d1c29a65e0d986797b4da8fd8e48b29b9fd450f0bb6c68a41c7511f857a4f882  zotero-metaflow.xpi

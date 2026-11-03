@@ -354,14 +354,14 @@ metadata-tldr-target-label = Backfill Target:
 metadata-tldr-target-note =
     .label = Standalone Child Note (Recommended, readable by "TL;DR Takeaway" column)
 metadata-tldr-target-extra =
-    .label = Extra Field (Syncs to both "Remark" and "TL;DR" columns)
+    .label = Extra Field (Writes "TLDR:" prefix, completely isolated from Remark)
 metadata-tldr-target-both =
-    .label = Child Note + Extra Field (Dual storage, syncs to both columns)
+    .label = Child Note + Extra Field (Dual storage, completely isolated from Remark)
 metadata-tldr-target-abstract =
     .label = Abstract Field
 metadata-tldr-extra-format-label = Extra Field Prefix:
 metadata-tldr-extra-format-remark =
-    .label = remark: (Recommended, compatible with Ethereal Style "Remark" column)
+    .label = TLDR: (Standard academic prefix, isolated from Remark)
 metadata-tldr-extra-format-tldr =
     .label = TLDR: (Standard academic prefix)
 

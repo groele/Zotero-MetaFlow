@@ -110,7 +110,14 @@ it("registers tldr (撷论) column and provides extracted TL;DR takeaway", () =>
 
   const itemWithRemark = {
     isRegularItem: () => true,
-    getField: (key: string) => key === "extra" ? "remark: 简记与Ethereal Style联动论点" : "",
+    getField: (key: string) => key === "extra" ? "remark: 用户的个人简记" : "",
   } as unknown as Zotero.Item;
-  expect(tldrCol.dataProvider(itemWithRemark)).toBe("简记与Ethereal Style联动论点");
+  // 撷论列只读取真正的 TLDR/撷论，绝不串扰用户的简记 (remark)
+  expect(tldrCol.dataProvider(itemWithRemark)).toBe("");
+
+  const itemWithBoth = {
+    isRegularItem: () => true,
+    getField: (key: string) => key === "extra" ? "remark: 用户的个人简记\nTLDR: 真正的文献核心论点" : "",
+  } as unknown as Zotero.Item;
+  expect(tldrCol.dataProvider(itemWithBoth)).toBe("真正的文献核心论点");
 });

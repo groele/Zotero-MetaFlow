@@ -410,7 +410,7 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
       repairCreators: getPref("metadata.repairCreators" as any, true) === true,
       tldrEnabled: getPref("workflow.tldrEnabled" as any, true) === true,
       tldrTarget: getPref("workflow.tldrTarget" as any, "note") as "note" | "extra" | "both" | "abstract",
-      tldrExtraFormat: getPref("workflow.tldrExtraFormat" as any, "remark") as "remark" | "tldr",
+      tldrExtraFormat: getPref("workflow.tldrExtraFormat" as any, "tldr") as "remark" | "tldr",
       reviveSnapshots: getPref("workflow.reviveSnapshots" as any, true) === true,
     };
   },

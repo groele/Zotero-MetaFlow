@@ -12,7 +12,7 @@ export const DEFAULT_PREFS: Partial<PluginPrefsMap> = {
   "workflow.reviveSnapshots": true,
   "workflow.tldrEnabled": true,
   "workflow.tldrTarget": "note",
-  "workflow.tldrExtraFormat": "remark",
+  "workflow.tldrExtraFormat": "tldr",
   "workflow.tldrShowInInfoPane": true,
   "workflow.formatAfterUpdate": true,
   "workflow.scanPDF": false,
