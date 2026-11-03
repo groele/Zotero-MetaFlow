@@ -126,6 +126,7 @@ export function setupWorkflowSettings(pane: Element) {
     listen(pane, "command", update);
     update();
   }
+  choice("check-duplicates", "workflow.reviewDuplicatesOnCheck", false, card);
 
   // 2. 高等级选项 B：【更新元数据】（集中收敛在线学术增强与自动补全）
   const update = makeCard("metaref-update-workflow-settings", "metaref-workflow-update-heading", "metaref-workflow-update-description");
@@ -250,6 +251,30 @@ export function setupWorkflowSettings(pane: Element) {
   moveChoice("workflow.tldrEnabled", update);
   moveElement("#metaref-tldr-options", update);
 
+  const tldrTargetSelect = pane.querySelector<HTMLSelectElement>("#metaref-tldr-target-select");
+  if (tldrTargetSelect) {
+    tldrTargetSelect.value = String(getPref("workflow.tldrTarget" as any, "note"));
+    listen(tldrTargetSelect, "change", () => {
+      setPref("workflow.tldrTarget" as any, tldrTargetSelect.value);
+    });
+  }
+
+  const tldrCheckbox = pane.querySelector<HTMLInputElement>("#metaref-metadata-update-tldr-info-pane");
+  const tldrOptions = pane.querySelector<HTMLElement>("#metaref-tldr-options");
+  const getTldrEnabled = () => {
+    const input = pane.querySelector<HTMLInputElement>(`input[preference='${addon.data.config.prefsPrefix}.workflow.tldrEnabled']`) || pane.querySelector<HTMLInputElement>("#metaref-metadata-update-tldr");
+    return input ? input.checked : getPref("workflow.tldrEnabled" as any, true);
+  };
+  const updateTldrDependencies = () => {
+    const isEnabled = getTldrEnabled();
+    if (tldrCheckbox)
+      tldrCheckbox.disabled = !isEnabled;
+    if (tldrTargetSelect)
+      tldrTargetSelect.disabled = !isEnabled;
+    if (tldrOptions)
+      tldrOptions.style.opacity = isEnabled ? "1" : "0.55";
+  };
+
   // (7) EasyScholar 权威期刊指标在线更新
   moveChoice("metadata.updateJournalInfo", update);
 
@@ -270,6 +295,7 @@ export function setupWorkflowSettings(pane: Element) {
     pdf.disabled = title.disabled = !bibliographic.checked;
     radioLocal.disabled = radioCloud.disabled = !bibliographic.checked;
     priorityGroup.style.opacity = bibliographic.checked ? "1" : "0.55";
+    updateTldrDependencies();
   };
   listen(pane, "change", updateDependencies);
   listen(pane, "command", updateDependencies);

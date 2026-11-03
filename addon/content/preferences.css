@@ -683,6 +683,28 @@
   margin-block: 2px 6px;
 }
 
+#metaref #metaref-tldr-target-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block: 4px;
+}
+
+#metaref #metaref-tldr-target-row > label {
+  font-size: 13px;
+  color: inherit;
+  margin: 0;
+}
+
+#metaref #metaref-tldr-target-row > select {
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background-color: Field;
+  color: inherit;
+}
+
 #metaref .indented-pref .indented-pref {
   margin-inline-start: 24px;
 }

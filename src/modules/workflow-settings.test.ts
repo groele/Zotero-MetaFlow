@@ -161,4 +161,170 @@ describe("workflow-settings module", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("exposes reviewDuplicatesOnCheck, binds tldrTarget, and links tldr options", () => {
+    const preferences = new Map<string, unknown>();
+    preferences.set("workflow.reviewDuplicatesOnCheck", false);
+    preferences.set("workflow.tldrTarget", "extra");
+    preferences.set("workflow.tldrEnabled", true);
+
+    vi.stubGlobal("addon", {
+      data: {
+        alive: true,
+        config: { addonID: "metaflow@groele", prefsPrefix: "extensions.zotero.metaref" },
+      },
+    });
+
+    vi.stubGlobal("Zotero", {
+      Prefs: {
+        get: (key: string) => {
+          const stripped = key.replace("extensions.zotero.metaref.", "");
+          return preferences.get(stripped);
+        },
+        set: (key: string, val: unknown) => {
+          const stripped = key.replace("extensions.zotero.metaref.", "");
+          preferences.set(stripped, val);
+        },
+      },
+    });
+
+    const elements = new Map<string, any>();
+    const host = {
+      children: [] as any[],
+      insertBefore: vi.fn((node: any) => host.children.push(node)),
+      querySelector: () => null,
+    };
+    elements.set("#metaref-core-workflows", host);
+
+    const tldrSelect = {
+      id: "metaref-tldr-target-select",
+      value: "",
+      disabled: false,
+      addEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+    const tldrCheckbox = {
+      id: "metaref-metadata-update-tldr-info-pane",
+      disabled: false,
+      checked: true,
+      addEventListener: vi.fn(),
+    };
+    const tldrOptions = {
+      id: "metaref-tldr-options",
+      style: { opacity: "1" },
+      append: vi.fn(),
+    };
+    const tldrEnabledInput = {
+      id: "metaref-metadata-update-tldr",
+      type: "checkbox",
+      checked: true,
+      disabled: false,
+      closest: () => ({ append: vi.fn() }),
+      addEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+
+    elements.set("#metaref-tldr-target-select", tldrSelect);
+    elements.set("#metaref-metadata-update-tldr-info-pane", tldrCheckbox);
+    elements.set("#metaref-tldr-options", tldrOptions);
+    elements.set("#metaref-metadata-update-tldr", tldrEnabledInput);
+
+    const createdElements: any[] = [];
+    const mockDoc = {
+      defaultView: {
+        AbortController,
+        Event: class MockEvent {
+          constructor(public type: string, public options?: any) {}
+        },
+      },
+      l10n: {
+        setAttributes: vi.fn(),
+      },
+      createElementNS: (_ns: string, tag: string) => {
+        const el: any = {
+          tagName: tag,
+          className: "",
+          classList: { toggle: vi.fn() },
+          attributes: new Map<string, string>(),
+          children: [] as any[],
+          style: {},
+          setAttribute: (k: string, v: string) => el.attributes.set(k, v),
+          getAttribute: (k: string) => el.attributes.get(k),
+          append: (...nodes: any[]) => el.children.push(...nodes),
+          appendChild: (node: any) => el.children.push(node),
+          insertBefore: vi.fn(),
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          dispatchEvent: vi.fn(),
+        };
+        createdElements.push(el);
+        return el;
+      },
+    };
+
+    const listeners: { type: string; fn: () => void }[] = [];
+    const pane: any = {
+      ownerDocument: mockDoc,
+      querySelector: (sel: string) => {
+        if (sel === "#metaref-core-workflows")
+          return host;
+        if (sel === "#metaref-tldr-target-select")
+          return tldrSelect;
+        if (sel === "#metaref-metadata-update-tldr-info-pane")
+          return tldrCheckbox;
+        if (sel === "#metaref-tldr-options")
+          return tldrOptions;
+        if (sel.includes("workflow.tldrEnabled") || sel === "#metaref-metadata-update-tldr")
+          return tldrEnabledInput;
+        if (sel.includes("data-core-menu-command"))
+          return { id: sel, children: [] };
+        return null;
+      },
+      querySelectorAll: () => [],
+      addEventListener: vi.fn((type, fn) => listeners.push({ type, fn })),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    };
+
+    try {
+      setupWorkflowSettings(pane);
+
+      // 1. Verify reviewDuplicatesOnCheck checkbox exists and updates preference
+      const checkDupInput = createdElements.find(el => el.id === "metaref-workflow-check-duplicates");
+      expect(checkDupInput).toBeDefined();
+      expect(checkDupInput.attributes.get("preference")).toBe("extensions.zotero.metaref.workflow.reviewDuplicatesOnCheck");
+      const checkDupChange = checkDupInput.addEventListener.mock.calls.find((call: any[]) => call[0] === "change");
+      expect(checkDupChange).toBeDefined();
+      checkDupInput.checked = true;
+      checkDupChange![1]();
+      expect(preferences.get("workflow.reviewDuplicatesOnCheck")).toBe(true);
+
+      // 2. Verify tldrTarget select initializes from pref and writes on change
+      expect(tldrSelect.value).toBe("extra");
+      const selectChange = tldrSelect.addEventListener.mock.calls.find((call: any[]) => call[0] === "change");
+      expect(selectChange).toBeDefined();
+      tldrSelect.value = "both";
+      selectChange![1]();
+      expect(preferences.get("workflow.tldrTarget")).toBe("both");
+
+      // 3. Verify tldr options linkage when tldrEnabled is false
+      tldrEnabledInput.checked = false;
+      listeners.filter(l => l.type === "change").forEach(l => l.fn());
+
+      expect(tldrCheckbox.disabled).toBe(true);
+      expect(tldrSelect.disabled).toBe(true);
+      expect(tldrOptions.style.opacity).toBe("0.55");
+
+      // Verify re-enabling restores active state
+      tldrEnabledInput.checked = true;
+      listeners.filter(l => l.type === "change").forEach(l => l.fn());
+
+      expect(tldrCheckbox.disabled).toBe(false);
+      expect(tldrSelect.disabled).toBe(false);
+      expect(tldrOptions.style.opacity).toBe("1");
+    }
+    finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

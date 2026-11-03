@@ -349,4 +349,84 @@ describe("tldr extraction and manipulation", () => {
     expect(extra).not.toContain("remark:");
     expect(extra).toContain("DOI: 10.1038/s41586");
   });
+
+  it("respects different TLDR backfill target options (extra, both, abstract)", async () => {
+    let extraValue = "";
+    let abstractValue = "";
+    let noteContent = "";
+
+    const mockNote = {
+      id: 999,
+      getNote: () => noteContent,
+      setNote: (content: string) => {
+        noteContent = content;
+      },
+      saveTx: vi.fn().mockResolvedValue(true),
+    };
+
+    class MockItem {
+      libraryID = 1;
+      parentID = 99;
+      setField = vi.fn();
+      setNote = (content: string) => {
+        noteContent = content;
+      };
+
+      saveTx = vi.fn().mockResolvedValue(true);
+      id = 999;
+    }
+
+    (globalThis as any).Zotero = {
+      Item: MockItem,
+      Items: {
+        get: (id: number) => (id === 999 ? mockNote : null),
+      },
+    };
+
+    const makeItem = () => ({
+      libraryID: 1,
+      id: 99,
+      isRegularItem: () => true,
+      getField: (f: string) => {
+        if (f === "DOI")
+          return "10.1038/s41586";
+        if (f === "extra")
+          return extraValue;
+        if (f === "abstractNote")
+          return abstractValue;
+        return "";
+      },
+      setField: (f: string, v: string) => {
+        if (f === "extra")
+          extraValue = v;
+        if (f === "abstractNote")
+          abstractValue = v;
+      },
+      getNotes: () => [],
+      saveTx: vi.fn().mockResolvedValue(true),
+    } as unknown as Zotero.Item);
+
+    // 1. target = "extra"
+    extraValue = "";
+    noteContent = "";
+    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "extra", extraFormat: "remark" });
+    expect(extraValue).toContain("remark: This paper presents a scalable method");
+    expect(noteContent).toBe("");
+
+    // 2. target = "both"
+    extraValue = "";
+    noteContent = "";
+    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "both", extraFormat: "tldr" });
+    expect(extraValue).toContain("TLDR: This paper presents a scalable method");
+    expect(noteContent).toContain("This paper presents a scalable method");
+
+    // 3. target = "abstract"
+    extraValue = "remark: 旧论点";
+    abstractValue = "";
+    noteContent = "";
+    await backfillItemTLDR(makeItem(), { DOI: "10.1038/s41586" }, { target: "abstract" });
+    expect(abstractValue).toContain("This paper presents a scalable method");
+    expect(noteContent).toContain("This paper presents a scalable method");
+    expect(extraValue).not.toContain("remark:");
+  });
 });

@@ -306,15 +306,22 @@ export async function saveTLDRToItem(item: Zotero.Item, value: string): Promise<
     }
   }
   else {
-    // 统一专属「撷论」架构（终结向 Extra 写入的历史遗留包袱）：
-    // 1. 严格将论点沉淀至独立专属子笔记，供列表「撷论」列及侧边栏「撷论」行/面板读取；
-    // 2. 无论历史偏好为何，彻底停止向 Extra 字段写入，并主动从 Extra 中清洗清除历史残留的 TLDR/remark，彻底根治「其他」与「撷论」双重填充！
-    const noteSaved = await saveTLDRToNote(item, cleanTLDR);
-    if (noteSaved)
-      changed = true;
-    const cleansed = cleanseTLDRFromExtra(item);
-    if (cleansed)
-      changed = true;
+    const target = typeof getPref === "function" ? getPref("workflow.tldrTarget" as any, "note") : "note";
+    if (target === "note" || target === "both" || target === "abstract") {
+      const noteSaved = await saveTLDRToNote(item, cleanTLDR);
+      if (noteSaved)
+        changed = true;
+    }
+    if (target === "extra" || target === "both") {
+      const extraSaved = saveTLDRToExtra(item, cleanTLDR);
+      if (extraSaved)
+        changed = true;
+    }
+    else {
+      const cleansed = cleanseTLDRFromExtra(item);
+      if (cleansed)
+        changed = true;
+    }
   }
 
   if (changed && typeof item.saveTx === "function") {
@@ -377,16 +384,22 @@ export async function backfillItemTLDR(
 
   let saved = false;
 
-  // 统一专属「撷论」架构：
-  // 无论历史偏好配置为何，绝对禁止向 Extra 字段填充 TLDR！
-  // 1. 严格回填至专属子笔记；
-  // 2. 主动彻底清洗清除 Extra 字段中可能残留的历史 TLDR/remark，杜绝双重填充！
-  const noteSaved = await saveTLDRToNote(item, tldr);
-  if (noteSaved)
-    saved = true;
-  const cleansed = cleanseTLDRFromExtra(item);
-  if (cleansed)
-    saved = true;
+  if (target === "note" || target === "both" || target === "abstract") {
+    const noteSaved = await saveTLDRToNote(item, tldr);
+    if (noteSaved)
+      saved = true;
+  }
+
+  if (target === "extra" || target === "both") {
+    const extraSaved = saveTLDRToExtra(item, tldr, options.extraFormat);
+    if (extraSaved)
+      saved = true;
+  }
+  else {
+    const cleansed = cleanseTLDRFromExtra(item);
+    if (cleansed)
+      saved = true;
+  }
 
   if (target === "abstract") {
     const abstractSaved = saveTLDRToAbstract(item, tldr);

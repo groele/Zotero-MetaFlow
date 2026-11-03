@@ -345,17 +345,9 @@ menu-placement-nested = MetaFlow submenu
 metadata-update-saved-description = Local priority only fills empty fields. Cloud priority updates differing fields when verified by official identifiers. Empty source fields never clear local data.
 metadata-repair-creators =
     .label = Online author repair (fill missing and truncated lists)
-metadata-repair-creators =
-    .label = Online author repair (fill missing and truncated lists)
-metadata-update-snapshots =
-    .label = Revive web snapshots (Snapshot Reviver)
 metadata-update-snapshots =
     .label = Revive web snapshots (Snapshot Reviver)
 
-metadata-update-tldr =
-    .label = Extract Semantic Scholar TL;DR takeaway (撷论)
-metadata-update-tldr =
-    .label = Extract Semantic Scholar TL;DR takeaway (撷论)
 metadata-update-tldr =
     .label = Extract Semantic Scholar TL;DR takeaway (撷论)
 metadata-tldr-target-label = Backfill Target:
@@ -365,6 +357,8 @@ metadata-tldr-target-extra =
     .label = Extra Field (Syncs to both "Remark" and "TL;DR" columns)
 metadata-tldr-target-both =
     .label = Child Note + Extra Field (Dual storage, syncs to both columns)
+metadata-tldr-target-abstract =
+    .label = Abstract Field
 metadata-tldr-extra-format-label = Extra Field Prefix:
 metadata-tldr-extra-format-remark =
     .label = remark: (Recommended, compatible with Ethereal Style "Remark" column)
@@ -441,8 +435,6 @@ api-cache-cleared = API lookup cache cleared. The next lookup will request fresh
 api-cache-clearing = Clearing API lookup cache…
 api-cache-clear-failed = Could not clear the disk cache. Check profile directory permissions or the plugin version and retry. Saved item fields are preserved.
 
-metadata-update-journal-info =
-    .label = Sync journal rankings and impact factors (EasyScholar)
 metadata-update-journal-info =
     .label = Sync journal rankings and impact factors (EasyScholar)
 
@@ -531,7 +523,7 @@ metaref-workflow-update-tldr = Extract Semantic Scholar TL;DR takeaway (撷论)
 journal-insights-tldr-heading = Core Takeaway (TL;DR)
 rule-tool-update-metadata-tldr-saved = Extracted and saved Semantic Scholar TL;DR ({ $target })
 workflow-update-format = Apply enabled local formatting rules afterward
-workflow-check-duplicates = Review duplicates interactively after checking (replaces the duplicate warning scan)
+workflow-check-duplicates = Review duplicate candidates interactively afterward
 workflow-update-duplicates = Review duplicate candidates interactively afterward
 workflow-search-heading = Fallback searches for online verification (off by default)
 workflow-search-description = These options apply to online verification in both core commands. Existing identifiers take priority. Only enabled fallback searches run when identifiers are missing. PDF content stays local and only existing caches are read. Standalone advanced review tools retain full searches.
@@ -593,6 +585,8 @@ metaref-workflow-update-bibliographic = Verify online and enrich bibliographic m
 metaref-workflow-update-versions = Online arXiv preprint conversion
 
 metaref-workflow-update-format = Apply enabled local formatting rules afterward
+
+metaref-workflow-check-duplicates = Review duplicate candidates interactively afterward
 
 metaref-workflow-update-duplicates = Review duplicate candidates interactively afterward
 

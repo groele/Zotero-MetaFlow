@@ -37,6 +37,8 @@ export function setupDependencies(pane: Element) {
   }));
   const auto = controls.find(control => key(control) === "lint.onAdded");
   const importSteps = controls.filter(control => ["lint.onGroup", "metadata.autoUpdateOnAdded", "easyscholar.autoUpdateOnAdded"].includes(key(control)));
+  const tldrParent = controls.find(control => key(control) === "workflow.tldrEnabled");
+  const tldrChild = controls.find(control => key(control) === "workflow.tldrShowInInfoPane");
   const update = () => {
     for (const { control, parents } of dependencies) {
       if (parents.length)
@@ -46,6 +48,8 @@ export function setupDependencies(pane: Element) {
       for (const step of importSteps)
         step.disabled = !auto.checked;
     }
+    if (tldrParent && tldrChild)
+      tldrChild.disabled = !tldrParent.checked;
     for (const button of pane.querySelectorAll<HTMLButtonElement>("hbox button")) {
       if (button.closest("[data-busy='true']")) {
         button.disabled = true;

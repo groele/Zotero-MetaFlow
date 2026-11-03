@@ -344,17 +344,9 @@ menu-placement-nested = MetaFlow 子菜单
 metadata-update-saved-description = 本地优先仅填补空白字段；云端优先在官方核验一致时更新差异字段。来源空值不清除本地数据。
 metadata-repair-creators =
     .label = 在线修复作者名单（补齐缺失与截断）
-metadata-repair-creators =
-    .label = 在线修复作者名单（补齐缺失与截断）
-metadata-update-snapshots =
-    .label = 网页快照学术复活 (Snapshot Reviver)
 metadata-update-snapshots =
     .label = 网页快照学术复活 (Snapshot Reviver)
 
-metadata-update-tldr =
-    .label = 提取 Semantic Scholar TL;DR 核心论点（撷论）
-metadata-update-tldr =
-    .label = 提取 Semantic Scholar TL;DR 核心论点（撷论）
 metadata-update-tldr =
     .label = 提取 Semantic Scholar TL;DR 核心论点（撷论）
 metadata-tldr-target-label = 回填目标位置：
@@ -364,6 +356,8 @@ metadata-tldr-target-extra =
     .label = Extra 附加字段 (同步点亮「简记」与「撷论」列)
 metadata-tldr-target-both =
     .label = 子笔记 + Extra 字段 (双重沉淀，同步点亮「简记」与「撷论」)
+metadata-tldr-target-abstract =
+    .label = 摘要字段 (Abstract)
 metadata-tldr-extra-format-label = Extra 写入格式：
 metadata-tldr-extra-format-remark =
     .label = remark: (推荐，完美联动 Ethereal Style 列表「简记」列)
@@ -440,8 +434,6 @@ api-cache-cleared = API 查询缓存已清除，下次查询将重新请求；�
 api-cache-clearing = 正在清除 API 查询缓存…
 api-cache-clear-failed = 未能清除磁盘缓存。请检查配置目录权限或插件版本后重试；已写入文献的数据不受影响。
 
-metadata-update-journal-info =
-    .label = 同步更新期刊分区与影响因子 (EasyScholar)
 metadata-update-journal-info =
     .label = 同步更新期刊分区与影响因子 (EasyScholar)
 
@@ -530,7 +522,7 @@ metaref-workflow-update-tldr = 提取 Semantic Scholar TL;DR 核心论点（撷�
 journal-insights-tldr-heading = 撷论 (TL;DR 核心论点)
 rule-tool-update-metadata-tldr-saved = 已提取并回填 Semantic Scholar TL;DR 核心论点（{ $target }）
 workflow-update-format = 更新完成后自动整理本地格式
-workflow-check-duplicates = 检查完成后交互核对重复候选（代替重复提醒扫描）
+workflow-check-duplicates = 检查完成后核对重复候选条目
 workflow-update-duplicates = 更新完成后核对重复候选条目
 workflow-search-heading = 联网核验的补充检索（低频，默认关闭）
 workflow-search-description = 以下设置同时适用于两个核心命令中的联网核验。先使用条目已有标识符；缺少时才启用已勾选的候选扫描或标题检索。PDF 只读取已有缓存，不上传文件。独立高级核验工具仍保留完整检索能力。
@@ -592,6 +584,8 @@ metaref-workflow-update-bibliographic = 在线核验并补全书目元数据
 metaref-workflow-update-versions = arXiv 预印本在线转正
 
 metaref-workflow-update-format = 更新完成后自动整理本地格式
+
+metaref-workflow-check-duplicates = 检查完成后核对重复候选条目
 
 metaref-workflow-update-duplicates = 更新完成后核对重复候选条目
 

@@ -1611,6 +1611,28 @@
         preference="workflow.tldrShowInInfoPane"
         native="true"
       />
+      <hbox align="center" id="metaref-tldr-target-row">
+        <label
+          id="metaref-tldr-target-label"
+          data-l10n-id="metadata-tldr-target-label"
+        />
+        <html:select
+          id="metaref-tldr-target-select"
+          data-tldr-option="target"
+          aria-labelledby="metaref-tldr-target-label"
+        >
+          <html:option value="note" data-l10n-id="metadata-tldr-target-note" />
+          <html:option
+            value="extra"
+            data-l10n-id="metadata-tldr-target-extra"
+          />
+          <html:option value="both" data-l10n-id="metadata-tldr-target-both" />
+          <html:option
+            value="abstract"
+            data-l10n-id="metadata-tldr-target-abstract"
+          />
+        </html:select>
+      </hbox>
     </vbox>
     <description
       data-l10n-id="rule-tool-update-metadata-dialog-note-rate-limit"
