@@ -179,6 +179,10 @@ export function findExistingTLDRNote(item: Zotero.Item): Zotero.Item | null {
 }
 
 export async function saveTLDRToNote(item: Zotero.Item, tldr: string): Promise<boolean> {
+  if (!item || item.deleted)
+    return false;
+  if (typeof item.isEditable === "function" && !item.isEditable())
+    return false;
   if (typeof item.getNotes !== "function")
     return false;
   if (typeof item.isRegularItem === "function" && !item.isRegularItem())
@@ -268,7 +272,9 @@ export function saveTLDRToAbstract(item: Zotero.Item, tldr: string): boolean {
 }
 
 export async function saveTLDRToItem(item: Zotero.Item, value: string): Promise<boolean> {
-  if (!item || (typeof item.isRegularItem === "function" && !item.isRegularItem()))
+  if (!item || item.deleted || (typeof item.isRegularItem === "function" && !item.isRegularItem()))
+    return false;
+  if (typeof item.isEditable === "function" && !item.isEditable())
     return false;
   const cleanTLDR = value.replace(/<[^>]+>/g, "").replace(/[\r\n]+/g, " ").trim();
   let changed = false;
@@ -343,7 +349,9 @@ export async function backfillItemTLDR(
   identifiers: Partial<Identifiers> = {},
   options: TLDRBackfillOptions = {},
 ): Promise<boolean> {
-  if (typeof item.isRegularItem === "function" && !item.isRegularItem())
+  if (!item || item.deleted || (typeof item.isRegularItem === "function" && !item.isRegularItem()))
+    return false;
+  if (typeof item.isEditable === "function" && !item.isEditable())
     return false;
   const target = options.target || "note";
   const debug = options.debug || (() => {});

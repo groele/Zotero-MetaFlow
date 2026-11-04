@@ -632,4 +632,37 @@ describe("item-info-row module", () => {
     expect(extraRow.hidden).toBe(false);
     expect(extraRow.style.display).toBe("");
   });
+
+  it("blocks auto-migration and manual saving on deleted (trash) or read-only items", async () => {
+    registerInfoRows();
+    const row = mocks.infoRows.get("tldr");
+
+    const saveTxMock = vi.fn().mockResolvedValue(true);
+    const setFieldMock = vi.fn();
+    let editable = true;
+    const deletedItem = {
+      id: 9999,
+      deleted: true,
+      isRegularItem: () => true,
+      isEditable: () => true,
+      getField: (k: string) => (k === "extra" ? "TLDR: 回收站条目中的旧论点" : ""),
+      setField: setFieldMock,
+      getNotes: () => [],
+      saveTx: saveTxMock,
+    } as unknown as Zotero.Item;
+
+    row.onItemChange({
+      item: deletedItem,
+      setEnabled: vi.fn(),
+      setEditable: (val: boolean) => {
+        editable = val;
+      },
+    });
+    expect(editable).toBe(false);
+    expect(setFieldMock).not.toHaveBeenCalled();
+    expect(saveTxMock).not.toHaveBeenCalled();
+
+    row.onSetData({ item: deletedItem, value: "试图修改回收站条目" });
+    expect(saveTxMock).not.toHaveBeenCalled();
+  });
 });

@@ -78,7 +78,7 @@ export function registerJournalPane() {
           const sidenav = button.closest("item-pane-sidenav") as Element & { container?: Element };
           const activeBody = [...refreshers.keys()].find(node => node.ownerDocument === doc && sidenav.container?.contains(node));
           const item = activeBody && items.get(activeBody);
-          if (item && supportsRankings(item) && !updating.has(item.id))
+          if (item && !item.deleted && (typeof item.isEditable !== "function" || item.isEditable()) && supportsRankings(item) && !updating.has(item.id))
             void completeFromNavigation(item).catch(error => logger.error(error));
         };
         doc.addEventListener("click", listener);
@@ -160,15 +160,26 @@ export function registerJournalPane() {
 }
 
 async function completeFromNavigation(item: Zotero.Item) {
+  if (!addon?.data?.alive || !item || item.deleted || (typeof item.isEditable === "function" && !item.isEditable()))
+    return;
   if (!hasEnabledJournalMetrics() || navigationQueries.has(item.id, navigationQueryKey(item)))
+    return;
+  // 双核边界与无静默联网守卫：展开侧边栏仅在显式开启 metadata.updateJournalInfo 且配置了有效 EasyScholar 密钥或 API 优先源时才执行在线补全
+  const allowAutoUpdate = typeof Zotero !== "undefined" && Zotero.Prefs?.get
+    ? Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.metadata.updateJournalInfo`) !== false
+    : true;
+  if (!allowAutoUpdate)
     return;
   updating.add(item.id);
   try {
     const insights = await getJournalInsights(item);
     const saved = new Set(journalRankingRows(String(item.getField("extra") || ""), item).map(row => row.key));
     const enabled = getEnabledEasyScholarFields();
-    const missingRankings = EASYSCHOLAR_FIELD_DEFINITIONS.some(field => enabled.has(field.key) && !saved.has(field.key));
-    const missingIndexes = item.itemType === "journalArticle" && ((isJournalIndexEnabled("esi") && (!insights.categories.length || insights.esiAPIWarning)) || (isJournalIndexEnabled("nature") && (insights.natureIndex === undefined || insights.natureAPIWarning)));
+    const secretKey = typeof Zotero !== "undefined" && Zotero.Prefs?.get
+      ? String(Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.easyscholar.secretKey`) || "").trim()
+      : "";
+    const missingRankings = Boolean(secretKey) && EASYSCHOLAR_FIELD_DEFINITIONS.some(field => enabled.has(field.key) && !saved.has(field.key));
+    const missingIndexes = Boolean(secretKey) && item.itemType === "journalArticle" && ((isJournalIndexEnabled("esi") && (!insights.categories.length || insights.esiAPIWarning)) || (isJournalIndexEnabled("nature") && (insights.natureIndex === undefined || insights.natureAPIWarning)));
     if (!missingRankings && !missingIndexes)
       return;
     queryMessages.set(item.id, [{ message: getString("journal-insights-loading") }]);

@@ -387,7 +387,7 @@ async function onLintInBatch(
 }
 
 function onRefreshJournal(item: Zotero.Item) {
-  if (!hasEnabledJournalMetrics() || !item.isEditable() || !["journalArticle", "conferencePaper"].includes(item.itemType))
+  if (!hasEnabledJournalMetrics() || !item || item.deleted || !item.isEditable() || !["journalArticle", "conferencePaper"].includes(item.itemType))
     return Promise.resolve();
   const existing = journalRefreshes.get(item.id);
   if (existing)

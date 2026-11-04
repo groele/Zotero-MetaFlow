@@ -269,7 +269,7 @@ export function formatAttachmentFilename(
 
   let roleTag = "Other";
   if (role === "main_pdf")
-    roleTag = "Main";
+    roleTag = index > 1 ? `Main__${index}` : "Main";
   else if (role === "supplement")
     roleTag = index > 1 ? `Supplement__${index}` : "Supplement";
 
@@ -299,10 +299,10 @@ export function formatAttachmentItemTitle(
 ): string {
   const baseTitle = parentTitle || originalTitle || "PDF";
   // Remove existing [正文] / [补充材料] / [Main] / [Supplement] prefixes to prevent compounding
-  const cleanBase = baseTitle.replace(/^\[(?:正文|主手稿|补充材料(?:\s*\d+)?|Main|Supplement(?:\s*\d+)?)\]\s*/i, "").trim();
+  const cleanBase = baseTitle.replace(/^\[(?:正文(?:\s*\d+)?|主手稿(?:\s*\d+)?|补充材料(?:\s*\d+)?|Main(?:\s*\d+)?|Supplement(?:\s*\d+)?)\]\s*/i, "").trim();
 
   if (role === "main_pdf")
-    return `[正文] ${cleanBase}`;
+    return index > 1 ? `[正文 ${index}] ${cleanBase}` : `[正文] ${cleanBase}`;
   if (role === "supplement")
     return index > 1 ? `[补充材料 ${index}] ${cleanBase}` : `[补充材料] ${cleanBase}`;
 
@@ -356,9 +356,9 @@ export const CorrectAttachmentRoles = defineRule({
     if (!isEnabled)
       return;
 
-    // Read-only safety guard
-    if (typeof item.isEditable === "function" && !item.isEditable()) {
-      debug("Skipping read-only item in correct-attachment-roles");
+    // Read-only / Trash safety guard
+    if (item.deleted || (typeof item.isEditable === "function" && !item.isEditable())) {
+      debug("Skipping deleted or read-only item in correct-attachment-roles");
       return;
     }
 
@@ -382,7 +382,13 @@ export const CorrectAttachmentRoles = defineRule({
         const att = typeof Zotero.Items.getAsync === "function"
           ? await Zotero.Items.getAsync(id)
           : Zotero.Items.get(id);
-        if (att && typeof att.isAttachment === "function" && att.isAttachment()) {
+        if (
+          att
+          && !att.deleted
+          && (typeof att.isEditable !== "function" || att.isEditable())
+          && typeof att.isAttachment === "function"
+          && att.isAttachment()
+        ) {
           // Check if PDF
           const ct = (att.attachmentContentType || "").toLowerCase();
           const fn = (att.attachmentFilename || "").toLowerCase();
@@ -399,6 +405,7 @@ export const CorrectAttachmentRoles = defineRule({
     if (attachments.length === 0)
       return;
 
+    let mainIndex = 0;
     let supplementIndex = 0;
     const modifiedSummaries: string[] = [];
 
@@ -436,8 +443,12 @@ export const CorrectAttachmentRoles = defineRule({
       if (classification.role === "other")
         continue;
 
-      if (classification.role === "supplement")
+      if (classification.role === "main_pdf")
+        mainIndex += 1;
+      else if (classification.role === "supplement")
         supplementIndex += 1;
+
+      const roleIndex = classification.role === "main_pdf" ? mainIndex : supplementIndex;
 
       let changed = false;
 
@@ -449,7 +460,7 @@ export const CorrectAttachmentRoles = defineRule({
             currentTitle,
             parentMeta.title || "",
             classification.role,
-            supplementIndex,
+            roleIndex,
           );
           if (newTitle && newTitle !== currentTitle) {
             att.setField("title", newTitle);
@@ -468,7 +479,7 @@ export const CorrectAttachmentRoles = defineRule({
           const newFilename = formatAttachmentFilename(
             parentMeta,
             classification.role,
-            supplementIndex,
+            roleIndex,
             template,
           );
           if (newFilename && newFilename !== filename && typeof (att as any).renameAttachmentFile === "function") {
@@ -486,7 +497,9 @@ export const CorrectAttachmentRoles = defineRule({
         try {
           if (typeof att.saveTx === "function")
             await att.saveTx();
-          const roleLabel = classification.role === "main_pdf" ? "正文 (Manuscript)" : `补充材料 (SI ${supplementIndex})`;
+          const roleLabel = classification.role === "main_pdf"
+            ? (mainIndex > 1 ? `正文 (Manuscript ${mainIndex})` : "正文 (Manuscript)")
+            : `补充材料 (SI ${supplementIndex})`;
           modifiedSummaries.push(roleLabel);
         }
         catch (e) {

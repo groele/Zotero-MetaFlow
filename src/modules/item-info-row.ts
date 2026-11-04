@@ -16,9 +16,31 @@ const logger = createLogger("item-info-row");
 let registeredRowID: string | false | undefined;
 const prefObserverIDs: symbol[] = [];
 const activeObservers = new Set<MutationObserver>();
+const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 const observedTables = new WeakSet<Node>();
 const migratingItemIDs = new Set<number>();
 let isPlacingTLDR = false;
+
+function schedulePlaceTLDRBeforeExtra() {
+  if (typeof setTimeout !== "function")
+    return;
+  for (const delay of [0, 50, 200]) {
+    const timer = setTimeout(() => {
+      activeTimers.delete(timer);
+      placeTLDRBeforeExtra();
+    }, delay);
+    activeTimers.add(timer);
+  }
+}
+
+function clearPendingTimers() {
+  if (typeof clearTimeout === "function") {
+    for (const timer of activeTimers) {
+      clearTimeout(timer);
+    }
+  }
+  activeTimers.clear();
+}
 
 export function registerInfoRows() {
   if (registeredRowID)
@@ -47,7 +69,9 @@ export function registerInfoRows() {
         return extractTLDRFromItem(item) || "";
       },
       onSetData({ item, value }) {
-        if (!addon?.data?.alive || !item)
+        if (!addon?.data?.alive || !item || item.deleted)
+          return;
+        if (typeof item.isEditable === "function" && !item.isEditable())
           return;
         void saveTLDRToItem(item, value)
           .then((saved) => {
@@ -67,7 +91,7 @@ export function registerInfoRows() {
             return;
           }
           const isRegular = typeof item.isRegularItem === "function" ? item.isRegularItem() : true;
-          const isEditable = isRegular && (typeof item.isEditable === "function" ? item.isEditable() : true);
+          const isEditable = isRegular && !item.deleted && (typeof item.isEditable === "function" ? item.isEditable() : true);
           const isTLDREnabled = getPref("workflow.tldrEnabled" as any, true);
           const showPref = isTLDREnabled && getPref("workflow.tldrShowInInfoPane" as any, true);
           const hasTLDR = Boolean(extractTLDRFromItem(item));
@@ -82,23 +106,25 @@ export function registerInfoRows() {
           // 自动将论点沉淀至专属子笔记，并从 Extra 字段彻底移除保存（仅当 target 偏好为 note 或 abstract 时），
           // 使「其他」字段恢复纯净（不再填充 TLDR），仅在专属的「撷论」行展示！
           // 注意：此处仅处理 TLDR/撷论 格式，绝不触碰用户的个人简记 (remark/简记)！
-          if (isTLDREnabled && item && typeof item.getField === "function") {
+          if (isTLDREnabled && item && !item.deleted && typeof item.getField === "function") {
             const target = getPref("workflow.tldrTarget" as any, "note");
             if (target === "note" || target === "abstract") {
               const currentExtra = String(item.getField("extra") || "");
               const fromExtra = extractTLDRFromExtra(currentExtra);
-              const canEdit = typeof item.isEditable === "function" ? item.isEditable() : true;
+              const canEdit = !item.deleted && (typeof item.isEditable === "function" ? item.isEditable() : true);
               const itemID = typeof item.id === "number" ? item.id : 0;
               if (fromExtra && canEdit && (!itemID || !migratingItemIDs.has(itemID))) {
                 if (itemID)
                   migratingItemIDs.add(itemID);
                 void (async () => {
                   try {
+                    if (!addon?.data?.alive || item.deleted || (typeof item.isEditable === "function" && !item.isEditable()))
+                      return;
                     const noteSaved = await saveTLDRToNote(item, fromExtra);
                     const cleansed = cleanseTLDRFromExtra(item);
                     if ((noteSaved || cleansed) && typeof item.saveTx === "function") {
                       await item.saveTx();
-                      if (typeof Zotero !== "undefined" && Zotero.ItemPaneManager?.refreshInfoRow) {
+                      if (addon?.data?.alive && typeof Zotero !== "undefined" && Zotero.ItemPaneManager?.refreshInfoRow) {
                         Zotero.ItemPaneManager.refreshInfoRow("tldr");
                       }
                     }
@@ -116,11 +142,7 @@ export function registerInfoRows() {
           }
 
           placeTLDRBeforeExtra();
-          if (typeof setTimeout === "function") {
-            setTimeout(placeTLDRBeforeExtra, 0);
-            setTimeout(placeTLDRBeforeExtra, 50);
-            setTimeout(placeTLDRBeforeExtra, 200);
-          }
+          schedulePlaceTLDRBeforeExtra();
         }
         catch (err) {
           logger.error("Error in onItemChange for TLDR info row:", err);
@@ -283,6 +305,8 @@ function getExtraFieldValue(extraRow: HTMLElement, infoTable: HTMLElement | Elem
 export function placeTLDRBeforeExtra(doc?: Document) {
   if (typeof Zotero === "undefined" || isPlacingTLDR)
     return;
+  if (typeof addon !== "undefined" && addon?.data && addon.data.alive === false)
+    return;
 
   isPlacingTLDR = true;
   try {
@@ -444,15 +468,13 @@ export function placeTLDRBeforeExtra(doc?: Document) {
 
 export function refreshTLDRInfoRow(rowID = "tldr") {
   try {
+    if (typeof addon !== "undefined" && addon?.data && addon.data.alive === false)
+      return;
     if (typeof Zotero !== "undefined" && typeof Zotero.ItemPaneManager?.refreshInfoRow === "function") {
       Zotero.ItemPaneManager.refreshInfoRow(rowID);
     }
     placeTLDRBeforeExtra();
-    if (typeof setTimeout === "function") {
-      setTimeout(placeTLDRBeforeExtra, 0);
-      setTimeout(placeTLDRBeforeExtra, 50);
-      setTimeout(placeTLDRBeforeExtra, 200);
-    }
+    schedulePlaceTLDRBeforeExtra();
   }
   catch (error) {
     logger.error("Failed to refresh info row:", error);
@@ -463,6 +485,9 @@ export function unregisterInfoRows() {
   const id = registeredRowID;
   registeredRowID = undefined;
   cleanupResourcesSync([
+    () => {
+      clearPendingTimers();
+    },
     () => {
       for (const obs of activeObservers) {
         try {
