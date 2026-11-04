@@ -103,7 +103,7 @@ export function isPlaceholderCreator(creator: any): boolean {
   if (!last && !first && !full)
     return true;
 
-  const placeholderRegex = /^(?:\(姓\)|姓|\(名\)|名|\(last\s*name\)|last\s*name|\(first\s*name\)|first\s*name|unknown|anonymous|未知|匿名|\?+|-+)$/i;
+  const placeholderRegex = /^(?:\([姓名]\)|[姓名无]|\(last\s*name\)|last\s*name|\(first\s*name\)|first\s*name|unknown|anonymous|\[anonymous\]|未知|匿名|null|undefined|nan|n\/a|n\.a\.|n\/d|n\.d\.|no\s*value|none|et\s*al\.?|\?+|-+)$/i;
   if (full && (placeholderRegex.test(full) || /^\(姓\)[,\s]*\(名\)$/.test(full)))
     return true;
   if (last && placeholderRegex.test(last) && (!first || placeholderRegex.test(first)))

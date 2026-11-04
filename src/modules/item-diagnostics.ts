@@ -1,5 +1,6 @@
 import { isFieldValidForItemType } from "../utils/zotero";
 import { isPlaceholderCreator } from "./review/policy";
+import { extractDOIFromUrl } from "./rules/tool-update-metadata/identifiers";
 import { sanitizeWebTitle } from "./rules/tool-update-metadata/policy";
 
 export interface ItemDefect {
@@ -33,6 +34,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
   const title = safeGet("title");
   const extraDOI = typeof ztoolkit !== "undefined" && ztoolkit.ExtraField ? ztoolkit.ExtraField.getExtraField(item, "DOI") : "";
   const rawDOI = safeGet("DOI") || String(extraDOI || "").trim();
+  const urlDOI = extractDOIFromUrl(safeGet("url")) || "";
   const creators = item.getCreators?.() || [];
   const publication = safeGet("publicationTitle");
   const date = safeGet("date");
@@ -47,7 +49,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-doi",
       level: "warning",
       field: "DOI",
-      message: "缺少官方学术 DOI 标识符",
+      message: urlDOI ? `DOI 字段为空（可从网址自动提取：${urlDOI}）` : "缺少官方学术 DOI 标识符",
       fixable: true,
       fixAction: "update",
     });

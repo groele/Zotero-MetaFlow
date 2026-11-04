@@ -111,7 +111,7 @@ async function cachedGET(url: string, options: RequestOptions, signal: AbortSign
   let entry = store.get(key);
   if (!entry || entry.expires <= Date.now()) {
     store.delete(key);
-    const Controller = typeof Zotero.getMainWindow === "function" ? (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController : AbortController;
+    const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
     const controller = new Controller();
     const fetch = () => networkGET(key, url, options, controller.signal);
     const created: CachedRequest = { controller, users: 0, settled: false, expires: Number.POSITIVE_INFINITY, bytes: 0, promise: store === serviceRequests ? readServiceCache(key).then(value => value as unknown as Awaited<ReturnType<typeof requestGET>> || fetch()) : fetch() };

@@ -22,7 +22,8 @@ export const ArxivService = defineService({
       return false;
     }
 
-    const doc = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).DOMParser().parseFromString(result, "text/xml");
+    const Parser = ((typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.DOMParser) || DOMParser) as typeof DOMParser;
+    const doc = new Parser().parseFromString(result, "text/xml");
     const refDoi = doc.querySelector("doi");
     if (!refDoi) {
       debug("ArXiv did not return DOI");

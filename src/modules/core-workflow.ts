@@ -80,7 +80,8 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
   };
   const stages: { stage: CoreStage; result: BatchResult }[] = [];
   const plan = coreWorkflowPlan(command, options);
-  const controller = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
+  const controller = new Controller();
   const state = { command, stage: undefined as CoreStage | undefined, index: 0, total: plan.length, cancelled: false, cancel: () => {
     state.cancelled = true;
     controller.abort(new Error("Core workflow cancelled"));

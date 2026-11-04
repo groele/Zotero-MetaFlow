@@ -14,7 +14,8 @@ export const CnkiTitleService = defineService({
     const query = { Platform: "", DBCode: "CFLS", KuaKuCode: "CJFQ,CCND,CIPD,CDMD", QNode: { QGroup: [{ Key: "Subject", Logic: 1, Items: [{ Title: "篇名", Name: "TI", Value: title, Operate: "%=", BlurType: "" }], ChildItems: [] }] } };
     const body = new URLSearchParams({ IsSearch: "true", QueryJson: JSON.stringify(query), PageName: "defaultresult", DBCode: "CFLS", CurPage: "1", RecordsCntPerPage: "20", CurDisplayMode: "listmode", CurrSortField: "RELEVANT", CurrSortFieldType: "desc", IsSentenceSearch: "false" }).toString();
     const response = await requestHTTP("POST", "https://kns.cnki.net/kns8/Brief/GetGridTableHtml", { body, headers: { "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8" } }, signal);
-    const doc = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).DOMParser().parseFromString(response.responseText || "", "text/html");
+    const Parser = ((typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.DOMParser) || DOMParser) as typeof DOMParser;
+    const doc = new Parser().parseFromString(response.responseText || "", "text/html");
     const candidates = [...doc.querySelectorAll<HTMLAnchorElement>("a[href]")].filter(anchor => titlesAgree(title, anchor.textContent || ""));
     const urls = [...new Set(candidates.map(anchor => new URL(anchor.getAttribute("href")!, "https://kns.cnki.net/").href))]
       .filter((value) => {

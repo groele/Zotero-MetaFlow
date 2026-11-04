@@ -21,10 +21,14 @@ describe("review identity policy", () => {
     expect(titlesAgree(dirty, clean)).toBe(true);
   });
 
-  it("detects placeholder creators like (姓), (名)", () => {
+  it("detects placeholder creators like (姓), (名) and nullish/anonymous strings", () => {
     expect(isPlaceholderCreator({ lastName: "(姓)", firstName: "(名)" })).toBe(true);
     expect(isPlaceholderCreator({ name: "(姓), (名)" })).toBe(true);
     expect(isPlaceholderCreator({ lastName: "unknown" })).toBe(true);
+    expect(isPlaceholderCreator({ lastName: "null", firstName: "undefined" })).toBe(true);
+    expect(isPlaceholderCreator({ name: "N/A" })).toBe(true);
+    expect(isPlaceholderCreator({ name: "et al." })).toBe(true);
+    expect(isPlaceholderCreator({ name: "[Anonymous]" })).toBe(true);
     expect(isPlaceholderCreator({ lastName: "Chen", firstName: "Yun" })).toBe(false);
   });
 

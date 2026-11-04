@@ -49,21 +49,24 @@ export function titlesAgree(original: string, candidate: string): boolean {
     return false;
   if (a === b)
     return true;
+  const sa = normalizedTitle(sanitizeWebTitle(original));
+  const sb = normalizedTitle(sanitizeWebTitle(candidate));
+  if ((sa && sa === b) || (sb && a === sb) || (sa && sb && sa === sb))
+    return true;
+
   const left = new Set(a.split(" "));
   const right = new Set(b.split(" "));
-  if (Math.min(left.size, right.size) < 5)
-    return false;
-  const common = [...left].filter(word => right.has(word)).length;
-  if (common / Math.max(left.size, right.size) >= 0.9)
-    return true;
-  // Fall back to comparing sanitized title
-  const sa = normalizedTitle(sanitizeWebTitle(original));
-  if (sa && sa === b)
-    return true;
-  const sleft = new Set(sa.split(" "));
-  if (Math.min(sleft.size, right.size) >= 5) {
-    const scommon = [...sleft].filter(word => right.has(word)).length;
-    if (scommon / Math.max(sleft.size, right.size) >= 0.85)
+  if (Math.min(left.size, right.size) >= 5) {
+    const common = [...left].filter(word => right.has(word)).length;
+    if (common / Math.max(left.size, right.size) >= 0.9)
+      return true;
+  }
+
+  const sleft = new Set((sa || a).split(" "));
+  const sright = new Set((sb || b).split(" "));
+  if (Math.min(sleft.size, sright.size) >= 5) {
+    const scommon = [...sleft].filter(word => sright.has(word)).length;
+    if (scommon / Math.max(sleft.size, sright.size) >= 0.85)
       return true;
   }
   return false;

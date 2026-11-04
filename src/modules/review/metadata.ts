@@ -6,7 +6,7 @@ import { getString } from "../../utils/locale";
 import { waitForOperation } from "../../utils/rule-execution";
 import { normalizeMetadata } from "../rules/tool-update-metadata";
 import { extractIdentifiers } from "../rules/tool-update-metadata/identifiers";
-import { metadataIdentity, normalizeDOI } from "../rules/tool-update-metadata/policy";
+import { mergeMetadata, metadataIdentity, normalizeDOI } from "../rules/tool-update-metadata/policy";
 import { services } from "../rules/tool-update-metadata/services";
 import { defineService } from "../rules/tool-update-metadata/services/base-service";
 import { CrossrefService } from "../rules/tool-update-metadata/services/crossref-service";
@@ -61,9 +61,14 @@ export interface ArxivRecord {
   data: TransformedData;
 }
 
+function createAbortController(): AbortController {
+  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
+  return new Controller();
+}
+
 export function parseArxiv(xml: string, requested: string, latest: boolean): ArxivRecord {
-  const win = Zotero.getMainWindow() as unknown as Window & typeof globalThis;
-  const doc = new win.DOMParser().parseFromString(xml, "text/xml");
+  const Parser = ((typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.DOMParser) || DOMParser) as typeof DOMParser;
+  const doc = new Parser().parseFromString(xml, "text/xml");
   const entries = [...doc.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "entry")];
   const expected = normalizeArxiv(requested);
   const entry = entries.find((element) => {
@@ -122,7 +127,7 @@ async function resolveDOI(value: string, signal?: AbortSignal): Promise<string> 
 }
 
 async function translateIdentifier(item: Zotero.Item, identifiers: Identifiers, signal?: AbortSignal) {
-  const controller = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+  const controller = createAbortController();
   const response = await waitForOperation(() => IdentifiersTranslateService.fetch!({ item, identifiers, isPreprint: false, debug: () => {}, signal }), signal || controller.signal, 60_000);
   signal?.throwIfAborted();
   const data = normalizeMetadata(response && IdentifiersTranslateService.transform!(response));
@@ -136,7 +141,7 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
   let source: string;
   let blocked = false;
   if (identifier.kind === "Title") {
-    const controller = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+    const controller = createAbortController();
     const ctx = { item, identifiers: {}, isPreprint: false, debug: () => {}, signal: signal || controller.signal };
     let matched: TransformedData | undefined;
     let matchedSource = "";
@@ -206,6 +211,23 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
         }
         if (!matched?.title)
           throw error;
+      }
+    }
+    // 4. Supplemental gap-fill: if Crossref/Translator succeeded but lacks abstractNote (and local item also lacks abstractNote),
+    // merge missing fields from Semantic Scholar without overwriting primary fields.
+    if (matched?.title && !matched.abstractNote && !original.abstractNote && matchedSource !== "Semantic Scholar") {
+      const s2Service = services.find(s => s.id === "semantic-scholar-service");
+      if (s2Service?.fetch) {
+        try {
+          const s2Res = await s2Service.fetch({ item, identifiers: { DOI: value }, isPreprint: false, debug: () => {}, signal });
+          const s2Data = normalizeMetadata(s2Res && s2Service.transform?.(s2Res));
+          if (s2Data && (!s2Data.DOI || normalizeDOI(s2Data.DOI) === value.toLowerCase())) {
+            matched = mergeMetadata(matched, s2Data);
+          }
+        }
+        catch {
+          signal?.throwIfAborted();
+        }
       }
     }
     candidate = matched;

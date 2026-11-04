@@ -103,6 +103,11 @@ function shouldApplyRule(rule: Rule<any>, item: Zotero.Item): boolean {
   return true;
 }
 
+function createAbortController(): AbortController {
+  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
+  return new Controller();
+}
+
 export class LintRunner {
   private stats: RunnerStats = this.emptyStats();
   private modifiedItems = new Set<Zotero.Item>();
@@ -173,7 +178,7 @@ export class LintRunner {
       if (!addon.data.alive || owner?.aborted)
         return;
       this.cancelled = false;
-      const controller = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+      const controller = createAbortController();
       const abort = () => controller.abort(owner?.reason);
       owner?.addEventListener("abort", abort, { once: true });
       this.preparation = controller;
@@ -203,7 +208,7 @@ export class LintRunner {
     const items = [...new Map(toArray(_items).filter(item => item?.isRegularItem() && !item.deleted && item.isEditable()).map(item => [item.id || item, item])).values()];
 
     this.initStats();
-    this.execution = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+    this.execution = createAbortController();
     const abort = () => this.cancel();
     params.signal?.addEventListener("abort", abort, { once: true });
     if (params.signal?.aborted)
@@ -283,7 +288,7 @@ export class LintRunner {
         optionsMap.set(rule.id, false);
         continue;
       }
-      const controller = new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController();
+      const controller = createAbortController();
       this.preparation = controller;
       try {
         const ctx: PrepareContext = {
@@ -530,7 +535,7 @@ export class LintRunner {
         finally {
           acceptingReports = false;
         }
-      }, rule.timeout ?? 60_000, () => new (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController(), journal.capture, this.execution?.signal);
+      }, rule.timeout ?? 60_000, () => createAbortController(), journal.capture, this.execution?.signal);
     }
     catch (error) {
       await restore();

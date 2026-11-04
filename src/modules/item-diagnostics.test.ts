@@ -29,6 +29,31 @@ describe("inspectItemDefects", () => {
     expect(codes).toContain("missing-abstract");
   });
 
+  it("reports extractable DOI from URL when DOI field is empty", () => {
+    const fields: Record<string, string> = {
+      title: "Ferroelectricity in ReS2",
+      DOI: "",
+      url: "https://advanced.onlinelibrary.wiley.com/doi/abs/10.1002/adma.202404734",
+      publicationTitle: "Advanced Materials",
+      date: "2024",
+      volume: "36",
+      issue: "40",
+      pages: "2404734",
+      abstractNote: "Abstract",
+    };
+    const mockItem = {
+      isRegularItem: () => true,
+      deleted: false,
+      itemType: "journalArticle",
+      getField: (f: string) => fields[f] || "",
+      getCreators: () => [{ lastName: "Chen", firstName: "Yun", creatorType: "author" }],
+    } as unknown as Zotero.Item;
+    const defects = inspectItemDefects(mockItem);
+    expect(defects).toHaveLength(1);
+    expect(defects[0].code).toBe("missing-doi");
+    expect(defects[0].message).toContain("10.1002/adma.202404734");
+  });
+
   it("returns no critical defects on a complete, clean item", () => {
     const fields: Record<string, string> = {
       title: "Constructing Slip Stacking Diversity in Van der Waals Homobilayers",

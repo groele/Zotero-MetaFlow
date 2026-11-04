@@ -81,12 +81,23 @@ export function applyReviewedMetadata(item: Zotero.Item, selection: MetadataDeci
   for (const change of proposal.changes) {
     if (!fields.has(change.field) || change.field === "itemType")
       continue;
-    if (change.field === "creators")
-      item.setCreators(proposal.candidate.creators!);
-    else if (isFieldValidForItemType(change.field, item.itemType))
+    if (change.field === "creators") {
+      const existingNonAuthors = (item.getCreators() || []).filter((creator: any) => {
+        const cType = "creatorType" in creator ? creator.creatorType : (typeof Zotero !== "undefined" && Zotero.CreatorTypes?.getName ? Zotero.CreatorTypes.getName(creator.creatorTypeID) : "author");
+        return cType && cType !== "author";
+      });
+      const candidateHasNonAuthors = (proposal.candidate.creators || []).some((creator: any) => ("creatorType" in creator ? creator.creatorType : "author") !== "author");
+      const mergedCreators = (!candidateHasNonAuthors && existingNonAuthors.length > 0)
+        ? [...proposal.candidate.creators!, ...existingNonAuthors]
+        : proposal.candidate.creators!;
+      item.setCreators(mergedCreators);
+    }
+    else if (isFieldValidForItemType(change.field, item.itemType)) {
       item.setField(change.field, change.after as string);
-    else
+    }
+    else {
       continue;
+    }
     report({ level: "info", code: "metadata-field-filled", field: change.field, source: proposal.source, message: getString("review-field-applied", { args: { field: change.field } }) });
   }
   if (proposal.revival) {
