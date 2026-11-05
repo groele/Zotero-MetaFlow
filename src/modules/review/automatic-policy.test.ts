@@ -72,4 +72,53 @@ describe("automatic metadata decisions", () => {
     expect(result.fields.has("creators")).toBe(false);
     expect([...result.fields]).toEqual(["DOI", "itemType"]);
   });
+  it("fills missing blank fields (journal, volume, abstract, pages) even when existing authors or dates differ in blank mode", () => {
+    const value = proposal({
+      original: {
+        itemType: "journalArticle",
+        title: "Optical response of layered materials",
+        DOI: "10.1234/test",
+        date: "2020",
+        creators: [{ creatorType: "author", name: "张三" }],
+      },
+      candidate: {
+        itemType: "journalArticle",
+        title: "Optical response of layered materials",
+        DOI: "10.1234/test",
+        date: "2026-10",
+        publicationTitle: "Nature Physics",
+        volume: "18",
+        issue: "3",
+        pages: "200-210",
+        abstractNote: "Full abstract text",
+        ISSN: "1745-2473",
+        creators: [{ creatorType: "author", firstName: "San", lastName: "Zhang" }],
+      },
+      conflicts: ["date", "creators"],
+      changes: [
+        { field: "publicationTitle", before: "", after: "Nature Physics" },
+        { field: "volume", before: "", after: "18" },
+        { field: "issue", before: "", after: "3" },
+        { field: "pages", before: "", after: "200-210" },
+        { field: "abstractNote", before: "", after: "Full abstract text" },
+        { field: "ISSN", before: "", after: "1745-2473" },
+        { field: "date", before: "2020", after: "2026-10" },
+        { field: "creators", before: [{ name: "张三" }], after: [{ firstName: "San", lastName: "Zhang" }] },
+      ],
+    });
+
+    const result = automaticSelection(value, false, false);
+    expect(result.reason).toBeUndefined();
+    expect(result.selection).toBeDefined();
+
+    const selectedFields = result.selection!.fields;
+    expect(selectedFields.has("publicationTitle")).toBe(true);
+    expect(selectedFields.has("volume")).toBe(true);
+    expect(selectedFields.has("issue")).toBe(true);
+    expect(selectedFields.has("pages")).toBe(true);
+    expect(selectedFields.has("abstractNote")).toBe(true);
+    expect(selectedFields.has("ISSN")).toBe(true);
+    expect(selectedFields.has("date")).toBe(false);
+    expect(selectedFields.has("creators")).toBe(false);
+  });
 });

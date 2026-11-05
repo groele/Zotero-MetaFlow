@@ -39,7 +39,10 @@ export function sanitizeWebTitle(title?: string): string {
 }
 
 function normalizedTitle(value?: string): string {
-  return (value || "").normalize("NFKC").replace(/<(?:[\w-]+:)?math\b[^>]*>[\s\S]*?<\/(?:[\w-]+:)?math\s*>/gi, math => math.replace(/<[^>]*>/g, "").replace(/\s+/g, "")).replace(/<(sub|sup)\b[^>]*>([\s\S]*?)<\/\1>/gi, (_match, _tag, content: string) => content.replace(/<[^>]*>/g, "").trim()).replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return (value || "").normalize("NFKC").replace(/<(?:[\w-]+:)?math\b[^>]*>[\s\S]*?<\/(?:[\w-]+:)?math\s*>/gi, math => math.replace(/<[^>]*>/g, "").replace(/\s+/g, "")).replace(/(\s*)<(sub|sup)\b[^>]*>([\s\S]*?)<\/\2>/gi, (_match, leading: string, _tag, content: string) => {
+    const index = content.replace(/<[^>]*>/g, "").trim();
+    return /^[\p{N}+.−-]+$/u.test(index) ? index : leading + index;
+  }).replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
 export function titlesAgree(original: string, candidate: string): boolean {

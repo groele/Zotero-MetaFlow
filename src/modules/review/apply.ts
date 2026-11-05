@@ -22,10 +22,21 @@ export function selectionIssue(selection: MetadataDecision): string | undefined 
 }
 
 export function assertReviewFresh(item: Zotero.Item, original: TransformedData): void {
+  if (!isWritableItem(item))
+    throw new Error(getString("review-stale"));
   const current = item.toJSON() as Record<string, unknown>;
   const expected = original as Record<string, unknown>;
+  // Native saves also persist Extra, tags, collections and relationships.
+  // Check the complete snapshot so unrelated pending edits cannot be committed implicitly.
   const fields = new Set([...Object.keys(expected), ...Object.keys(current)]);
-  if (!isWritableItem(item) || [...fields].some(field => JSON.stringify(current[field] ?? "") !== JSON.stringify(expected[field] ?? "")))
+  const stale = [...fields].some((field) => {
+    const curVal = current[field];
+    const expVal = expected[field];
+    if (curVal === undefined && expVal === undefined)
+      return false;
+    return JSON.stringify(curVal ?? "") !== JSON.stringify(expVal ?? "");
+  });
+  if (stale)
     throw new Error(getString("review-stale"));
 }
 
@@ -68,8 +79,12 @@ export function applyReviewedMetadata(item: Zotero.Item, selection: MetadataDeci
   });
   if (!validCreators)
     throw new Error(getString("rule-tool-update-metadata-invalid-creators"));
-  if (targetType !== item.itemType && !proposal.preprintURL && !proposal.revival)
-    throw new Error(getString("review-invalid-type"));
+  if (targetType !== item.itemType && !proposal.preprintURL && !proposal.revival) {
+    const convertibleSourceTypes = ["webpage", "blogPost", "document", "report", "manuscript"];
+    const validTargetTypes = ["journalArticle", "conferencePaper", "book", "bookSection", "preprint"];
+    if (!(convertibleSourceTypes.includes(item.itemType) && validTargetTypes.includes(targetType)))
+      throw new Error(getString("review-invalid-type"));
+  }
   const extra = proposal.preprintURL
     ? preprintExtra(item, selection, targetType)
     : proposal.revival

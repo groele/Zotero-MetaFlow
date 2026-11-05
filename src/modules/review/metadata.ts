@@ -19,6 +19,17 @@ export async function discoverIdentifiers(item: Zotero.Item, signal?: AbortSigna
   const candidates: IdentifierCandidate[] = [];
   if (existing.DOI)
     candidates.push({ kind: "DOI", value: normalizeDOI(existing.DOI), source: getString("review-source-item") });
+  if (!existing.DOI) {
+    const extra = String(item.getField("extra") || "");
+    const match = extra.match(/\b(?:doi:\s*|https?:\/\/doi\.org\/)?(10\.\d{4,9}\/[^\s?#&<>"]+)/i);
+    if (match) {
+      const extracted = normalizeDOI(match[1]);
+      if (extracted) {
+        existing.DOI = extracted;
+        candidates.push({ kind: "DOI", value: extracted, source: getString("review-source-item") });
+      }
+    }
+  }
   if (existing.arXiv && normalizeArxiv(existing.arXiv))
     candidates.push({ kind: "arXiv", value: normalizeArxiv(existing.arXiv), source: getString("review-source-item") });
   if (existing.PMID && /^\d+$/.test(existing.PMID.trim()))
@@ -213,9 +224,17 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
           throw error;
       }
     }
-    // 4. Supplemental gap-fill: if Crossref/Translator succeeded but lacks abstractNote (and local item also lacks abstractNote),
-    // merge missing fields from Semantic Scholar without overwriting primary fields.
-    if (matched?.title && !matched.abstractNote && !original.abstractNote && matchedSource !== "Semantic Scholar") {
+    // 4. Supplemental gap-fill: if Crossref/Translator succeeded but lacks key fields (e.g. abstractNote, volume, issue, pages, publicationTitle, ISSN)
+    // and local item also lacks them, merge missing fields from Semantic Scholar without overwriting primary fields.
+    const lacksKeyFields = Boolean(
+      (!matched?.abstractNote && !original.abstractNote)
+      || (!matched?.volume && !original.volume)
+      || (!matched?.issue && !original.issue)
+      || (!matched?.pages && !original.pages)
+      || (!matched?.publicationTitle && !original.publicationTitle)
+      || (!matched?.ISSN && !original.ISSN),
+    );
+    if (matched?.title && lacksKeyFields && matchedSource !== "Semantic Scholar") {
       const s2Service = services.find(s => s.id === "semantic-scholar-service");
       if (s2Service?.fetch) {
         try {

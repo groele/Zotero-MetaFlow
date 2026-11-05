@@ -67,24 +67,47 @@ describe("native flat menu commands", function () {
     }
     const show = (target: any, open: () => void, label: string) => new Promise<void>((resolve, reject) => {
       let timer = 0;
-      const shown = (event: Event) => {
-        if (event.target !== target)
-          return;
-        target.removeEventListener("popupshown", shown);
-        win.clearTimeout(timer);
-        resolve();
-      };
+      let retry = 0;
       const cleanup = () => {
         target.removeEventListener("popupshown", shown);
         win.clearTimeout(timer);
+        win.clearInterval(retry);
       };
+      const finish = () => {
+        cleanup();
+        resolve();
+      };
+      function shown(event: Event) {
+        if (event.target !== target)
+          return;
+        finish();
+      }
       timer = win.setTimeout(() => {
+        if (target.state === "open") {
+          finish();
+          return;
+        }
         cleanup();
         reject(new Error(`${label} did not emit popupshown (state=${target.state})`));
       }, 10_000);
       target.addEventListener("popupshown", shown);
-      try {
+      const attemptOpen = () => {
+        if (target.state === "open") {
+          finish();
+          return;
+        }
+        if (target.state !== "closed")
+          return;
+        win.focus();
+        if (target !== popup && popup.state !== "open") {
+          popup.openPopup(win.document.getElementById("zotero-items-tree"), "after_start", 0, 0, true);
+          return;
+        }
         open();
+      };
+      retry = win.setInterval(attemptOpen, 150);
+      try {
+        attemptOpen();
       }
       catch (error) {
         cleanup();
@@ -97,8 +120,8 @@ describe("native flat menu commands", function () {
     assert.isFalse(root.disabled);
     const sub = root.querySelector("menupopup") as any;
     // Native menus can retain the open property after the parent was hidden by a dialog.
-    root.open = false;
-    if (sub.state !== "closed") {
+    if (root.open || sub.state !== "closed") {
+      root.open = false;
       sub.hidePopup();
       await wait(() => sub.state === "closed", "previous submenu closing");
     }
@@ -151,6 +174,7 @@ describe("native flat menu commands", function () {
       assert.isFalse(command.disabled);
       command.dispatchEvent(new win.Event("command", { bubbles: true }));
       popup.hidePopup();
+      await wait(() => popup.state === "closed", "menu command close");
       await wait(() => item.getField("title", false, true) === `Native ${run} MoS<sub>2</sub>` && !item.hasChanged());
     }
   });
@@ -166,6 +190,7 @@ describe("native flat menu commands", function () {
       assert.isFalse(command.disabled);
       command.dispatchEvent(new win.Event("command", { bubbles: true }));
       popup.hidePopup();
+      await wait(() => popup.state === "closed", "menu command close");
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       assert.include(section.textContent!, expected);
@@ -191,6 +216,7 @@ describe("native flat menu commands", function () {
       assert.isFalse(primary.hidden);
       primary.dispatchEvent(new win.Event("command", { bubbles: true }));
       popup.hidePopup();
+      await wait(() => popup.state === "closed", "menu command close");
       await wait(() => item.getField("title", false, true) === "Pinned MoS<sub>2</sub>" && !item.hasChanged());
     }
     finally {

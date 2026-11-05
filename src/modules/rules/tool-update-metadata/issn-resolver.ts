@@ -38,14 +38,14 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
   // 1. Query by DOI
   if (cleanDOI) {
     try {
-      const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDOI)}?select=primary_location`;
+      const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDOI)}?select=doi,primary_location`;
       debug?.(`[OpenAlex] Fetching work by DOI: ${cleanDOI}`);
       const res = await requestCachedGET(url, {
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
         const body = JSON.parse(res.response || res.responseText || "{}");
-        const source = body.primary_location?.source;
+        const source = normalizeDOI(body.doi) === cleanDOI ? body.primary_location?.source : undefined;
         const candidate = source?.issn_l || source?.issn?.[0];
         const normalized = normalizeISSN(candidate);
         if (normalized) {
@@ -105,7 +105,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
         const body = JSON.parse(res.response || res.responseText || "{}");
-        const message = body.message;
+        const message = normalizeDOI(body.message?.DOI) === cleanDOI ? body.message : undefined;
         const candidate = [...(message?.ISSN || []), ...(message?.["issn-type"] || []).map((entry: any) => entry.value)].find(value => normalizeISSN(value));
         const normalized = normalizeISSN(candidate);
         if (normalized) {

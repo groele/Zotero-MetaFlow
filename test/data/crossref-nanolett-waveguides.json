@@ -1,0 +1,143 @@
+{
+  "status": "ok",
+  "message": {
+    "DOI": "10.1021/acs.nanolett.6c01388",
+    "type": "journal-article",
+    "title": [
+      "Polarization Engineering of Second-Harmonic Generation in 3R-MoS\n                    <sub>2</sub>\n                    Waveguides"
+    ],
+    "container-title": [
+      "Nano Letters"
+    ],
+    "short-container-title": [
+      "Nano Lett."
+    ],
+    "volume": "26",
+    "issue": "28",
+    "page": "9051-9058",
+    "ISSN": [
+      "1530-6984",
+      "1530-6992"
+    ],
+    "published-print": {
+      "date-parts": [
+        [
+          2026,
+          7,
+          22
+        ]
+      ]
+    },
+    "published-online": {
+      "date-parts": [
+        [
+          2026,
+          7,
+          11
+        ]
+      ]
+    },
+    "issued": {
+      "date-parts": [
+        [
+          2026,
+          7,
+          11
+        ]
+      ]
+    },
+    "publisher": "American Chemical Society (ACS)",
+    "author": [
+      {
+        "given": "Renkang",
+        "family": "Song",
+        "sequence": "first"
+      },
+      {
+        "given": "Junbo",
+        "family": "Xu",
+        "sequence": "additional"
+      },
+      {
+        "given": "Yanzhen",
+        "family": "Yin",
+        "sequence": "additional"
+      },
+      {
+        "given": "Yu",
+        "family": "Yin",
+        "sequence": "additional"
+      },
+      {
+        "given": "Xu",
+        "family": "Jiang",
+        "sequence": "additional"
+      },
+      {
+        "given": "Zhichen",
+        "family": "Zhao",
+        "sequence": "additional"
+      },
+      {
+        "given": "Lei",
+        "family": "Zhou",
+        "sequence": "additional"
+      },
+      {
+        "given": "Jintian",
+        "family": "Lin",
+        "sequence": "additional"
+      },
+      {
+        "given": "Gaozhong",
+        "family": "Wang",
+        "sequence": "additional"
+      },
+      {
+        "given": "Vasily",
+        "family": "Kravtsov",
+        "sequence": "additional"
+      },
+      {
+        "given": "Kyoung-Duck",
+        "family": "Park",
+        "sequence": "additional"
+      },
+      {
+        "given": "Ivan",
+        "family": "Iorsh",
+        "sequence": "additional"
+      },
+      {
+        "given": "Yuerui",
+        "family": "Lu",
+        "sequence": "additional"
+      },
+      {
+        "given": "Jun",
+        "family": "Wang",
+        "sequence": "additional"
+      },
+      {
+        "given": "Guangwei",
+        "family": "Hu",
+        "sequence": "additional"
+      },
+      {
+        "given": "Zhanshan",
+        "family": "Wang",
+        "sequence": "additional"
+      },
+      {
+        "given": "Di",
+        "family": "Huang",
+        "sequence": "additional"
+      },
+      {
+        "given": "Tao",
+        "family": "Jiang",
+        "sequence": "additional"
+      }
+    ]
+  }
+}

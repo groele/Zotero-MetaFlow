@@ -54,7 +54,8 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
     || (overwrite && ["title", "date", "creators"].includes(field)),
   );
 
-  if (proposal.conflicts.length && !(verifiedDOI && allowableConflicts))
+  const titleMismatch = proposal.conflicts.includes("title") && !titleContaminated;
+  if (proposal.conflicts.length && !(verifiedDOI && (allowableConflicts || (!titleMismatch && !overwrite))))
     return { reason: "conflict" };
   // A title search or PDF excerpt needs independent agreement with existing metadata.
   if (proposal.identifier.kind === "Title" || proposal.identifier.excerpt) {
@@ -70,9 +71,22 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
   // A revived snapshot's local title/date are capture artefacts: adopt the verified record.
   const revived = !!proposal.revival;
   const excluded = new Set<string>(proposal.excludedFields);
+  const unallowedConflicts = new Set(allowableConflicts ? [] : proposal.conflicts);
   const fields = new Set(proposal.changes.filter((change) => {
     if (excluded.has(change.field))
       return false;
+    // Guard against unwanted overwrites: unallowed conflict fields cannot be overwritten in blank mode.
+    if (unallowedConflicts.has(change.field) && !overwrite) {
+      if (change.field === "creators") {
+        const beforeList = Array.isArray(change.before) ? change.before : proposal.original.creators || [];
+        const hasBefore = beforeList.length > 0 && !beforeList.every(isPlaceholderCreator);
+        if (hasBefore)
+          return false;
+      }
+      else if (String(change.before ?? "").trim()) {
+        return false;
+      }
+    }
     if (related || revived || overwrite)
       return true;
     if (change.field === "creators") {
@@ -84,5 +98,9 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
       return true;
     return Array.isArray(change.before) ? !change.before.length : !String(change.before ?? "").trim();
   }).map(change => change.field));
+
+  if (!fields.size && proposal.conflicts.length && !allowableConflicts)
+    return { reason: "conflict" };
+
   return { selection: { proposal, action: related ? "related" : "update", acknowledged: true, fields } };
 }

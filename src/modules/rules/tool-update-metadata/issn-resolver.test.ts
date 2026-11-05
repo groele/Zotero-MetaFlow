@@ -38,6 +38,7 @@ describe("issn-resolver", () => {
       vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({
         status: 200,
         response: JSON.stringify({
+          doi: "https://doi.org/10.1016/j.actamat.2023.118944",
           primary_location: {
             source: {
               issn_l: "1359-6454",
@@ -74,6 +75,7 @@ describe("issn-resolver", () => {
         status: 200,
         response: JSON.stringify({
           message: {
+            DOI: "10.1016/j.actamat.2023.118944",
             ISSN: ["1359-6454"],
           },
         }),
@@ -84,9 +86,19 @@ describe("issn-resolver", () => {
     });
 
     it("prefers Crossref DOI evidence and uses a valid singleton URL", async () => {
-      const request = vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { ISSN: ["0028-0836"] } }) } as any);
+      const request = vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: "10.1038/nature12345", ISSN: ["0028-0836"] } }) } as any);
       expect(await resolveMissingISSN({ doi: "10.1038/nature12345" })).toEqual({ issn: "0028-0836", source: "Crossref" });
       expect(request).toHaveBeenLastCalledWith(expect.not.stringContaining("?select"), expect.anything(), undefined);
+    });
+
+    it.each([undefined, "10.1234/unrelated"])("rejects Crossref ISSN without matching DOI evidence: %s", async (doi) => {
+      vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: doi, ISSN: ["0028-0836"] } }) } as any);
+      expect(await fetchISSNFromCrossref({ doi: "10.1038/test" })).toBeUndefined();
+    });
+
+    it.each([undefined, "https://doi.org/10.1234/unrelated"])("rejects OpenAlex ISSN without matching DOI evidence: %s", async (doi) => {
+      vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ doi, primary_location: { source: { issn_l: "0028-0836" } } }) } as any);
+      expect(await fetchISSNFromOpenAlex({ doi: "10.1038/test" })).toBeUndefined();
     });
 
     it("rejects an unrelated top journal search hit", async () => {
