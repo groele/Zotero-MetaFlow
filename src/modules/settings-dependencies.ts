@@ -16,8 +16,10 @@ export function setupCustomDataReset(pane: Element) {
         if (status)
           status.textContent = "";
         const key = input.getAttribute("preference")!.replace(`${addon.data.config.prefsPrefix}.`, "");
-        setPref(key as any, "");
         input.value = "";
+        const win = input.ownerDocument.defaultView as Window & typeof globalThis;
+        input.dispatchEvent(new win.Event("change", { bubbles: true }));
+        setPref(key as any, "");
       });
     }
     input.parentElement!.appendChild(button);

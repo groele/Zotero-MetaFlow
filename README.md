@@ -1,8 +1,10 @@
 # Zotero MetaFlow
 
-**文献元数据深度治理 · 权威学术期刊画像 · 全库原生智能去重 · arXiv 预印本转正 · Semantic Scholar TL;DR 论点提炼 · 网页快照学术复活 · 附件角色解耦与安全命名**
+> **让每一条文献元数据干净、可信、可检索。**
 
 _让研究的每一步衔接起来。 / Connect each step of research._
+
+`59 项治理规则` · `ISO 4 离线缩写` · `权威期刊画像` · `全库无损去重` · `arXiv 预印本转正` · `TL;DR 核心论点` · `网页快照复活` · `正文 / SI 解耦`
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -30,25 +32,54 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 ## ✨ 核心亮点
 
-```mermaid
-flowchart TD
-    A["文献条目导入 / 选定"] --> B["Zotero MetaFlow 双核引擎"]
+> **两条流水线，一个入口。** 文献条目进入 **Zotero MetaFlow 双核引擎** 后，分流到互不污染的两条路径：离线治理 **100% 零网络**，在线增强 **集中收敛、凭据脱敏**。
 
-    subgraph S1["本地离线治理流水线 (Check & Repair，100% 纯本地零网络)"]
-        B --> C["🧹 59 项规则治理<br/>(大小写/化学式/作者/页码/DOI)"]
-        B --> D["📚 ISO 4 期刊缩写<br/>(JabRef 数据库 + LTWA 离线词根)"]
-        B --> E["📑 附件角色解耦 (ZotAssets)<br/>(正文与 SI 智能识别 + 安全重命名)"]
-        B --> F["⚡ 全库原生去重<br/>(一键无损批量合并，主条目智能择优)"]
-    end
+**① 导入 / 选定** → **② 双核引擎** → **③ 流水线** → **④ 能力卡**
 
-    subgraph S2["在线学术增强流水线 (Update Metadata，集中收敛与凭据隐私保护)"]
-        B --> G["📊 期刊学术画像<br/>(JCR/中科院分区/IF/CCF/ESI/Nature Index)"]
-        B --> H["📄 arXiv 预印本转正<br/>(检出出版 DOI 平滑升级期刊)"]
-        B --> I["💡 语义摘要极速提炼<br/>(Semantic Scholar TL;DR 核心论点)"]
-        B --> J["🌐 网页快照学术复活<br/>(残缺 Webpage 升级正规期刊论文)"]
-        B --> K["🏛️ 官方元数据校准<br/>(Crossref / 开放学术数据库补充)"]
-    end
-```
+<sub>① 浏览器剪藏 · DOI 批量导入 · PDF 抓取 · 手动选定 ｜ ② 单一分流点、零交叉 ｜ ③ 下方可展开的两张卡 ｜ ④ 每张卡对应一个独立开关，细节见后续 1–9 小节</sub>
+
+<details open>
+<summary><b>🔒 流水线 A · 本地离线治理</b> · Check &amp; Repair · 100% 纯本地 / 零网络 / 飞行模式可用</summary>
+
+<br>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><br>🧹<br><br><b>59 项规则治理</b><br><sub>大小写 · 化学式 · 作者 · 页码 · DOI</sub><br><br></td>
+    <td align="center" width="50%"><br>📚<br><br><b>ISO 4 期刊缩写</b><br><sub>JabRef 权威库 + LTWA 离线词根</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>📑<br><br><b>附件角色解耦</b><br><sub>正文 / SI 识别 + 安全重命名</sub><br><br></td>
+    <td align="center"><br>⚡<br><br><b>全库原生去重</b><br><sub>一键无损合并 · 主条目智能择优</sub><br><br></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>🌐 流水线 B · 在线学术增强</b> · Update Metadata · 独立开关 / 集中收敛 / 凭据脱敏</summary>
+
+<br>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><br>📊<br><br><b>期刊学术画像</b><br><sub>JCR / 中科院分区 / IF / CCF / ESI</sub><br><br></td>
+    <td align="center" width="50%"><br>📄<br><br><b>arXiv 预印本转正</b><br><sub>检出正式 DOI · 附件批注无损</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>💡<br><br><b>TL;DR 核心论点</b><br><sub>Semantic Scholar 1–2 句提炼</sub><br><br></td>
+    <td align="center"><br>🌐<br><br><b>网页快照复活</b><br><sub>残缺 Webpage 升级为期刊论文</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>🏛️<br><br><b>官方元数据校准</b><br><sub>Crossref 多源交叉核验</sub><br><br></td>
+    <td align="center"><br>🔁<br><br><b>联动本地规则</b><br><sub>串行衔接 · 零交叉污染</sub><br><br></td>
+  </tr>
+</table>
+
+</details>
+
+> [!IMPORTANT]
+> 两条流水线**默认零交叉**：A 绝不发起任何网络请求；B 的所有外部请求集中归口，仅在用户显式启用时触发，凭据经特权匿名通道传输。
 
 ### 1. 📊 全景学术期刊画像（Journal Insights 侧栏深度集成）
 

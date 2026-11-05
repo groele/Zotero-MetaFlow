@@ -1,7 +1,7 @@
 import { DataLoader } from "../utils/data-loader";
 import { getString } from "../utils/locale";
-import { preferenceListeners } from "../utils/preference-listeners";
-import { setPref } from "../utils/prefs";
+import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
+import { getPref, setPref } from "../utils/prefs";
 import { loadTitleTerms } from "../utils/title-terms";
 import { loadCustomAbbreviations } from "./rules/require-abbr";
 
@@ -20,6 +20,13 @@ export function setupCustomDataFiles(pane: Element) {
     status.setAttribute("aria-live", "polite");
     row.appendChild(status);
     input.setAttribute("aria-describedby", status.id);
+    const syncPath = () => {
+      input.value = String(getPref(key as any, ""));
+    };
+    syncPath();
+    const observer = Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${key}`, syncPath, true);
+    const signal = preferenceLifetime(pane);
+    signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
     let busy = false;
     listen(button, "command", async () => {
       if (busy)
@@ -45,8 +52,18 @@ export function setupCustomDataFiles(pane: Element) {
         const count = kind === "abbr" ? (await loadCustomAbbreviations(path)).size : (await loadTitleTerms(path)).length;
         if (!count)
           throw new Error(getString("settings-file-empty"));
-        setPref(key as any, path);
+        if (signal.aborted || !pane.isConnected || !addon.data.alive)
+          return;
         input.value = path;
+        const win = doc.defaultView as Window & typeof globalThis;
+        input.dispatchEvent(new win.Event("change", { bubbles: true }));
+        setPref(key as any, path);
+        if (kind === "abbr" && !["auto", "custom"].includes(String(getPref("rule.require-journal-abbr.sourceMode")))) {
+          setPref("rule.require-journal-abbr.sourceMode", "auto");
+          const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
+          if (source)
+            source.value = "auto";
+        }
         status.textContent = getString("settings-file-valid", { args: { count } });
       }
       catch (error) {

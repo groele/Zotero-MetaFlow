@@ -761,6 +761,10 @@ describe("settings panel layout and validation in Zotero", function () {
         await choose(path);
         assert.equal(Zotero.Prefs.get(pref(key), true), path);
         assert.equal(input.value, path);
+        Zotero.Prefs.set(pref(key), `${path}.external`, true);
+        await Zotero.Promise.delay(25);
+        assert.equal(input.value, `${path}.external`, "the path display follows authoritative preference changes");
+        Zotero.Prefs.set(pref(key), path, true);
         assert.include(status.textContent!, "1");
         const acceptedStatus = status.textContent;
         await Zotero.File.putContentsAsync(path, broken);

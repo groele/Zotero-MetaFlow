@@ -1,8 +1,10 @@
 # Zotero MetaFlow
 
-**Deep Reference Metadata Governance · Authoritative Journal Insights · Native Bulk Deduplication · arXiv Preprint Conversion · Semantic Scholar TL;DR Summaries · Web Snapshot Reviver · Attachment Role Decoupling**
+> **Clean, trustworthy, searchable metadata — for every item in your library.**
 
 _Connect each step of research._
+
+`59 governance rules` · `Offline ISO 4 abbreviations` · `Journal Insights` · `Lossless deduplication` · `arXiv conversion` · `TL;DR takeaways` · `Snapshot reviver` · `Manuscript / SI decoupling`
 
 [简体中文](README.md) · [English](README.en.md)
 
@@ -30,25 +32,54 @@ In academic research, item metadata imported from web databases (e.g., Web of Sc
 
 ## ✨ Key Highlights
 
-```mermaid
-flowchart TD
-    A["Import / Select Reference"] --> B["Zotero MetaFlow Dual-Core Engine"]
+> **Two pipelines, one entry point.** Every reference entering the **Zotero MetaFlow dual-core engine** is routed into two isolated paths: offline governance is **100% network-free**, while online enrichment is **centralized and credential-safe**.
 
-    subgraph S1["Local Offline Governance (Check & Repair: 100% Offline, Zero Network)"]
-        B --> C["🧹 59 Governance Rules<br/>(Casing/Formulas/Authors/Pages/DOI)"]
-        B --> D["📚 ISO 4 Abbreviations<br/>(JabRef Database + Offline LTWA Stemmer)"]
-        B --> E["📑 Attachment Role Decoupling<br/>(ZotAssets: Manuscript vs SI + Safe Naming)"]
-        B --> F["⚡ Native Deduplication<br/>(One-Click Lossless Merge & Intelligent Master Choice)"]
-    end
+**① Import / Select** → **② Dual-Core Engine** → **③ Pipelines** → **④ Capability Cards**
 
-    subgraph S2["Online Academic Enrichment (Update Metadata: Centralized & Credential-Safe)"]
-        B --> G["📊 Journal Insights<br/>(JCR/CAS Partitions/IF/CCF/ESI/Nature Index)"]
-        B --> H["📄 arXiv Preprint Conversion<br/>(Discover DOI & Upgrade to Journal Paper)"]
-        B --> I["💡 Semantic Scholar TL;DR<br/>(AI Core Takeaways Summary)"]
-        B --> J["🌐 Web Snapshot Reviver<br/>(Upgrade Bare Webpage to Journal Paper)"]
-        B --> K["🏛️ Official Crossref Calibration<br/>(Complete Missing Bibliographic Metadata)"]
-    end
-```
+<sub>① Browser clipping · DOI import · PDF capture · manual selection | ② Single dispatch point, zero cross-talk | ③ Two expandable cards below | ④ Each card maps to an independent toggle; details in sections 1–9</sub>
+
+<details open>
+<summary><b>🔒 Pipeline A · Local Offline Governance</b> · Check &amp; Repair · 100% offline / zero network / airplane-mode ready</summary>
+
+<br>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><br>🧹<br><br><b>59 Governance Rules</b><br><sub>Casing · formulas · authors · pages · DOI</sub><br><br></td>
+    <td align="center" width="50%"><br>📚<br><br><b>ISO 4 Abbreviations</b><br><sub>JabRef dataset + offline LTWA stemmer</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>📑<br><br><b>Attachment Decoupling</b><br><sub>Manuscript / SI detection + safe renaming</sub><br><br></td>
+    <td align="center"><br>⚡<br><br><b>Native Bulk Deduplication</b><br><sub>One-click lossless merge · smart master choice</sub><br><br></td>
+  </tr>
+</table>
+
+</details>
+
+<details open>
+<summary><b>🌐 Pipeline B · Online Academic Enrichment</b> · Update Metadata · per-feature toggles / centralized / credential-redacted</summary>
+
+<br>
+
+<table>
+  <tr>
+    <td align="center" width="50%"><br>📊<br><br><b>Journal Insights</b><br><sub>JCR / CAS / IF / CCF / ESI / Nature Index</sub><br><br></td>
+    <td align="center" width="50%"><br>📄<br><br><b>arXiv Preprint Conversion</b><br><sub>Published DOI detection · lossless upgrade</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>💡<br><br><b>TL;DR Takeaways</b><br><sub>Semantic Scholar 1–2 sentence summary</sub><br><br></td>
+    <td align="center"><br>🌐<br><br><b>Web Snapshot Reviver</b><br><sub>Bare Webpage → structured journal paper</sub><br><br></td>
+  </tr>
+  <tr>
+    <td align="center"><br>🏛️<br><br><b>Official Metadata Calibration</b><br><sub>Crossref multi-source cross-verification</sub><br><br></td>
+    <td align="center"><br>🔁<br><br><b>Chained Local Rules</b><br><sub>Sequential handoff · zero cross-contamination</sub><br><br></td>
+  </tr>
+</table>
+
+</details>
+
+> [!IMPORTANT]
+> The two pipelines are **isolated by default**: A never issues a network request; B centralizes every external call, triggers only on explicit user action, and carries credentials through a privileged redacted transport.
 
 ### 1. 📊 Holistic Journal Insights (Integrated Sidebar Profile)
 
