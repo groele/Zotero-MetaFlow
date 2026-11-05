@@ -239,6 +239,8 @@ export async function loadCustomAbbreviations(path: string): Promise<CustomAbbre
     const data = await DataLoader.load("json", path);
     if (!data || Array.isArray(data) || typeof data !== "object")
       throw new TypeError("Expected a JSON object mapping titles to abbreviations");
+    if (typeof data.entries === "number" && Array.isArray(data.conflicts) && Array.isArray(data.sources))
+      throw new TypeError(getString("settings-abbr-provenance-file"));
     rows = Object.entries(data);
   }
   else if (/\.csv$/i.test(path)) {

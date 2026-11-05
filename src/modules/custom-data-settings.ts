@@ -41,8 +41,9 @@ export function setupCustomDataFiles(pane: Element) {
         const path = await new ztoolkit.FilePicker(
           getString(kind === "abbr" ? "settings-abbr-file-title" : "settings-title-file-title"),
           "open",
-          kind === "abbr" ? [["CSV", "*.csv"], ["JSON", "*.json"]] : [["CSV", "*.csv"]],
+          kind === "abbr" ? [[getString("settings-abbr-file-types"), "*.json; *.csv"]] : [["CSV", "*.csv"]],
           kind === "abbr" ? "metaref-custom-abbr-data.csv" : "metaref-custom-title-terms.csv",
+          doc.defaultView!,
         ).open();
         if (!path) {
           status.textContent = "";

@@ -604,3 +604,5 @@ metaref-workflow-heading = 检查并修复元数据（纯本地离线）
 metaref-workflow-description = 纯本地瞬时清洗，零网络通信。标准化标题大小写与化学式、规范作者拼音、推断 ISO 4 刊名缩写及附件 (SI) 角色解耦。
 metaref-workflow-update-heading = 更新元数据（在线增强与智能补全）
 metaref-workflow-update-description = 在线检索学术数据库，补全书目元数据、转正预印本、修复作者、提炼 AI 核心论点（撷论）及同步期刊指标。
+settings-abbr-file-types = 期刊缩写数据（JSON / CSV）
+settings-abbr-provenance-file = 这是来源审计文件，不含完整的期刊全称—缩写映射。插件已内置缩写库，无需导入；自定义数据请选 journal-abbr.json 或双列 CSV。

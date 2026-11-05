@@ -31,6 +31,11 @@ describe("custom abbreviation data and rule integration", () => {
     read.mockResolvedValue(content);
     return loadCustomAbbreviations(path);
   };
+  it("identifies a provenance audit without treating its count as journal mappings", async () => {
+    await expect(load(JSON.stringify({ entries: 44304, conflicts: [], sources: [], revision: "fixture" })))
+      .rejects
+      .toThrow("settings-abbr-provenance-file");
+  });
   const createContext = (title: string, current = "", options = {}) => {
     const fields: Record<string, string> = { publicationTitle: title, journalAbbreviation: current, language: "en" };
     const tags = new Set(["user-topic", "abbr"]);

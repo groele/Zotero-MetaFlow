@@ -767,6 +767,8 @@ export type FluentMessageId =
   | 'section-title'
   | 'section-updateMetadata'
   | 'settings-abbr-file-title'
+  | 'settings-abbr-file-types'
+  | 'settings-abbr-provenance-file'
   | 'settings-concurrency-invalid'
   | 'settings-concurrency-restored'
   | 'settings-custom-data-reset'

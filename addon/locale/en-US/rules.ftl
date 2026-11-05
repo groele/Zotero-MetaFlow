@@ -218,7 +218,7 @@ rule-require-journal-abbr-option-choose-custom-abbr-data-button =
 rule-require-journal-abbr-option-choose-custom-abbr-data-input =
   .placeholder = Path of custom abbreviation file
 rule-require-journal-abbr-option-custom-data-desc =
-  Supports JSON or CSV.
+  A full journal abbreviation database is built in; no import is needed. This optional file provides custom overrides. Use a JSON mapping or two-column CSV, not a provenance audit file.
   JSON: `"publicationTitle": "abbreviation"`.
   CSV: first col = full title, second col = abbreviation. Separator must be comma or semicolon (no tabs).
 

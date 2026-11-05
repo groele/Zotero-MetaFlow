@@ -729,7 +729,10 @@ describe("settings panel layout and validation in Zotero", function () {
     const paths: string[] = [];
     const previous = new Map<string, unknown>();
     const choices: (string | undefined)[] = [];
-    picker.open = async () => choices.shift();
+    picker.open = async function () {
+      assert.strictEqual(this.window, win, "the native picker belongs to the settings window");
+      return choices.shift();
+    };
     try {
       for (const [kind, rule, key, content, broken] of [
         ["abbr", "rule.require-journal-abbr", "rule.require-journal-abbr.customDataPath", "{\"QA Journal\":\"QA J.\"}", "broken JSON"],

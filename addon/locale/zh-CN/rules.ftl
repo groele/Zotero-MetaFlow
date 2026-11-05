@@ -219,7 +219,7 @@ rule-require-journal-abbr-option-choose-custom-abbr-data-button =
 rule-require-journal-abbr-option-choose-custom-abbr-data-input =
   .placeholder = 期刊缩写文件的路径
 rule-require-journal-abbr-option-custom-data-desc =
-  自定义缩写文件支持 JSON 格式和 CSV 格式。
+  插件已内置期刊全称—缩写库，无需导入。以下文件仅用于自定义覆盖；支持 JSON 和双列 CSV，来源审计文件 provenance.json 无法导入。
   JSON 文件的格式为："publicationTitle": "abbreviation"。
   CSV 格式第一列填全称，第二列填简写，分隔符可以为逗号或分号，但须统一，不得为制表符。
 

@@ -605,3 +605,5 @@ metaref-workflow-heading = Check & Repair Metadata (100% Offline)
 metaref-workflow-description = 100% offline local processing without network requests. Normalizes title casing, chemical formulas, author pinyin, ISO 4 journal abbreviations, and attachment (SI) roles.
 metaref-workflow-update-heading = Update Metadata (Online Enrichment)
 metaref-workflow-update-description = Enriches metadata via online academic databases: fills bibliographic fields, converts preprints, repairs authors, extracts AI TL;DR takeaways, and syncs journal metrics.
+settings-abbr-file-types = Journal abbreviation data (JSON / CSV)
+settings-abbr-provenance-file = This provenance audit file does not contain the complete title-to-abbreviation mapping. Use the built-in database without importing a file, or select journal-abbr.json or a two-column CSV for custom data.
