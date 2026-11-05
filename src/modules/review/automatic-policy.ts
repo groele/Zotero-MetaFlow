@@ -3,7 +3,7 @@ import type { IdentifierCandidate, MetadataDecision, ReviewProposal } from "./po
 
 import { extractDOIFromUrl } from "../rules/tool-update-metadata/identifiers";
 import { normalizeDOI, sanitizeWebTitle, titlesAgree } from "../rules/tool-update-metadata/policy";
-import { firstCreator, isbnEquivalent, isPlaceholderCreator, normalizeArxiv } from "./policy";
+import { creatorsAgree, firstCreator, isbnEquivalent, isPlaceholderCreator, normalizeArxiv } from "./policy";
 
 export function hasLocalCorroboration(original: TransformedData): boolean {
   return Boolean(original.title?.trim() && (original.date?.match(/\b\d{4}\b/) || firstCreator(original)));
@@ -62,8 +62,13 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
     const beforeYear = proposal.original.date?.match(/\b\d{4}\b/)?.[0];
     const afterYear = proposal.candidate.date?.match(/\b\d{4}\b/)?.[0];
     const author = firstCreator(proposal.original);
+    const candidateAuthor = firstCreator(proposal.candidate);
+    const hasAuthors = Boolean((proposal.original.creators || []).some(c => c && !isPlaceholderCreator(c))
+      && (proposal.candidate.creators || []).some(c => c && !isPlaceholderCreator(c)));
+    const authorsMatch = hasAuthors && Boolean((author && candidateAuthor && author === candidateAuthor) || creatorsAgree(proposal.original, proposal.candidate));
+    const yearsMatch = Boolean(beforeYear && afterYear && beforeYear === afterYear);
     if (!proposal.original.title || !proposal.candidate.title || !titlesAgree(proposal.original.title, proposal.candidate.title)
-      || (!(beforeYear && beforeYear === afterYear) && !(author && author === firstCreator(proposal.candidate)))) {
+      || (!yearsMatch && !authorsMatch)) {
       return { reason: "evidence" };
     }
   }

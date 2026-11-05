@@ -2,7 +2,7 @@ import type { DuplicateRecord } from "./duplicate-matching";
 import { describe, expect, it } from "vitest";
 import { sanitizeWebTitle, titlesAgree } from "../rules/tool-update-metadata/policy";
 import { duplicatePairs } from "./duplicate-matching";
-import { identifiersFromText, identityConflicts, isbnEquivalent, isPlaceholderCreator, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
+import { creatorsAgree, firstCreator, identifiersFromText, identityConflicts, isbnEquivalent, isPlaceholderCreator, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
 
 function record(id: number, overrides: Partial<DuplicateRecord["data"]> = {}, libraryID = 1, preprint = false): DuplicateRecord {
   return {
@@ -70,6 +70,28 @@ describe("review identity policy", () => {
   it("does not propose empty values or accept arbitrary remote fields", () => {
     expect(reviewChanges({ title: "Keep", date: "2025" }, { title: "", date: "2026", extra: "remote extra", creators: [] })).toEqual([{ field: "date", before: "2025", after: "2026" }]);
     expect(reviewChanges({ itemType: "preprint" }, { itemType: "journalArticle" }, true)).toEqual([{ field: "itemType", before: "preprint", after: "journalArticle" }]);
+  });
+
+  it("matches creators across single-field, western, chinese, and pinyin representations", () => {
+    expect(creatorsAgree(
+      { creators: [{ creatorType: "author", lastName: "李", firstName: "明" }] },
+      { creators: [{ creatorType: "author", lastName: "Li", firstName: "Ming" }] },
+    )).toBe(true);
+
+    expect(creatorsAgree(
+      { creators: [{ creatorType: "author", lastName: "Smith" }, { creatorType: "author", lastName: "Johnson" }] },
+      { creators: [{ creatorType: "author", lastName: "Johnson" }, { creatorType: "author", lastName: "Smith" }] },
+    )).toBe(true);
+
+    expect(firstCreator({ creators: [{ creatorType: "author", name: "Kaiming He" }] })).toBe("he");
+    expect(firstCreator({ creators: [{ creatorType: "author", lastName: "He", firstName: "Kaiming" }] })).toBe("he");
+    expect(firstCreator({ creators: [{ creatorType: "author", lastName: "张", firstName: "三" }] })).toBe("zhang");
+  });
+
+  it("matches CJK titles and subtitle variations in titlesAgree", () => {
+    expect(titlesAgree("基于深度学习的图像去噪算法研究", "基于深度学习的图像去噪算法研究")).toBe(true);
+    expect(titlesAgree("基于深度学习的图像去噪算法研究", "基于深度学习的图像去噪算法研究——以医学图像为例")).toBe(true);
+    expect(titlesAgree("Quantum Computing: Principles and Applications", "Quantum Computing")).toBe(true);
   });
 });
 

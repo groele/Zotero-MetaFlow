@@ -45,6 +45,11 @@ function normalizedTitle(value?: string): string {
   }).replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+function extractMainTitle(str: string): string {
+  const match = str.match(/^([^:—–?]+)[:—–?]/);
+  return match ? match[1].trim() : str.trim();
+}
+
 export function titlesAgree(original: string, candidate: string): boolean {
   const a = normalizedTitle(original);
   const b = normalizedTitle(candidate);
@@ -56,6 +61,29 @@ export function titlesAgree(original: string, candidate: string): boolean {
   const sb = normalizedTitle(sanitizeWebTitle(candidate));
   if ((sa && sa === b) || (sb && a === sb) || (sa && sb && sa === sb))
     return true;
+
+  // Subtitle agreement before colon/dash (e.g. "Main Title: Subtitle" vs "Main Title")
+  const mainA = normalizedTitle(extractMainTitle(original));
+  const mainB = normalizedTitle(extractMainTitle(candidate));
+  if (mainA && mainB && mainA.length >= 10 && mainB.length >= 10) {
+    if (mainA === b || mainB === a)
+      return true;
+  }
+
+  // CJK character sequence and overlap matching
+  const cjkA = a.replace(/[^\u4E00-\u9FA5]/gu, "");
+  const cjkB = b.replace(/[^\u4E00-\u9FA5]/gu, "");
+  if (cjkA.length >= 6 && cjkB.length >= 6) {
+    if (cjkA === cjkB)
+      return true;
+    if ((cjkA.startsWith(cjkB) || cjkB.startsWith(cjkA)) && (Math.min(cjkA.length, cjkB.length) >= 10 || Math.min(cjkA.length, cjkB.length) / Math.max(cjkA.length, cjkB.length) >= 0.6))
+      return true;
+    const charsA = new Set([...cjkA]);
+    const charsB = new Set([...cjkB]);
+    const commonChars = [...charsA].filter(c => charsB.has(c)).length;
+    if (commonChars / Math.max(charsA.size, charsB.size) >= 0.8)
+      return true;
+  }
 
   const left = new Set(a.split(" "));
   const right = new Set(b.split(" "));
@@ -72,6 +100,13 @@ export function titlesAgree(original: string, candidate: string): boolean {
     if (scommon / Math.max(sleft.size, sright.size) >= 0.85)
       return true;
   }
+
+  // Prefix matching for subtitle differences (e.g. "Main Title: Subtitle" vs "Main Title")
+  if (Math.min(left.size, right.size) >= 4) {
+    if ((a.startsWith(`${b} `) || b.startsWith(`${a} `)) && Math.min(a.length, b.length) / Math.max(a.length, b.length) >= 0.6)
+      return true;
+  }
+
   return false;
 }
 
@@ -104,13 +139,28 @@ export function metadataIdentity(
 /** Earlier trusted services own conflicting fields; later services only fill gaps. */
 export function mergeMetadata(current: TransformedData, incoming: TransformedData): TransformedData {
   const result = { ...current };
+  const placeholderAbstract = /^(?:abstract|no\s+abstract(?:\s+available)?|none|\[none\]|n\/a|摘要)$/i;
   for (const [field, value] of Object.entries(incoming)) {
     if (field === "creators") {
       if (!result.creators?.length && incoming.creators?.length)
         result.creators = incoming.creators;
     }
-    else if (!result[field as keyof TransformedData] && value) {
-      (result as Record<string, unknown>)[field] = value;
+    else if (field === "abstractNote") {
+      const existing = String(result.abstractNote || "").trim();
+      const next = String(value || "").trim();
+      if (!existing && next) {
+        result.abstractNote = next;
+      }
+      else if (existing && placeholderAbstract.test(existing) && next && next.length > 20) {
+        result.abstractNote = next;
+      }
+    }
+    else {
+      const existing = (result as Record<string, unknown>)[field];
+      const isBlank = existing === undefined || existing === null || (typeof existing === "string" && !existing.trim());
+      if (isBlank && value !== undefined && value !== null && (typeof value !== "string" || value.trim())) {
+        (result as Record<string, unknown>)[field] = typeof value === "string" ? value.trim() : value;
+      }
     }
   }
   return result;

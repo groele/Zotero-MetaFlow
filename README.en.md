@@ -9,7 +9,7 @@ _Connect each step of research._
 [![Version](https://img.shields.io/badge/version-13.7.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v13.7.0)
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-757%20unit%20%7C%20228%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-759%20unit%20%7C%20228%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 Installation](#installation) · [✨ Key Highlights](#highlights) · [🛠️ Feature Matrix](#features) · [🚀 Quick Start](#quick-start) · [⚙️ Settings Guide](#settings) · [🛡️ Architecture & Safety](#architecture) · [🌐 Compatibility](#compatibility) · [❓ Troubleshooting & FAQ](#troubleshooting) · [🔗 Flow Series](#series) · [📄 Credits & License](#license)
 
@@ -247,7 +247,7 @@ The extension includes configured update manifests ([dist/update.json](https://g
 | --------------------- | ----------------------------------------------------- | ----------------------------------------------------------------- |
 | **Zotero Host**       | **Zotero 10.0 ～ 12.*** (Gecko 153+ / Firefox 140)    | Developed on Zotero 10, forward-compatible through Zotero 11 & 12 |
 | **Operating Systems** | Windows 10/11, macOS (Intel & Apple Silicon), Linux   | Cross-platform native performance and filesystem safety           |
-| **Test Coverage**     | **757 Unit Tests + 228 Native E2E Tests** (100% Pass) | Verified against live Zotero runtime and SQLite transactions      |
+| **Test Coverage**     | **759 Unit Tests + 228 Native E2E Tests** (100% Pass) | Verified against live Zotero runtime and SQLite transactions      |
 | **Plugin Version**    | **v13.7.0**                                           | [View v13.7.0 Release Notes](docs/releases/metaflow-v13.7.0.md)   |
 
 ---

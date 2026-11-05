@@ -1,4 +1,5 @@
 import type { TransformedData } from "../rules/tool-update-metadata/services/base-service";
+import { getPinyin, getSurnamePinyin } from "../../utils/pinyin";
 import { normalizeDOI, titlesAgree } from "../rules/tool-update-metadata/policy";
 
 export const REVIEW_FIELDS = ["title", "creators", "date", "publicationTitle", "proceedingsTitle", "journalAbbreviation", "volume", "issue", "pages", "DOI", "ISSN", "ISBN", "publisher", "place", "edition", "language", "url", "abstractNote"] as const;
@@ -124,24 +125,91 @@ export function creatorTokens(creator?: any): string[] {
     parts.push(creator.firstName);
   if ("name" in creator && creator.name)
     parts.push(...creator.name.split(/[\s,]+/));
-  return parts.map((p: string) => p.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "")).filter(Boolean);
+
+  const tokens = new Set<string>();
+  for (const part of parts) {
+    const raw = String(part || "").trim();
+    if (!raw)
+      continue;
+    const clean = raw.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    if (clean)
+      tokens.add(clean);
+    // If the token contains Chinese characters, include its pinyin representation
+    if (/[\u4E00-\u9FA5]/.test(raw)) {
+      try {
+        const py = getPinyin(raw);
+        for (const word of py.toLowerCase().split(/\s+/)) {
+          const cleanPy = word.replace(/[^\p{L}\p{N}]/gu, "");
+          if (cleanPy.length >= 2)
+            tokens.add(cleanPy);
+        }
+      }
+      catch {
+        // Fallback to raw token
+      }
+    }
+  }
+  return [...tokens];
 }
 
 export function creatorsAgree(original: TransformedData, candidate: TransformedData): boolean {
-  const origCreator = original.creators?.find(c => c && !isPlaceholderCreator(c));
-  const candCreator = candidate.creators?.find(c => c && !isPlaceholderCreator(c));
-  if (!origCreator || !candCreator)
+  const origList = (original.creators || []).filter(c => c && !isPlaceholderCreator(c));
+  const candList = (candidate.creators || []).filter(c => c && !isPlaceholderCreator(c));
+  if (!origList.length || !candList.length)
     return true;
-  const aTokens = creatorTokens(origCreator);
-  const bTokens = creatorTokens(candCreator);
-  if (!aTokens.length || !bTokens.length)
-    return true;
-  return aTokens.some(token => token.length >= 2 && bTokens.includes(token));
+
+  // Cross-author match: if any author from original matches any author from candidate
+  for (const orig of origList) {
+    const aTokens = creatorTokens(orig);
+    if (!aTokens.length)
+      continue;
+    for (const cand of candList) {
+      const bTokens = creatorTokens(cand);
+      if (aTokens.some(token => token.length >= 2 && bTokens.includes(token)))
+        return true;
+    }
+  }
+  return false;
 }
 
 export function firstCreator(data: TransformedData): string {
   const creator = data.creators?.find(c => c && !isPlaceholderCreator(c));
-  return creator ? (("name" in creator ? creator.name : creator.lastName) || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "") : "";
+  if (!creator)
+    return "";
+  let family = "";
+  if ("lastName" in creator && creator.lastName) {
+    family = String(creator.lastName).trim();
+  }
+  else if ("name" in creator && creator.name) {
+    const raw = String(creator.name).trim();
+    if (typeof Zotero !== "undefined" && Zotero.Utilities?.cleanAuthor) {
+      const cleaned = Zotero.Utilities.cleanAuthor(raw, "author");
+      if (cleaned.lastName)
+        family = cleaned.lastName;
+    }
+    if (!family) {
+      if (raw.includes(",")) {
+        family = raw.split(",")[0].trim();
+      }
+      else {
+        const words = raw.split(/\s+/);
+        family = words[words.length - 1] || raw;
+      }
+    }
+  }
+  if (!family)
+    return "";
+  if (/^[\u4E00-\u9FA5]+$/.test(family)) {
+    try {
+      const py = getSurnamePinyin(family);
+      if (py)
+        return py.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+    }
+    catch {
+      // Fallback to normalized family
+    }
+  }
+  return family.normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 export function identityConflicts(original: TransformedData, candidate: TransformedData, allowYearChange = false): string[] {

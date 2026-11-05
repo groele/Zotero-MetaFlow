@@ -428,6 +428,9 @@ export function normalizeMetadata(response: unknown): TransformedData | null {
         && (creator.firstName === undefined || typeof creator.firstName === "string"));
       data.creators = creators;
     }
+    else if (typeof value === "number" && Number.isFinite(value)) {
+      data[field] = String(value);
+    }
     else if (typeof value === "string" && value.trim()) {
       if (field === "DOI") {
         const doi = normalizeDOI(value);
@@ -435,7 +438,7 @@ export function normalizeMetadata(response: unknown): TransformedData | null {
           data.DOI = doi;
       }
       else {
-        data[field] = value;
+        data[field] = value.trim();
       }
     }
   }

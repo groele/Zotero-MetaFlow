@@ -4,8 +4,10 @@ import type { IdentifierCandidate, ReviewProposal } from "./policy";
 import { requestCachedGET } from "../../utils/http";
 import { getString } from "../../utils/locale";
 import { waitForOperation } from "../../utils/rule-execution";
+import { isFieldValidForItemType } from "../../utils/zotero";
 import { normalizeMetadata } from "../rules/tool-update-metadata";
 import { extractIdentifiers } from "../rules/tool-update-metadata/identifiers";
+import { resolveMissingISSN } from "../rules/tool-update-metadata/issn-resolver";
 import { mergeMetadata, metadataIdentity, normalizeDOI } from "../rules/tool-update-metadata/policy";
 import { services } from "../rules/tool-update-metadata/services";
 import { defineService } from "../rules/tool-update-metadata/services/base-service";
@@ -247,6 +249,21 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
         catch {
           signal?.throwIfAborted();
         }
+      }
+    }
+    if (matched?.title && !matched.ISSN && !original.ISSN && isFieldValidForItemType("ISSN", item.itemType)) {
+      try {
+        const resolved = await resolveMissingISSN({
+          doi: value,
+          publicationTitle: String(original.publicationTitle || matched.publicationTitle || ""),
+          signal,
+        });
+        if (resolved) {
+          matched.ISSN = resolved.issn;
+        }
+      }
+      catch {
+        signal?.throwIfAborted();
       }
     }
     candidate = matched;
