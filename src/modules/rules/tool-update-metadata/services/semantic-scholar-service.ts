@@ -42,7 +42,8 @@ async function request(paperID: string, _fields: (keyof Result)[], signal?: Abor
     },
   };
   const res = await requestServiceGET("semantic-scholar", url, options, signal);
-  const data = { _status: res.status, ...JSON.parse(res.response) } as RequestResult;
+  const parsed = typeof res.response === "object" && res.response !== null ? res.response : JSON.parse(typeof res.response === "string" ? res.response : (res as any).responseText || "{}");
+  const data = { _status: res.status, ...parsed } as RequestResult;
   if (data._status === 200) {
     const aliases = [data.paperId, data.externalIds?.DOI && `DOI:${data.externalIds.DOI}`, data.externalIds?.ArXiv && `ARXIV:${data.externalIds.ArXiv}`, data.externalIds?.PubMed && `PMID:${data.externalIds.PubMed}`].filter(Boolean).map(String);
     await rememberServiceAliases("semantic-scholar", url, aliases.map(paperURL), options, res);
@@ -165,9 +166,12 @@ export const SemanticScholarService = defineService<Result>({
         : res.publicationTypes?.includes("Journal Article") || res.publicationTypes?.includes("Review")
           ? "journalArticle"
           : undefined,
-      creators: res.authors?.length && res.authors.every(author => typeof author.name === "string" && author.name.trim())
-        ? res.authors.map(author => ({ ...Zotero.Utilities.cleanAuthor(author.name.trim(), "author"), creatorType: "author" as const }))
-        : undefined,
+      creators: (() => {
+        const validAuthors = res.authors?.filter(author => author && typeof author.name === "string" && author.name.trim()) || [];
+        return validAuthors.length
+          ? validAuthors.map(author => ({ ...Zotero.Utilities.cleanAuthor(author.name.trim(), "author"), creatorType: "author" as const }))
+          : undefined;
+      })(),
       title: res.title,
       abstractNote: res.abstract,
       DOI: res.externalIds?.DOI,

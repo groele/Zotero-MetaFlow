@@ -35,10 +35,13 @@ const registeredMenus: string[] = [];
 const handledCommands = new WeakSet<Event>();
 
 function acceptCommand(event: Event) {
-  // Native menu listeners are removed at idle; rapid reopenings can deliver one event twice.
+  // Native menu listeners can observe the same event more than once during a
+  // single dispatch. Zotero may reuse a native command event after a menu is
+  // reopened, so keep this guard only for the current dispatch turn.
   if (handledCommands.has(event))
     return false;
   handledCommands.add(event);
+  void Promise.resolve().then(() => handledCommands.delete(event));
   return true;
 }
 

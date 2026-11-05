@@ -1,6 +1,8 @@
 import type { TransformedData } from "../rules/tool-update-metadata/services/base-service";
 import { getPinyin, getSurnamePinyin } from "../../utils/pinyin";
-import { normalizeDOI, titlesAgree } from "../rules/tool-update-metadata/policy";
+import { isPlaceholderCreator, normalizeDOI, titlesAgree } from "../rules/tool-update-metadata/policy";
+
+export { isPlaceholderCreator };
 
 export const REVIEW_FIELDS = ["title", "creators", "date", "publicationTitle", "proceedingsTitle", "journalAbbreviation", "volume", "issue", "pages", "DOI", "ISSN", "ISBN", "publisher", "place", "edition", "language", "url", "abstractNote"] as const;
 export type ReviewField = typeof REVIEW_FIELDS[number];
@@ -92,27 +94,6 @@ export function reviewChanges(original: TransformedData, candidate: TransformedD
       return [];
     return [{ field, before: before ?? "", after }];
   });
-}
-
-export function isPlaceholderCreator(creator: any): boolean {
-  if (!creator)
-    return true;
-  const last = String(("lastName" in creator ? creator.lastName : "") || "").trim();
-  const first = String(("firstName" in creator ? creator.firstName : "") || "").trim();
-  const full = String(("name" in creator ? creator.name : "") || "").trim();
-
-  if (!last && !first && !full)
-    return true;
-
-  const placeholderRegex = /^(?:\([姓名]\)|[姓名无]|\(last\s*name\)|last\s*name|\(first\s*name\)|first\s*name|unknown|anonymous|\[anonymous\]|未知|匿名|null|undefined|nan|n\/a|n\.a\.|n\/d|n\.d\.|no\s*value|none|et\s*al\.?|\?+|-+)$/i;
-  if (full && (placeholderRegex.test(full) || /^\(姓\)[,\s]*\(名\)$/.test(full)))
-    return true;
-  if (last && placeholderRegex.test(last) && (!first || placeholderRegex.test(first)))
-    return true;
-  if (!last && first && placeholderRegex.test(first))
-    return true;
-
-  return false;
 }
 
 export function creatorTokens(creator?: any): string[] {

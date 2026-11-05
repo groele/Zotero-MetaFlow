@@ -82,7 +82,13 @@ export function extractIdentifiers(item: Zotero.Item): Identifiers {
   // Determine final DOI (priority: main -> extra -> extracted from URL)
   const cleanDOI = (value: string) => extractDOIFromUrl(value) || value.trim().match(/^10\/[^\s?#]+$/)?.[0] || "";
   const DOI_Field = cleanDOI(item.getField("DOI") || "");
-  const DOI_Extra = cleanDOI(ztoolkit.ExtraField.getExtraField(item, "DOI") || "");
+  let DOI_Extra = cleanDOI(ztoolkit.ExtraField.getExtraField(item, "DOI") || "");
+  if (!DOI_Extra) {
+    const rawExtra = String(item.getField("extra") || "");
+    const extraMatch = rawExtra.match(/\b(?:doi:\s*|https?:\/\/doi\.org\/)?(10\.\d{4,9}\/[^\s?#&<>"]+)/i);
+    if (extraMatch)
+      DOI_Extra = cleanDOI(extraMatch[1]);
+  }
   const DOI_From_URL = extractDOIFromUrl(URL);
   const DOI = DOI_Field || DOI_Extra || DOI_From_URL;
   if (DOI)
@@ -154,7 +160,11 @@ export function extractDOIFromUrl(url: string): string | null {
   let doi = match[0];
 
   // Clean trailing non-DOI characters (common for punctuation)
-  doi = doi.replace(/[.,;]+$/, "");
+  doi = doi.replace(/[.,;:!?]+$/, "");
+  while (doi.endsWith(")") && (doi.match(/\)/g)?.length || 0) > (doi.match(/\(/g)?.length || 0))
+    doi = doi.slice(0, -1);
+  while (doi.endsWith("]") && (doi.match(/\]/g)?.length || 0) > (doi.match(/\[/g)?.length || 0))
+    doi = doi.slice(0, -1);
 
   return doi;
 }

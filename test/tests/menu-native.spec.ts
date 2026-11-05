@@ -9,12 +9,15 @@ describe("native flat menu commands", function () {
   const items: Zotero.Item[] = [];
   let original: unknown;
   let compact: unknown;
+  let chemicalMenuVisible: unknown;
 
   before(function () {
     original = Zotero.Prefs.get(key, true);
     Zotero.Prefs.set(key, false, true);
     compact = Zotero.Prefs.get(`${config.prefsPrefix}.menu.compact`, true);
     Zotero.Prefs.set(`${config.prefsPrefix}.menu.compact`, false, true);
+    chemicalMenuVisible = Zotero.Prefs.get(`${config.prefsPrefix}.menu.correct-title-chemical-formula`, true);
+    Zotero.Prefs.set(`${config.prefsPrefix}.menu.correct-title-chemical-formula`, true, true);
   });
 
   after(async function () {
@@ -22,6 +25,7 @@ describe("native flat menu commands", function () {
       await item.eraseTx();
     Zotero.Prefs.set(key, original as boolean, true);
     Zotero.Prefs.set(`${config.prefsPrefix}.menu.compact`, compact as boolean, true);
+    Zotero.Prefs.set(`${config.prefsPrefix}.menu.correct-title-chemical-formula`, chemicalMenuVisible as boolean, true);
   });
 
   afterEach(async function () {
@@ -29,6 +33,14 @@ describe("native flat menu commands", function () {
       dialog.close();
     const win = Zotero.getMainWindow();
     const popup = win.document.getElementById("zotero-itemmenu") as any;
+    const root = popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']") as any;
+    const sub = root?.querySelector("menupopup") as any;
+    if (root && (root.open || sub?.state !== "closed")) {
+      root.open = false;
+      sub?.hidePopup();
+      if (sub)
+        await wait(() => sub.state === "closed", "submenu cleanup");
+    }
     popup.hidePopup();
     await wait(() => popup.state === "closed", "menu cleanup");
   });
@@ -37,6 +49,23 @@ describe("native flat menu commands", function () {
       await Zotero.Promise.delay(50);
     const windows = [...plugin().data.dialogs].map(([id, window]: [string, Window]) => ({ id, closed: window.closed, title: window.document?.title }));
     assert.isTrue(condition(), `${label} must complete; tracked=${JSON.stringify(windows)}`);
+  }
+
+  function activateMenuItem(_win: Window, command: XULElement): boolean {
+    const popup = command.parentElement as any;
+    popup.activateItem(command);
+    return true;
+  }
+
+  async function closeMenu(popup: any, sub: any) {
+    const root = popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']") as any;
+    if (root?.open || sub.state !== "closed") {
+      root.open = false;
+      sub.hidePopup();
+      await wait(() => sub.state === "closed", "submenu close");
+    }
+    popup.hidePopup();
+    await wait(() => popup.state === "closed", "menu close");
   }
 
   beforeEach(async function () {
@@ -59,76 +88,31 @@ describe("native flat menu commands", function () {
       await win.ZoteroPane.itemSelected();
       assert.deepEqual(win.ZoteroPane.getSelectedItems().map(item => item.id), [items[0].id]);
     }
-    await win.ZoteroPane.buildItemContextMenu();
     const popup = win.document.getElementById("zotero-itemmenu") as any;
-    if (popup.state !== "closed") {
-      popup.hidePopup();
-      await wait(() => popup.state === "closed", "previous popup closing");
-    }
-    const show = (target: any, open: () => void, label: string) => new Promise<void>((resolve, reject) => {
-      let timer = 0;
-      let retry = 0;
-      const cleanup = () => {
-        target.removeEventListener("popupshown", shown);
-        win.clearTimeout(timer);
-        win.clearInterval(retry);
-      };
-      const finish = () => {
-        cleanup();
-        resolve();
-      };
-      function shown(event: Event) {
-        if (event.target !== target)
-          return;
-        finish();
-      }
-      timer = win.setTimeout(() => {
-        if (target.state === "open") {
-          finish();
-          return;
-        }
-        cleanup();
-        reject(new Error(`${label} did not emit popupshown (state=${target.state})`));
-      }, 10_000);
-      target.addEventListener("popupshown", shown);
-      const attemptOpen = () => {
-        if (target.state === "open") {
-          finish();
-          return;
-        }
-        if (target.state !== "closed")
-          return;
-        win.focus();
-        if (target !== popup && popup.state !== "open") {
-          popup.openPopup(win.document.getElementById("zotero-items-tree"), "after_start", 0, 0, true);
-          return;
-        }
-        open();
-      };
-      retry = win.setInterval(attemptOpen, 150);
-      try {
-        attemptOpen();
-      }
-      catch (error) {
-        cleanup();
-        reject(error);
-      }
-    });
+    popup.hidePopup();
+    await wait(() => popup.state === "closed", "previous popup closing");
+    (win as any).windowUtils.sendMouseEvent("mousemove", 0, 0, 0, 0, 0);
+    await win.ZoteroPane.buildItemContextMenu();
+    const show = async (target: any, open: () => void, label: string) => {
+      const shown = new Promise<void>((resolve) => {
+        const listener = (event: Event) => {
+          if (event.target === target) {
+            target.removeEventListener("popupshown", listener);
+            resolve();
+          }
+        };
+        target.addEventListener("popupshown", listener);
+      });
+      open();
+      await Promise.race([shown, Zotero.Promise.delay(10_000).then(() => {
+        throw new Error(`${label} did not emit popupshown (state=${target.state})`);
+      })]);
+    };
     await show(popup, () => popup.openPopup(win.document.getElementById("zotero-items-tree"), "after_start", 0, 0, true), "Main popup");
+    await wait(() => Boolean(popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']")), "native menu initialization");
     const root = popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']") as any;
-    assert.isNotNull(root);
     assert.isFalse(root.disabled);
     const sub = root.querySelector("menupopup") as any;
-    // Native menus can retain the open property after the parent was hidden by a dialog.
-    if (root.open || sub.state !== "closed") {
-      root.open = false;
-      sub.hidePopup();
-      await wait(() => sub.state === "closed", "previous submenu closing");
-    }
-    // Use the popup API directly: setting menu.open can be suppressed by the
-    // native mouse-hover state after an item-pane refresh between commands.
-    // Observe the actual native shown event; polling can miss a short display
-    // while Gecko processes hover/focus changes after an item-pane redraw.
     await show(sub, () => sub.openPopup(root, "end_before", 0, 0, false, false), "MetaFlow submenu");
     assert.equal(sub.querySelectorAll(":scope > menu").length, 0, "no nested menu arrows");
     assert.equal(sub.querySelectorAll(":scope > menuitem").length, 33);
@@ -172,10 +156,14 @@ describe("native flat menu commands", function () {
       const { popup, sub } = await menu();
       const command = sub.querySelector("menuitem[data-l10n-id='metaref-rule-correct-title-chemical-formula-menu-item']") as any;
       assert.isFalse(command.disabled);
-      command.dispatchEvent(new win.Event("command", { bubbles: true }));
-      popup.hidePopup();
-      await wait(() => popup.state === "closed", "menu command close");
-      await wait(() => item.getField("title", false, true) === `Native ${run} MoS<sub>2</sub>` && !item.hasChanged());
+      assert.isFalse(command.hidden, "the tested formatter is explicitly enabled in the menu");
+      const commandObserved = activateMenuItem(win, command);
+      await closeMenu(popup, sub);
+      await wait(
+        () => item.getField("title", false, true) === `Native ${run} MoS<sub>2</sub>` && !item.hasChanged(),
+        `formatter run ${run + 1} (title=${item.getField("title", false, true)}, changed=${item.hasChanged()}, nativeCommand=${commandObserved})`,
+      );
+      await (plugin().runner as any).runningQueue;
     }
   });
 
@@ -188,9 +176,8 @@ describe("native flat menu commands", function () {
       const { win, popup, sub } = await menu();
       const command = sub.querySelector(`menuitem[data-l10n-id='metaref-${id}']`) as any;
       assert.isFalse(command.disabled);
-      command.dispatchEvent(new win.Event("command", { bubbles: true }));
-      popup.hidePopup();
-      await wait(() => popup.state === "closed", "menu command close");
+      activateMenuItem(win, command);
+      await closeMenu(popup, sub);
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       assert.include(section.textContent!, expected);
@@ -214,9 +201,8 @@ describe("native flat menu commands", function () {
       assert.isTrue(nested.hidden);
       assert.isNotNull(primary);
       assert.isFalse(primary.hidden);
-      primary.dispatchEvent(new win.Event("command", { bubbles: true }));
-      popup.hidePopup();
-      await wait(() => popup.state === "closed", "menu command close");
+      activateMenuItem(win, primary);
+      await closeMenu(popup, sub);
       await wait(() => item.getField("title", false, true) === "Pinned MoS<sub>2</sub>" && !item.hasChanged());
     }
     finally {

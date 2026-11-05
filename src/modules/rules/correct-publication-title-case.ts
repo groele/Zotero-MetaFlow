@@ -42,7 +42,7 @@ export function capitalizePublicationTitle(publicationTitle: string) {
 
   return publicationTitle.split(/(\s+)/).map((word, index) => {
     // Keep spaces
-    if (/^\s$/.test(word))
+    if (/^\s+$/.test(word))
       return word;
 
     const upperCaseVariant = word.toUpperCase();

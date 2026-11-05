@@ -1,7 +1,6 @@
 import { assert } from "chai";
 import { config } from "../../package.json";
 import { Rules } from "../../src/modules/rules";
-import { CnkiTitleService } from "../../src/modules/rules/tool-update-metadata/services/cnki-title-service";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../src/utils/easyscholar";
 
 describe("green Frog integration in Zotero", function () {
@@ -27,52 +26,6 @@ describe("green Frog integration in Zotero", function () {
     for (const dialog of plugin().data.dialogs.values())
       dialog.close();
     await Zotero.Promise.delay(100);
-  });
-
-  it("uses a unique CNKI title result and rejects ambiguous or external links", async function () {
-    const request = Zotero.HTTP.request;
-    const processDocuments = Zotero.HTTP.processDocuments;
-    const Web = Zotero.Translate.Web;
-    const title = "中文标题精确匹配测试";
-    let html = `<a href="https://kns.cnki.net/kcms/detail/detail.aspx?id=qa">${title}</a>`;
-    let visits = 0;
-    let translated = 0;
-    const ctx = { item: { getField: () => title } as unknown as Zotero.Item, identifiers: {}, isPreprint: false, debug: () => {} };
-    try {
-      Zotero.HTTP.request = (async (method: string, url: string, options: any) => {
-        assert.equal(method, "POST");
-        assert.equal(new URL(url).hostname, "kns.cnki.net");
-        assert.isUndefined(options.headers.Cookie);
-        assert.include(new URLSearchParams(options.body).get("QueryJson")!, title);
-        return { responseText: html };
-      }) as any;
-      Zotero.HTTP.processDocuments = (async () => {
-        visits++;
-        return [Zotero.getMainWindow().document];
-      }) as any;
-      Zotero.Translate.Web = class {
-        setDocument() {}
-        async getTranslators() { return [{}]; }
-        setTranslator() {}
-        async translate(options: any) {
-          assert.isFalse(options.libraryID);
-          translated++;
-          return [{ title, date: "2025" }];
-        }
-      } as any;
-      assert.equal((await CnkiTitleService.fetch!(ctx))!.title, title);
-      html += `<a href="https://kns.cnki.net/kcms/detail/detail.aspx?id=other">${title}</a>`;
-      assert.isUndefined(await CnkiTitleService.fetch!(ctx));
-      html = `<a href="https://cnki.net.example.com/article">${title}</a>`;
-      assert.isUndefined(await CnkiTitleService.fetch!(ctx));
-      assert.equal(visits, 1);
-      assert.equal(translated, 1);
-    }
-    finally {
-      Zotero.HTTP.request = request;
-      Zotero.HTTP.processDocuments = processDocuments;
-      Zotero.Translate.Web = Web;
-    }
   });
 
   it("translates all generated controls, persists output choices and toggles real columns", async function () {

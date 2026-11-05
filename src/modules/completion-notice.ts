@@ -40,6 +40,13 @@ export async function configureCompletionNotice(helper: ProgressWindowHelper, op
         line._hbox?.setAttribute("hidden", "true");
     }
     const win = lines[0]._itemText!.ownerDocument!.defaultView!;
+    // Progress meters are useful while work is running, but the native popup
+    // keeps their full-width track after completion. Remove those tracks from
+    // the success notice so only the completed summary remains visible.
+    for (const indicator of win.document.querySelectorAll("progressmeter, progress, [role='progressbar']")) {
+      indicator.setAttribute("hidden", "true");
+      indicator.setAttribute("aria-hidden", "true");
+    }
     // Native sizeToContent can settle asynchronously under Linux window managers.
     const tile = () => {
       if (!closed && !win.closed)

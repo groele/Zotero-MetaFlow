@@ -720,7 +720,6 @@ export type FluentMessageId =
   | 'rule-tool-update-metadata-dialog-mode'
   | 'rule-tool-update-metadata-dialog-mode-all'
   | 'rule-tool-update-metadata-dialog-mode-blank'
-  | 'rule-tool-update-metadata-dialog-note-chinese-limit'
   | 'rule-tool-update-metadata-dialog-note-rate-limit'
   | 'rule-tool-update-metadata-dialog-note-type-change'
   | 'rule-tool-update-metadata-dialog-notes'

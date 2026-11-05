@@ -91,7 +91,8 @@ describe("menu module", () => {
       const event = new Event("command");
       await Promise.all([command.onCommand(event, { items: [] }), command.onCommand(event, { items: [] })]);
       expect(run).toHaveBeenCalledTimes(1);
-      await command.onCommand(new Event("command"), { items: [] });
+      await Promise.resolve();
+      await command.onCommand(event, { items: [] });
       expect(run).toHaveBeenCalledTimes(2);
     }
     finally {

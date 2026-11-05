@@ -1,6 +1,12 @@
 import { requestCachedGET } from "../../../utils/http";
 import { normalizeDOI } from "./policy";
 
+function safeParseJSON(res: any): any {
+  if (typeof res?.response === "object" && res.response !== null)
+    return res.response;
+  return JSON.parse(res?.response || res?.responseText || "{}");
+}
+
 /**
  * Normalizes a raw ISSN string or value into standard format: XXXX-XXXX (e.g. 1359-6454).
  * Returns undefined if the string does not represent a valid 8-character ISSN.
@@ -44,7 +50,7 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = JSON.parse(res.response || res.responseText || "{}");
+        const body = safeParseJSON(res);
         const source = normalizeDOI(body.doi) === cleanDOI ? body.primary_location?.source : undefined;
         const candidate = source?.issn_l || source?.issn?.[0];
         const normalized = normalizeISSN(candidate);
@@ -69,7 +75,7 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = JSON.parse(res.response || res.responseText || "{}");
+        const body = safeParseJSON(res);
         const source = body.results?.find((entry: any) => sameJournal(entry.display_name, publicationTitle));
         const candidate = source?.issn_l || source?.issn?.[0];
         const normalized = normalizeISSN(candidate);
@@ -104,7 +110,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = JSON.parse(res.response || res.responseText || "{}");
+        const body = safeParseJSON(res);
         const message = normalizeDOI(body.message?.DOI) === cleanDOI ? body.message : undefined;
         const candidate = [...(message?.ISSN || []), ...(message?.["issn-type"] || []).map((entry: any) => entry.value)].find(value => normalizeISSN(value));
         const normalized = normalizeISSN(candidate);
@@ -129,7 +135,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = JSON.parse(res.response || res.responseText || "{}");
+        const body = safeParseJSON(res);
         const journal = body.message?.items?.find((entry: any) => entry["container-title"]?.some((title: string) => sameJournal(title, publicationTitle)));
         const candidate = [...(journal?.ISSN || []), ...(journal?.["issn-type"] || []).map((entry: any) => entry.value)].find(value => normalizeISSN(value));
         const normalized = normalizeISSN(candidate);

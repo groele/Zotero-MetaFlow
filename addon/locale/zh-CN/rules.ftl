@@ -386,7 +386,6 @@ rule-tool-update-metadata-dialog-allow-type-changed =
   .label = 允许更改条目类型
 rule-tool-update-metadata-dialog-notes = 说明
 rule-tool-update-metadata-dialog-note-rate-limit = 某些 API 有速率限制；请避免批量处理。
-rule-tool-update-metadata-dialog-note-chinese-limit = 中文题目可尝试 CNKI 搜索；需标题唯一匹配，访问限制或验证页面会导致查询失败。
 rule-tool-update-metadata-dialog-note-type-change = 普通书目更新不改变条目类型；启用版本演进时保留预印本并关联正式版。
 
 

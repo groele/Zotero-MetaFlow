@@ -230,7 +230,7 @@ Example: `2023-01-01`.
 
 ## Metadata Update Tool (`tool-update-metadata`)
 
-The Green Frog integration also provides opt-in automatic blank-field updates, Chinese-title CNKI lookup, author annotation and name-swap tools, literal title/journal replacements, directory commands, and optional supplemental journal sources. See the [integration and validation record](greenfrog-integration-2026-10-16.md) for the exact source boundaries, migration behavior, and outstanding online checks.
+The Green Frog integration also provides opt-in automatic blank-field updates, author annotation and name-swap tools, literal title/journal replacements, directory commands, and optional supplemental journal sources. CNKI title search and its Chinese impact-factor proxy were removed in MetaFlow 14.0.0. See the [integration and validation record](greenfrog-integration-2026-10-16.md) for historical source boundaries and migration behavior.
 
 The two core commands use one identity-validation pipeline and apply accepted metadata without confirmation or field-review windows. Update Metadata follows blank-only or overwrite mode; Check and Repair fills blanks. Explicit identifiers can be resolved directly; PDF and title candidates require independent local evidence. Missing year/creator evidence skips title fallback before any request. Ambiguous results preserve local values and record a reason.
 

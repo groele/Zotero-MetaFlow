@@ -363,6 +363,7 @@ export class ProgressUI {
     helper.changeLine({ type: failed ? "fail" : "default", text, progress: 100, idx: 0 });
     const lines = (helper as unknown as { lines: { _hbox?: Element }[] }).lines;
     lines[2]?._hbox?.removeEventListener("click", this.handleStopRequest as EventListener);
+    lines[0]?._hbox?.ownerDocument?.documentElement?.removeAttribute("data-metaref-core-progress");
     // The completion notice owns the existing window and its lifetime from here.
     this.progressWindow = undefined;
     void configureCompletionNotice(helper, openReport, true);

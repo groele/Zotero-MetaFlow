@@ -85,3 +85,6 @@
 尚未完成真实 EasyScholar 密钥鉴权及全部远程字段逐项验收；中文代理没有成功响应；南农在线数据缺少正向匹配样例；知网真实抓取受访问条件影响。本轮也未重跑 Zotero 11 开发版。不能把本地测试通过表述为所有远程来源、所有 Zotero 版本均已完全验证。
 
 本轮交付本地集成安装包，不代表已经提交或发布到 GitHub。
+# Retired network features
+
+The CNKI Chinese-title lookup and CNKI-backed Chinese impact-factor proxy described in this historical record were removed in MetaFlow 14.0.0 at the user's request. This document remains as evidence for the prior implementation; it does not describe the current service set.

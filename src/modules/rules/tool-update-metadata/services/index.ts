@@ -1,6 +1,5 @@
 import type { MetadataService } from "./base-service";
 import { ArxivService } from "./arxiv-service";
-import { CnkiTitleService } from "./cnki-title-service";
 import { CrossrefService } from "./crossref-service";
 import { SemanticScholarService } from "./semantic-scholar-service";
 import { IdentifiersTranslateService, ItemTranslateService, URLTranslateService } from "./translate-service";
@@ -16,7 +15,6 @@ export const services: MetadataService<any>[] = [
 
   // Fallback to Zotero's translate service
   IdentifiersTranslateService,
-  CnkiTitleService,
   ItemTranslateService,
 
   // Then, Semantic Scholar

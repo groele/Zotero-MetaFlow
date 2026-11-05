@@ -385,7 +385,6 @@ rule-tool-update-metadata-dialog-allow-type-changed =
   .label = Allow Change Item Type
 rule-tool-update-metadata-dialog-notes = Notes
 rule-tool-update-metadata-dialog-note-rate-limit = Some APIs have rate limits; please avoid bulk processing.
-rule-tool-update-metadata-dialog-note-chinese-limit = Chinese titles may use CNKI search. A unique title match is required; access restrictions or verification pages may prevent results.
 rule-tool-update-metadata-dialog-note-type-change = Ordinary bibliographic updates preserve the item type. Published-version lookup preserves the preprint and links its publication.
 
 

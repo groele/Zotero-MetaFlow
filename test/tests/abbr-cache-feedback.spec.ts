@@ -166,6 +166,8 @@ describe("abbreviations, durable cache and quiet completion in Zotero", function
       ui.showFinished(1, 0, 0.1, false, 0, 0, { saved: 1, unchanged: 0, notApplicable: 0, warnings: 0 });
       await Zotero.Promise.delay(500);
       assert.isFalse(nativeWindow.closed, "a success stays visible long enough to read");
+      for (const indicator of nativeWindow.document.querySelectorAll("progressmeter, progress, [role='progressbar']"))
+        assert.isTrue(indicator.hasAttribute("hidden"), "completed notices do not retain a progress track");
       const parent = Zotero.getMainWindow();
       assert.closeTo(nativeWindow.screenX, parent.screenX + parent.outerWidth - nativeWindow.outerWidth - 25, 2);
       assert.isBelow(nativeWindow.screenY, parent.screenY + parent.outerHeight);

@@ -84,6 +84,10 @@ export function showCoreCompletionToast(result: BatchResult) {
       progressState = undefined;
       return;
     }
+    // If the running toast could not be converted in place (for example it
+    // was closed while initialization was still settling), close its tracked
+    // window before creating the fallback completion notice.
+    closeCoreFeedback();
     const notice = new ztoolkit.ProgressWindow(addon.data.config.addonName, { closeOnClick: false, closeTime: -1 })
       .createLine({ type: result.failed || result.preparationFailed ? "fail" : "default", text: `${outcome} · ${summary}`, progress: 100, idx: 0 })
       .show();

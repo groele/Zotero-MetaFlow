@@ -38,6 +38,13 @@ describe("extractDOIFromUrl", () => {
       extractDOIFromUrl("https://example.com/10.1234/abcd.5678?abc=11"),
     ).toBe("10.1234/abcd.5678");
   });
+
+  it("removes unmatched citation punctuation while preserving balanced DOI punctuation", () => {
+    expect(extractDOIFromUrl("https://doi.org/10.1234/abc(foo)."))
+      .toBe("10.1234/abc(foo)");
+    expect(extractDOIFromUrl("https://doi.org/10.1234/abc(foo))"))
+      .toBe("10.1234/abc(foo)");
+  });
 });
 
 describe("extractIdentifiers", () => {
@@ -61,6 +68,12 @@ describe("extractIdentifiers", () => {
 
     const result = extractIdentifiers(item);
     expect(result.DOI).toBe("10.9999/xyz567");
+  });
+
+  it("extracts an unstructured DOI from Extra when it is not a parsed Extra field", () => {
+    const item = mockItem({ extra: "See https://doi.org/10.1234/example)." });
+
+    expect(extractIdentifiers(item).DOI).toBe("10.1234/example");
   });
 
   it("extracts extra fields like PMID and ISBN", () => {

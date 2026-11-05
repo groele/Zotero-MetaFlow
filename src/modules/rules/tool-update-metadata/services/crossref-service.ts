@@ -181,7 +181,7 @@ export const CrossrefService = defineService<CrossrefResponse>({
     try {
       const res = await requestServiceGET("crossref", url, options, signal);
       if (res.status === 200 && res.response) {
-        const parsed = JSON.parse(typeof res.response === "string" ? res.response : res.responseText || "{}");
+        const parsed = typeof res.response === "object" && res.response !== null ? res.response : JSON.parse(typeof res.response === "string" ? res.response : res.responseText || "{}");
         if (parsed.status === "ok" && parsed.message)
           return parsed as CrossrefResponse;
       }

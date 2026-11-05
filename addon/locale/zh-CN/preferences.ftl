@@ -297,7 +297,7 @@ easyscholar-field-njau-quality = 南农高质量（2024 数据源）
     .label = 南农高质量（2024 数据源）
 
 easyscholar-supplemental-group = 补充期刊数据（独立来源）
-easyscholar-supplemental-description = 默认关闭。南农核心来自 2010 历史表，南农高质量查询 2024 接口；中文影响因子来自上游 CNKI 代理。这些旧接口使用 HTTP，只发送期刊名，失败会独立提示，不影响 EasyScholar 数据。
+easyscholar-supplemental-description = 默认关闭。南农核心来自本地 2010 历史表；南农高质量使用 2024 接口，通过 HTTP 仅发送期刊名。请求失败不会丢弃 EasyScholar 数据。
 
 easyscholar-update-abbreviation = 手动查询期刊信息时同时更新缩写
     .label = 手动查询期刊信息时同时更新缩写

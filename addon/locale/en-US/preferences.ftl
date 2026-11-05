@@ -298,7 +298,7 @@ easyscholar-field-njau-quality = NJAU quality (2024 source)
     .label = NJAU quality (2024 source)
 
 easyscholar-supplemental-group = Supplemental journal data (independent sources)
-easyscholar-supplemental-description = Off by default. NJAU core uses a 2010 historical list; NJAU quality uses its 2024 endpoint. Chinese impact factors use the upstream CNKI proxy. These legacy HTTP sources receive journal names only; failures do not discard EasyScholar data.
+easyscholar-supplemental-description = Off by default. NJAU core uses a local 2010 historical list; NJAU quality uses its 2024 endpoint over HTTP and sends only the journal name. Failures do not discard EasyScholar data.
 
 easyscholar-update-abbreviation = Also update abbreviations during manual journal lookups
     .label = Also update abbreviations during manual journal lookups

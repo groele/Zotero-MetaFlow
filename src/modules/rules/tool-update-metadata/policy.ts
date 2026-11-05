@@ -137,12 +137,32 @@ export function metadataIdentity(
 }
 
 /** Earlier trusted services own conflicting fields; later services only fill gaps. */
+export function isPlaceholderCreator(creator: any): boolean {
+  if (!creator)
+    return true;
+  const last = String(("lastName" in creator ? creator.lastName : "") || "").trim();
+  const first = String(("firstName" in creator ? creator.firstName : "") || "").trim();
+  const full = String(("name" in creator ? creator.name : "") || "").trim();
+
+  if (!last && !first && !full)
+    return true;
+
+  const placeholderRegex = /^(?:\([姓名]\)|[姓名无]|\(last\s*name\)|last\s*name|\(first\s*name\)|first\s*name|unknown|anonymous|\[anonymous\]|未知|匿名|null|undefined|nan|n\/a|n\.a\.|n\/d|n\.d\.|no\s*value|none|et\s*al\.?|\?+|-+)$/i;
+  if (full && (placeholderRegex.test(full) || /^\(姓\)[,\s]*\(名\)$/.test(full)))
+    return true;
+  if (last && placeholderRegex.test(last) && (!first || placeholderRegex.test(first)))
+    return true;
+  if (!last && first && placeholderRegex.test(first))
+    return true;
+
+  return false;
+}
 export function mergeMetadata(current: TransformedData, incoming: TransformedData): TransformedData {
   const result = { ...current };
   const placeholderAbstract = /^(?:abstract|no\s+abstract(?:\s+available)?|none|\[none\]|n\/a|摘要)$/i;
   for (const [field, value] of Object.entries(incoming)) {
     if (field === "creators") {
-      if (!result.creators?.length && incoming.creators?.length)
+      if ((!result.creators?.length || result.creators.every(isPlaceholderCreator)) && incoming.creators?.some(c => !isPlaceholderCreator(c)))
         result.creators = incoming.creators;
     }
     else if (field === "abstractNote") {

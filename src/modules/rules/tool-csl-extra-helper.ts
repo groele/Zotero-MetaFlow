@@ -80,8 +80,8 @@ export const ToolCSLHelper = defineRule<Options>({
           [lastName, firstName] = splitChineseName(creator.lastName);
         }
         if (isZh) {
-          firstName = getSurnamePinyin(firstName);
-          lastName = getPinyin(lastName);
+          lastName = getSurnamePinyin(lastName);
+          firstName = getPinyin(firstName);
         }
 
         return `${lastName} || ${firstName}`;

@@ -364,8 +364,8 @@ export function peekEasyScholarRank(title: string): EasyScholarResult | undefine
 
 async function request(url: string, signal?: AbortSignal, fresh = false) {
   const response = await (fresh ? requestGET(url, { timeout: 15_000 }, signal) : requestServiceGET("easyscholar", url, { timeout: 15_000 }, signal));
-  const text = response.responseText || (typeof response.response === "string" ? response.response : "");
-  return { ...JSON.parse(text), _metaflowCacheExpires: Number((response as any)._metaflowCacheExpires) || Date.now() + CACHE_TTL } as { code?: number; msg?: string; _metaflowCacheExpires: number; data?: { officialRank?: { all?: unknown }; customRank?: unknown } };
+  const parsed = typeof response.response === "object" && response.response !== null ? response.response : JSON.parse(response.responseText || (typeof response.response === "string" ? response.response : "") || "{}");
+  return { ...parsed, _metaflowCacheExpires: Number((response as any)._metaflowCacheExpires) || Date.now() + CACHE_TTL } as { code?: number; msg?: string; _metaflowCacheExpires: number; data?: { officialRank?: { all?: unknown }; customRank?: unknown } };
 }
 
 function createRequestURL(secretKey: string, title: string): string {
