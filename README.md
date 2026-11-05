@@ -1,25 +1,25 @@
 # Zotero MetaFlow
 
-**文献元数据深度治理 · 权威学术期刊画像 · 全库原生智能去重 · arXiv 预印本转正 · Semantic Scholar TL;DR 论点提炼 · 网页快照学术复活**
+**文献元数据深度治理 · 权威学术期刊画像 · 全库原生智能去重 · arXiv 预印本转正 · Semantic Scholar TL;DR 论点提炼 · 网页快照学术复活 · 附件角色解耦与安全命名**
 
 _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-13.4.11-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v13.4.11)
+[![Version](https://img.shields.io/badge/version-13.6.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v13.6.0)
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-674%20passed-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-747%20unit%20%7C%20224%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
-[📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
+[📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [🌐 运行环境](#compatibility) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
 
 ---
 
 ## 📖 产品定位与愿景
 
-日常科研中，从各大文献数据库（如 Web of Science、IEEE Xplore、PubMed、arXiv、知网）、浏览器网页或通过 DOI 批量导入的条目元数据往往良莠不齐：标题全大写或全小写、化学式上下标丢失、作者名颠倒错乱、缺少标准期刊缩写、缺少影响因子和分区评级，甚至充斥大量冗余重复项。
+日常科研中，从各大文献数据库（如 Web of Science、IEEE Xplore、PubMed、arXiv、知网）、浏览器网页剪藏或通过 DOI 批量导入的条目元数据往往良莠不齐：标题全大写或全小写、化学式上下标丢失、作者名颠倒错乱、缺少标准期刊缩写、缺少权威影响因子与分区评级，甚至充斥大量冗余重复项与混乱命名的多 PDF 附件。
 
-**Zotero MetaFlow**（隶属于 Zotero Flow Series 生产力套件）专为追求高标准文献管理的研究者设计。它深度融合了**59 项自动化元数据清洗规则**、**权威 ISO 4 离线期刊缩写引擎**、**EasyScholar 61 项学术指标**以及**独家深度集成的全库一键无损去重**，并提供全新的**无残余空白、自适应折叠的侧边栏期刊索引（Journal Insights）面板**，帮助您轻松构建专业、规整、充满学术洞察力的私有文献知识库。
+**Zotero MetaFlow**（隶属于 Zotero Flow Series 生产力套件）专为追求高标准文献管理的研究者设计。插件深度立足于 **Zotero 10 ~ 12 现代架构**，融合了 **59 项自动化元数据清洗规则**、**权威 ISO 4 离线期刊缩写引擎**、**EasyScholar 61 项学术指标**、**全库一键无损去重**、**正文与补充材料 (SI) 附件角色智能解耦 (ZotAssets 引擎)** 以及全新的**无残余空白、自适应折叠的侧边栏期刊索引（Journal Insights）面板**，帮助您轻松构建专业、规整、充满学术洞察力的私有文献知识库。
 
 > [!NOTE]
 > 本插件为独立开源项目，不依赖特定环境，可单兵作战，亦可按需与 Zotero Flow 系列其他插件（如 RefFlow、MindFlow、ViewFlow 等）协同使用。
@@ -31,42 +31,49 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 ## ✨ 核心亮点
 
 ```mermaid
-graph LR
-    A["文献条目导入 / 选定"] --> B["Zotero MetaFlow"]
-    B --> C["📊 期刊学术画像<br/>(Journal Insights 侧栏)"]
-    B --> D["🧹 59 项规则治理<br/>(大小写/化学式/作者/DOI)"]
-    B --> E["📚 ISO 4 期刊缩写<br/>(JabRef + 离线词根)"]
-    B --> F["⚡ 全库原生去重<br/>(一键无损批量合并)"]
-    B --> G["🌐 在线网络补全<br/>(Crossref/Semantic Scholar)"]
-    B --> H["📄 arXiv 预印本转正<br/>(检出出版DOI平滑升级期刊)"]
-    B --> I["💡 语义摘要极速提炼<br/>(Semantic Scholar TL;DR)"]
-    B --> J["🌐 网页快照学术复活<br/>(残缺Webpage升级正规期刊)"]
-    B --> K["📑 附件角色解耦与安全命名<br/>(ZotAssets: 正文与SI智能识别)"]
+flowchart TD
+    A["文献条目导入 / 选定"] --> B["Zotero MetaFlow 双核引擎"]
+
+    subgraph S1["本地离线治理流水线 (Check & Repair，100% 纯本地零网络)"]
+        B --> C["🧹 59 项规则治理<br/>(大小写/化学式/作者/页码/DOI)"]
+        B --> D["📚 ISO 4 期刊缩写<br/>(JabRef 数据库 + LTWA 离线词根)"]
+        B --> E["📑 附件角色解耦 (ZotAssets)<br/>(正文与 SI 智能识别 + 安全重命名)"]
+        B --> F["⚡ 全库原生去重<br/>(一键无损批量合并，主条目智能择优)"]
+    end
+
+    subgraph S2["在线学术增强流水线 (Update Metadata，集中收敛与凭据隐私保护)"]
+        B --> G["📊 期刊学术画像<br/>(JCR/中科院分区/IF/CCF/ESI/Nature Index)"]
+        B --> H["📄 arXiv 预印本转正<br/>(检出出版 DOI 平滑升级期刊)"]
+        B --> I["💡 语义摘要极速提炼<br/>(Semantic Scholar TL;DR 核心论点)"]
+        B --> J["🌐 网页快照学术复活<br/>(残缺 Webpage 升级正规期刊论文)"]
+        B --> K["🏛️ 官方元数据校准<br/>(Crossref / 开放学术数据库补充)"]
+    end
 ```
 
 ### 1. 📊 全景学术期刊画像（Journal Insights 侧栏深度集成）
 
-- **学术评级一览无余**：在 Zotero 右侧条目详情栏中内嵌专属的“期刊索引”面板，实时呈现期刊封面微标、规范全称、标准 ISO 4 缩写。
+- **学术评级一览无余**：在 Zotero 右侧条目详情栏中内嵌专属的“期刊索引”面板，实时呈现期刊规范全称与标准 ISO 4 缩写。
 - **多维权威指标覆盖**：
   - **Clarivate JCR 分区**：Q1 / Q2 / Q3 / Q4；
   - **中科院文献情报中心期刊分区**：最新升级版与基础版大类/小类分区、Top 期刊认证标识；
   - **学术影响指标**：最新影响因子（Impact Factor, IF）、五年影响因子；
   - **领域专精分级**：中国计算机学会（CCF）推荐目录评级（A / B / C 类）、顶会标注；
-  - **前沿收录标识**：ESI 全球学科归属、Nature Index 2026 年度入选期刊本地标识。
-- **现代化无损折叠架构（v13.0.0+ 突破）**：
+  - **前沿收录标识**：ESI 全球学科归属、Nature Index 权威统计期刊本地标识。
+- **现代化无损折叠架构**：
   - 彻底解决原生折叠状态下的高度空缺与外边距留白问题，收起时**真正做到零高度（0px）、零间距**，展开时平滑自适应；
   - 支持数据空白时自愈隐藏（Empty-State Protection），并配备严格的组件级错误边界（Error Boundary），绝不阻塞宿主渲染。
+- **条目切换即时感知与生命周期绑定**：
+  - 基于原生 `section.item` 访问器与 `await win.ZoteroPane.itemSelected()` 事件机制，彻底杜绝条目切换滞后导致的旧内容残留。
 
 ### 2. 📄 arXiv 预印本智能转正（arXiv Preprint-to-Published Workflow）
 
-- **深度汲取 AllanChain/zotero-arxiv-workflow 精髓**：针对学术界先投 arXiv 后发表期刊/会议的普遍规律，打造无缝转正与版本演进闭环。
+- **汲取 AllanChain/zotero-arxiv-workflow 精髓**：针对学术界先投 arXiv 后发表同行评审期刊/会议的普遍规律，打造无缝转正与版本演进闭环。
 - **深度整合进「更新元数据」与侧栏卡片**：
   - 自动智能识别库中的 arXiv 预印本文献（通过 `arxiv.org` URL、`archiveID` 或 `arXiv:` 标识符）；
-  - **右键主流程深度整合**：全面纳入右键核心动作「**更新元数据**」，仅当智能检测到文献为**未转正的预印本**时才动态激活转正流程；面对普通期刊/会议论文时绝不误触发，无需多余独立菜单项，界面极致清爽；
-  - **偏好设置自由可控**：在设置面板的「流水线设置」中配备专属开关，可由用户自主决定是否在更新元数据时自动检出预印本转正；
+  - **右键主流程深度整合**：全面纳入右键核心动作「**更新元数据**」，仅当检测到文献为**未转正的预印本**时动态激活转正流程；面对普通期刊/会议论文时绝不误触发，界面极致清爽；
   - **侧边栏专属交互**：在右侧详情侧边栏直接呈现专属 **arXiv Preprint 卡片**，显示官方 arXiv 编号超链接，并配备醒目的「**⚡ 检查并转为正式发表版本…**」快捷触发按钮。
 - **双模安全转正策略（自由可配）**：
-  - **原地平滑升级（In-Place Upgrade）**：自动从 arXiv Atom API 与 CrossRef 检出正式发表 DOI 及出版卷期信息，将条目类型转为 `journalArticle` 或 `conferencePaper`，**原预印本的全部 PDF 附件、高亮批注、手写笔记、双向关联及标签毫发无损地完整继承**，并在 `Extra` 中自动沉淀完整的原始 arXiv 编号追溯凭据；
+  - **原地平滑升级（In-Place Upgrade）**：自动从 arXiv Atom API 与 CrossRef 检出正式发表 DOI 及出版卷期信息，将条目类型转为 `journalArticle` 或 `conferencePaper`，**原预印本的全部 PDF 附件、高亮批注、手写笔记、双向关联及标签毫发无损地完整继承**，并在 `Extra` 中自动沉淀原始 arXiv 编号追溯凭据；
   - **关联新版本（Create Related Publication）**：保留原预印本不变，新建正式发表条目，并自动建立 Zotero 原生的双向「关联文献」链路。
 - **智能勋章追溯**：已转正文献在侧边栏期刊索引中醒目点亮「**arXiv 已转正**」绿色勋章，学术演进历程一目了然。
 
@@ -75,7 +82,7 @@ graph LR
 - **深度融合原生生态**：直接无缝嵌入 Zotero 原生的“重复条目（Duplicate Items）”视图，在右侧工具区提供全局一键合并操作。
 - **安全全局合并策略**：
   - **单次全局授权**：告别逐条重复确认的繁琐，单次确认即可自动对全库所有重复条目组完成合并；
-  - **主条目智能判定**：默认以最早添加的条目为主条目，自动采纳最完整、最新的字段；
+  - **主条目智能判定**：支持最早添加（默认）、最新添加、最近修改或元数据最详尽四种择优策略，自动采纳最完整、最新的字段；
   - **空缺字段智能补全**：若主条目某些字段为空，自动从副条目中继承补齐，避免任何信息遗漏；
   - **资产完整保留**：全部附件（PDF、快照）、笔记、标签、集合归属、关联条目及原生的撤销历史（Undo）均由底层安全事务完整承接。
 - **非侵入式进度反馈**：采用原生右下角轻量提示窗（Progress Notification），支持随时取消，安全透明。
@@ -90,12 +97,12 @@ graph LR
     - **Extra 附加字段**：写入 `TLDR: ...` 字段，便于在 Zotero 表格列表中通过自定义列直接总览；
     - **双模并行（子笔记 + Extra）**：同时满足列表即时查阅与笔记深度沉淀；
     - **摘要缺失自愈补充**：当条目原有 `abstractNote` 为空时，自动将极速摘要补入摘要字段。
-- **专属条目列表自定义列「撷论」**：在 Zotero 条目列表列右键菜单中直接原生注册「**撷论**」（TL;DR Takeaway）列，开启后文献的核心创新贡献在文库表格中横向直观总览，回填后即时刷新呈现！
+- **专属条目列表自定义列「撷论」**：在 Zotero 条目列表列右键菜单中直接原生注册「**撷论**」（TL;DR Takeaway）列，开启后文献的核心创新贡献在文库表格中横向直观总览，回填后同帧自愈刷新！
 - **侧边栏沉浸式展示**：在右侧详情侧边栏「期刊画像」面板中直接呈现专属的「**💡 核心论点 (TL;DR)**」高亮卡片，无需展开子笔记即可一目了然获取学术要义。
 
-### 5. 🌐 网页快照与残废条目“一键复活”（Web Snapshot & Blog Reviver）
+### 5. 🌐 网页快照与残缺条目“一键复活”（Web Snapshot Reviver）
 
-- **汲取 Snapshot Reviver 与 metadata-hunter 精髓**：针对在浏览器看到优质论文、Nature News 或学术博客时随手剪藏抓取为极度简陋的“网页（Webpage）”条目（无作者、无年份、无卷期、无 DOI，仅有残破 URL 与乱码标题）的核心痛点，打造智能化学术复活流水线。
+- **汲取 Snapshot Reviver 与 metadata-hunter 精髓**：针对在浏览器剪藏抓取为极度简陋的“网页（Webpage）”条目（无作者、无年份、无卷期、无 DOI，仅有残破 URL 与乱码标题）的核心痛点，打造智能化学术复活流水线。
 - **三级级联学术指纹嗅探 (`discoverSnapshotIdentifiers`)**：
   - **URL 深度解析**：识别直接 DOI、Nature/Nature News 路径（如 `10.1038/d41586-...`）、arXiv ID（如 `2403.12345`）及 PubMed PMID / PMCID 等标识；
   - **关联 HTML 快照 `<head>` 精准探针**：自动解析条目关联快照文件或 HTML 头部中的 `<meta name="citation_doi">`、`<meta name="dc.identifier.doi">`、`<meta name="citation_arxiv_id">`、`<meta name="citation_pmid">`、`<link rel="canonical">` 等规范学术元标签，严格忽略正文参考文献 DOI 噪音；
@@ -104,32 +111,25 @@ graph LR
   - 调用 Crossref / Semantic Scholar 反查完整元数据，一键将残破的 `webpage` 或 `blogPost` 升级为正规的 `journalArticle`（期刊论文）或 `preprint`（预印本）；
   - 全面补齐作者列表、出版年份/日期、期刊全称/缩写、卷号、期号、页码与 DOI 等全套学术字段。
 - **无损溯源保护 (Provenance Extra)**：
-  - 升级时完整保留网页原有快照标题与原始 URL，并在 `Extra` 中自动沉淀审计凭据（如 `MetaFlow revived from: webpage` 与 `MetaFlow snapshot title: ...`），资产零丢失。
-- **无缝嵌入「更新元数据」与用户可控开关**：
-  - 深度集成到右键核心菜单「**更新元数据**」中，与预印本转正、TL;DR 回填一气呵成；
-  - 设置面板中提供「**复活网页快照与博客条目**」开关，由用户决定是否启用。
+  - 升级时完整保留网页原有快照标题与原始 URL，并在 `Extra` 中自动沉淀审计凭据（如 `MetaFlow revived from: webpage`），资产零丢失。
 
 ### 6. 📑 正文与补充材料 (SI) 角色解耦与安全命名（深度集成 ZotAssets 引擎）
 
 - **攻克顶级期刊多附件管理的科研痛点**：
-  - 许多世界顶级期刊（如 _Nature_、_Science_、_Cell_、_JACS_、_Angewandte_ 等）发表的论文，核心实验步骤、反应条件、表征谱图（NMR/XRD/TEM）与原始数据全部放置在几十上百页的 **补充材料（Supplementary Information, SI）** 附件中；
-  - 传统 Zotero 导入或抓取多 PDF 附件时，文件名多为随机哈希或数字代码（如 `41586_2023_Article_BF_moesm1_ESM.pdf`），在条目树里全被泛化为“Full Text PDF”，极难辨识，查阅实验细节宛如大海捞针。
+  - 许多顶级期刊（如 _Nature_、_Science_、_Cell_、_JACS_、_Angewandte_ 等）发表的论文，核心实验步骤、反应条件、表征谱图与原始数据全部放置在几十上百页的 **补充材料（Supplementary Information, SI）** 附件中；
+  - 传统 Zotero 导入多 PDF 附件时，文件名多为随机数字代码（如 `41586_2023_Article_BF_moesm1_ESM.pdf`），在条目树里全被泛化为“Full Text PDF”，极难辨识。
 - **智能角色分类与启发式双引擎**：
-  - **出版商文件名特征深度覆盖**：内置 Nature、Science、Wiley、ACS、RSC、Springer、Elsevier 等主流出版社的 SI 命名模式匹配（`suppinfo`、`moesm`、`esi`、`sm`、`appendix`、`补充材料`、`支持信息` 等）；
+  - **出版商文件名特征深度覆盖**：内置 Nature、Science、Wiley、ACS、RSC、Springer、Elsevier 等主流出版社的 SI 命名模式匹配（`suppinfo`、`moesm`、`esi`、`sm`、`appendix`、`补充材料` 等）；
   - **PDF 前两页结构探针**：利用现代化 Gecko / PDFWorker 引擎实时分析 PDF 前两页文本，高灵敏度捕获 `Figure S1`、`Table S2`、`Scheme S1`、`Supplementary Information` 等结构性特征；
   - **母条目元数据交叉比对**：比对 DOI、标题、出版物名称等元数据，高置信度锁定真正的“正文主手稿（Manuscript）”。
 - **跨平台安全命名与自定义模板**：
   - **自定义重命名模板**：偏好设置提供专属重命名模板输入，支持 `{author}`（第一作者）、`{year}`（出版年份）、`{title}`（文献标题）、`{role}`（角色标记：Main / Supplement）自由组合；
-  - **全方位文件系统清洗**：严格剔除 Windows/macOS/Linux 非法字符（`: / \ < > * ?` 等）与控制字符，自动规避 Windows 历史遗留保留设备名（如 `CON`、`PRN`、`AUX` 等）；
+  - **全方位文件系统清洗**：严格剔除 Windows/macOS/Linux 非法字符（`: / \ < > * ?` 等）与控制字符，自动规避 Windows 历史保留设备名（如 `CON`、`PRN`、`AUX` 等）；
   - **UTF-8 字符边界截断**：严格受控于操作系统单路径与文件名预算上限（`MAX_FILENAME_BYTES`），中英文混排绝不拆分多字节产生乱码，彻底杜绝超长路径导致的同步失败或文件丢失。
 - **条目树视觉直观同步**：
   - 自动同步在 Zotero 附件条目树中将标题前缀标注为 `[正文] 论文标题` 与 `[补充材料 1] 论文标题`，文献结构清晰可辨。
 - **100% 纯本地离线执行**：
   - 严格恪守双核解耦长期原则，整个解耦与重命名过程纯本地算法执行，零网络请求、零外部通信，飞行模式或内网隔离环境下瞬时完成。
-- **多层级用户完全自主掌控**：
-  - 顶层卡片「检查并修复元数据：执行步骤」中作为一级独立模块，支持独立勾选与半选联动；
-  - 详细规则中提供独立主开关、PDF 重命名开关、条目标题同步开关与重命名模板输入框；
-  - 条目右键菜单中提供独立按需命令「解耦正文与补充材料（SI）角色」。
 
 ### 7. 🧹 59 项多维元数据治理流水线
 
@@ -197,20 +197,20 @@ graph LR
    - 最新影响因子（IF）及 CCF 评级。
 3. 点击面板右侧的折叠箭头，面板将**无缝贴合收起，不留任何空白间距**。
 
-### 场景二：一键批量清洗与规范化文献条目
+### 场景二：一键批量清洗与规范化文献条目（100% 纯本地离线）
 
 1. 在文献列表中按住 `Ctrl` 或 `Shift` 选中需要整理的一篇或多篇文献（支持跨集合全选）。
 2. 在选中条目上单击鼠标右键，进入 **Zotero MetaFlow** 菜单：
    - 点击 **“检查并修复元数据”**：瞬间完成标题大小写转换、化学式保护、摘要排版清理、作者姓名正反校正与 DOI 规范化；
    - 点击 **“规范期刊名称与缩写”**：自动依据权威库与 ISO 4 统一期刊全称与缩写字段。
-3. 界面右下角会弹出轻量通知，清晰汇报成功项数与字段变更摘要。
+3. 界面右下角弹出轻量通知，汇报成功项数与字段变更摘要，全过程绝不发起任何网络请求。
 
 ### 场景三：全库重复条目一键批量智能合并
 
 1. 点击 Zotero 左侧文献库导航树中的 **“重复条目 (Duplicate Items)”**。
-2. 列表将列出所有潜在重复组，右上角将出现 MetaFlow 专属的 **“一键合并当前库全部重复项”** 按钮。
+2. 列表将列出所有潜在重复组，右上角出现 MetaFlow 专属的 **“一键合并当前库全部重复项”** 按钮。
 3. 点击后弹出确认对话框，展示待处理组数；点击确认开始合并。
-4. 底层将以高可靠事务安全处理各组，自动以最早条目为主条目补齐缺省信息，附件与笔记全部归拢，右下角提示合并完成。
+4. 底层以高可靠事务安全处理各组，自动以最早条目为主条目补齐缺省信息，附件与笔记全部归拢，右下角提示合并完成。
 
 ### 场景四：快速输入题名中的化学式与斜体生物学名
 
@@ -248,7 +248,7 @@ graph LR
 
 ## ⚙️ 偏好设置全景指南
 
-在 Zotero 主菜单打开 **编辑 ➔ 设置**（或在 macOS 上打开 **Zotero ➔ 设置**），进入 **Zotero MetaFlow** 专属配置面板。面板严格遵循 **Zotero 10 原生组件规范** 与 **双核解耦长期原则**，划分为 7 大顶级功能卡片：
+在 Zotero 主菜单打开 **编辑 ➔ 设置**（macOS 上为 **Zotero ➔ 设置**），进入 **Zotero MetaFlow** 专属配置面板。面板严格遵循 **Zotero 10 原生组件规范**、**首组展开铁律** 与 **双核解耦长期纲领**，划分为 11 张结构清晰的折叠卡片（**默认仅第 1 张卡片展开**）：
 
 ### 1. 一般与自动化设置 (General & Automation)
 
@@ -279,9 +279,9 @@ graph LR
     - `更新期刊分区与评级`：更新 EasyScholar 61 项评价指标；
     - `采纳后运行本地格式规则`：在线补全后自动联动本地格式整理。
 - **补充检索卡片**：缺少标识符时低频可选扫描 PDF 缓存或按标题联网检索；
-- **右键菜单显示位置定制**：33 项命令均可自由配置为“右键一级菜单”、“MetaFlow 子菜单”或“关闭隐藏”。
+- **右键菜单显示位置定制**：全部 33 项命令均可自由配置为“右键一级菜单”、“MetaFlow 子菜单”或“关闭隐藏”。
 
-### 3. 详细格式化规则 (Detailed Rules ── 7 个折叠子卡片)
+### 3. 详细格式化规则 (Detailed Rules ── 7 个独立折叠卡片)
 
 - **条目与附件规则**：
   - 正文与补充材料 (SI) 角色解耦主开关 (`rule.correct-attachment-roles`)；
@@ -323,19 +323,29 @@ graph LR
 
 <a id="architecture"></a>
 
-## 🛡️ 架构与数据安全机制
+## 🛡️ 现代化架构与数据安全机制 (v13.6.0 深度加固)
 
-Zotero MetaFlow 遵循严格的企业级数据保护与容灾原则：
+Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gecko 运行时架构：
 
-1. **细粒度条目变更日记（Item Mutation Journal）**：
-   - 批处理过程中，若单条文献因外部异常发生中断，系统会自动回滚当前条目的脏状态，绝对不会污染前后其他健康的文献。
-2. **读写分离与双层 LRU 缓存**：
-   - 采用多级内存缓存与本地持久化机制，期刊画像指标与网络推断秒级响应，即使面对拥有数万条条目的大型文献库亦丝滑流畅。
-3. **安全事务边界与非破坏性覆盖**：
-   - 在线元数据补全默认采用“仅补全空缺字段（Blank-only）”策略，绝不擅自覆盖研究者精心校对过的既有数据；
-   - 批量合并完全基于 Zotero 原生底层 Merge 事务驱动，全量保留关联、附件、笔记与历史 Undo 能力。
-4. **沙箱隔离与错误边界（Error Boundary）**：
-   - 侧边栏与设置页采用严格的 CSS 作用域与组件级 Try-Catch 错误拦截，发生不可预期的数据异常时优雅降级，绝不影响 Zotero 正常文献阅读与主界面操作。
+1. **调度层继承分层与 360 行架构守卫**：
+   - 彻底废除历史庞大的单体调度器，重构为单一职责、严格分层的继承链：
+     $$\text{RunnerState (状态机/进度)} \longrightarrow \text{RuleExecution (执行/回滚)} \longrightarrow \text{BatchPersistence (持久化/变基)} \longrightarrow \text{LintRunner (公共 API)}$$
+   - 各模块均受 `architecture.test.ts` 物理行数（$\le 360$ 行）与原型方法防遮蔽（No Method Shadowing）自动化测试守卫。
+2. **全新特权匿名隐私传输通道 (`credential-request.ts`)**：
+   - 引入专用特权请求通道，杜绝带有 `secretKey`、API Token 的敏感网络请求泄露至 Gecko 原生调试日志；
+   - 发生网络中断、4xx/5xx 错误时自动对 Query 与 Header 实施脱敏掩码，配备 15 秒超时熔断与安全重试机制。
+3. **严格的只读防护与写入边界守卫 (`item-write-policy.ts`)**：
+   - 深度遵循 `item.isEditable()` 原生安全检查；面对只读群组库或回收站（Trash）条目自动降级只读不可编辑，绝不触发非法修改；
+   - 在异步网络等待返回后与事务持久化前二次复查写入资格，杜绝弱网等待期间条目被用户删除导致的脏写入与同步冲突。
+4. **多窗口与独立阅读器穿透遍历 (`getAllItemDocuments`)**：
+   - 针对 Zotero 10 PDF 阅读器拆分为独立窗口（Detached Window）的形态，通过 Gecko 原生 `Services.wm.getEnumerator("")` 全局窗口枚举器穿透扫描所有活动窗口中的 `<info-box>` 与 `#info-table`，确保侧栏面板即时同步生效。
+5. **DOM 注入 Web Components 规范与对称标注**：
+   - 所有向条目面板注入的自定义行（如「撷论」）严格实现三层对称标注（`.meta-row-[field]`, `.meta-label-[field]`, `.meta-value-[field]`），自适应宿主 Dark Theme 与高对比度无障碍主题；
+   - 动态锚点兜底（优先 `extra`，回退 `dateAdded`），同帧自愈，杜绝飞移。
+6. **设置面板三级层级对齐标准与首组展开铁律**：
+   - 统一执行绝对横向网格基准（卡片外边框 0px，标准内边距 16px，二级文字标签 40px 黄金基准线，三级从属 40px/64px）；
+   - 面板有且仅有第 1 张核心卡片声明 `open="open"` 默认展开，结构克制，排版严密；
+   - 零硬编码文本，4 套 Fluent 语言包 867 个键 100% 镜像对称。
 
 ---
 
@@ -345,7 +355,7 @@ Zotero MetaFlow 遵循严格的企业级数据保护与容灾原则：
 
 ### 手动安装步骤
 
-1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v13.0.2/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
+1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新正式发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v13.6.0/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
 2. 在 Zotero 客户端顶部菜单中打开 **工具 → 插件／附加组件**（Tools → Plugins）。
 3. 点击附加组件管理器右上角的 **设置齿轮图标 ⚙️**，选择 **从文件安装插件...（Install Add-on From File...）**。
 4. 选择刚刚下载的 `.xpi` 文件，按照提示完成安装并重启 Zotero。
@@ -360,11 +370,12 @@ Zotero MetaFlow 遵循严格的企业级数据保护与容灾原则：
 
 ## 🌐 兼容性与运行环境
 
-| 运行环境        | 兼容支持范围                                           | 说明                                                   |
-| --------------- | ------------------------------------------------------ | ------------------------------------------------------ |
-| **Zotero 版本** | **Zotero 10.0 ～ 12.***（兼容现代 Gecko 153 平台架构） | 针对现代 Zotero 内核全面重构，支持原生侧边栏与深色模式 |
-| **操作系统**    | Windows 10 / 11、macOS（Intel / Apple Silicon）、Linux | 全平台一致的高性能原生体验                             |
-| **插件版本**    | **v13.4.0**                                            | [查看历史版本说明](docs/releases/metaflow-v13.4.0.md)  |
+| 运行环境        | 兼容支持范围                                                 | 说明                                                          |
+| --------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
+| **Zotero 版本** | **Zotero 10.0 ～ 12.***（Gecko 153+ / Firefox 140 现代架构） | 基于 Zotero 10 开发打磨，前瞻兼容 Zotero 11 与 12 全生命周期  |
+| **操作系统**    | Windows 10 / 11、macOS（Intel / Apple Silicon）、Linux       | 全平台一致的高性能原生体验与路径安全清洗                      |
+| **测试套件**    | **747 项单元测试 + 224 项原生 E2E 测试**（100% 通过）        | 持续集成覆盖真实 Zotero 宿主与 SQLite 事务                    |
+| **插件版本**    | **v13.6.0**                                                  | [查看 13.6.0 版本详细说明](docs/releases/metaflow-v13.6.0.md) |
 
 ---
 
