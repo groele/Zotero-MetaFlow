@@ -124,6 +124,7 @@ export function setupWorkflowSettings(pane: Element) {
     });
     listen(pane, "change", update);
     listen(pane, "command", update);
+    listen(pane, "metaref-preferences-synced", update);
     update();
   }
   choice("check-duplicates", "workflow.reviewDuplicatesOnCheck", false, card);
@@ -142,7 +143,7 @@ export function setupWorkflowSettings(pane: Element) {
   priorityGroup.style.cssText = "margin-inline-start: 24px; margin-block: 4px 10px;";
 
   const priorityHeading = doc.createElementNS("http://www.w3.org/1999/xhtml", "div") as HTMLElement;
-  priorityHeading.id = "metaref-metadata-source-priority-label";
+  priorityHeading.id = "metaref-metadata-source-priority-heading";
   priorityHeading.style.cssText = "font-weight: 600; font-size: 13px; margin-block-end: 4px; color: inherit;";
   priorityHeading.textContent = getString("metadata-source-priority") || "元数据来源优先级";
   doc.l10n!.setAttributes(priorityHeading, "metaref-metadata-source-priority");
@@ -299,5 +300,9 @@ export function setupWorkflowSettings(pane: Element) {
   };
   listen(pane, "change", updateDependencies);
   listen(pane, "command", updateDependencies);
+  listen(pane, "metaref-preferences-synced", () => {
+    syncRadioUI();
+    updateDependencies();
+  });
   updateDependencies();
 }

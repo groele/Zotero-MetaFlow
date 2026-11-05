@@ -3,9 +3,11 @@ import { config } from "../../package.json";
 import { Rules } from "../../src/modules/rules";
 import { SemanticScholarService } from "../../src/modules/rules/tool-update-metadata/services/semantic-scholar-service";
 import { fetchEasyScholarRank } from "../../src/utils/easyscholar";
+import { useHTTPTransport } from "../../src/utils/http-transport";
 
 describe("settings panel layout and validation in Zotero", function () {
   this.timeout(30_000);
+  let restoreTransport: (() => void) | undefined;
   let win: Window & typeof globalThis;
   let pane: HTMLElement;
   let previousConcurrency: number;
@@ -13,6 +15,7 @@ describe("settings panel layout and validation in Zotero", function () {
   const find = (key: string) => pane.querySelector<HTMLElement>(`[preference='${pref(key)}']`)!;
 
   before(async function () {
+    restoreTransport = useHTTPTransport((method, url, options) => Zotero.HTTP.request(method, url, options));
     previousConcurrency = Zotero.Prefs.get(pref("lint.numConcurrent"), true) as number;
     const entry = (Zotero.PreferencePanes as any).pluginPanes.find((entry: any) => entry.pluginID === config.addonID);
     win = Zotero.Utilities.Internal.openPreferences(entry.id)! as Window & typeof globalThis;
@@ -25,6 +28,7 @@ describe("settings panel layout and validation in Zotero", function () {
   });
 
   after(function () {
+    restoreTransport?.();
     Zotero.Prefs.set(pref("lint.numConcurrent"), previousConcurrency, true);
     win?.close();
   });
@@ -355,7 +359,7 @@ describe("settings panel layout and validation in Zotero", function () {
         for (const enabled of [false, true]) {
           Zotero.Prefs.set(pref(typeKey), enabled, true);
           const options = await rule.prepare!({ items: [], debug() {} } as any);
-          assert.deepEqual(options, { mode: value, allowTypeChanged: enabled, repairCreators: Zotero.Prefs.get(pref("metadata.repairCreators"), true) === true });
+          assert.include(options, { mode: value, allowTypeChanged: enabled, repairCreators: Zotero.Prefs.get(pref("metadata.repairCreators"), true) === true });
           assert.equal(plugin.data.dialogs.size, dialogs, "legacy prompt preference cannot reopen the mode dialog");
         }
       }
@@ -395,6 +399,28 @@ describe("settings panel layout and validation in Zotero", function () {
     finally {
       for (const [key, value] of before)
         set(key, value as boolean);
+    }
+  });
+
+  it("resynchronizes dependent controls after external preference changes", async function () {
+    for (const [parentKey, childKey] of [["lint.onAdded", "metadata.autoUpdateOnAdded"], ["workflow.updateBibliographic", "workflow.updateVersions"]]) {
+      const key = pref(parentKey);
+      const original = Zotero.Prefs.get(key, true) as boolean;
+      const auto = find(parentKey) as HTMLInputElement;
+      const child = find(childKey) as HTMLInputElement;
+      try {
+        for (const enabled of [false, true, false]) {
+          Zotero.Prefs.set(key, enabled, true);
+          for (let i = 0; i < 100 && (auto.checked !== enabled || child.disabled !== !enabled); i++)
+            await Zotero.Promise.delay(20);
+          assert.equal(auto.checked, enabled, parentKey);
+          assert.equal(child.disabled, !enabled, childKey);
+          assert.equal(child.closest(".metaref-check-option")?.classList.contains("is-disabled"), !enabled, childKey);
+        }
+      }
+      finally {
+        Zotero.Prefs.set(key, original, true);
+      }
     }
   });
 

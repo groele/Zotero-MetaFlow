@@ -1,4 +1,5 @@
 import type { MasterStrategy } from "./duplicate-policy";
+import { isWritableItem } from "../../utils/item-write-policy";
 import { getString } from "../../utils/locale";
 import { getPref } from "../../utils/prefs";
 import { isFieldValidForItemType } from "../../utils/zotero";
@@ -68,7 +69,7 @@ export async function mergeNativeDuplicates(plan: NativeDuplicatePlan, signal: A
     }
     const items = await Zotero.Items.getAsync(group.ids);
     const library = Zotero.Libraries.get(plan.libraryID);
-    const stale = items.length !== group.ids.length || items.some((item, index) => !item || item.libraryID !== plan.libraryID || item.deleted || !item.isRegularItem() || !item.isEditable() || item.hasChanged() || snapshot(item) !== group.snapshots[index]);
+    const stale = items.length !== group.ids.length || items.some((item, index) => !item || item.libraryID !== plan.libraryID || !isWritableItem(item) || !item.isRegularItem() || item.hasChanged() || snapshot(item) !== group.snapshots[index]);
     const incompatible = items.some(item => item?.itemTypeID !== items[0]?.itemTypeID)
       || items.some((item, index) => item && items.slice(index + 1).some(other => other && isNonDuplicate(item, other)));
     if (!library || !library.editable || stale || incompatible) {
@@ -83,7 +84,7 @@ export async function mergeNativeDuplicates(plan: NativeDuplicatePlan, signal: A
         result.cancelled = true;
         break;
       }
-      if (items.some((item, index) => item.hasChanged() || snapshot(item) !== group.snapshots[index]) || children.some(item => item.hasChanged())) {
+      if (items.some((item, index) => !isWritableItem(item) || item.hasChanged() || snapshot(item) !== group.snapshots[index]) || children.some(item => item.hasChanged())) {
         result.skipped++;
       }
       else {

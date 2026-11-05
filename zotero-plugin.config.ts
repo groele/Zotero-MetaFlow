@@ -105,7 +105,10 @@ export default defineConfig({
   test: {
     entries: [env.METAREF_TEST_ENTRIES || "test/tests"],
     prefs: {
+      // Host background retraction checks are independent of MetaFlow's offline pipeline.
+      "extensions.zotero.retractions.enabled": false,
       "metaref.test.fixturePath": resolve("test/data"),
+      ...env.METAREF_TEST_TRANSPORT_BASE_URL && { "metaref.test.transportBaseURL": env.METAREF_TEST_TRANSPORT_BASE_URL },
       [`${pkg.config.prefsPrefix}.metadata.repairCreators`]: false,
       [`${pkg.config.prefsPrefix}.metadata.updateJournalInfo`]: false,
       ...env.METAREF_TEST_PLATFORM && { "metaref.test.expectedPlatform": Number(env.METAREF_TEST_PLATFORM) },

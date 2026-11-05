@@ -40,6 +40,18 @@ describe("independent journal insights in Zotero", function () {
     return item;
   };
 
+  const selectItem = async (win: Window & typeof globalThis, item: Zotero.Item) => {
+    // Preference fixtures can change 61 column definitions at once. Finish that
+    // host schema refresh before simulating the next user selection.
+    await Promise.resolve();
+    await Zotero.Notifier.trigger("refresh", "itemtree", [], {});
+    await win.ZoteroPane.selectItem(item.id);
+    // selectItem resolves after row selection; itemSelected awaits the public pane update.
+    await win.ZoteroPane.itemSelected();
+    const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as HTMLElement & { item?: Zotero.Item };
+    assert.equal(section.item?.id, item.id, "the native item pane has applied the selection");
+  };
+
   it("keeps SCI under indexing with aligned results at narrow width", async function () {
     const pref = `${prefix}.easyscholar.fields.sci`;
     const previous = Zotero.Prefs.get(pref, true);
@@ -50,7 +62,7 @@ describe("independent journal insights in Zotero", function () {
       item.setField("extra", "SCI: 是");
       await item.saveTx();
       const win = Zotero.getMainWindow();
-      await win.ZoteroPane.selectItem(item.id);
+      await selectItem(win, item);
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       const body = section.querySelector("[data-type='body']") as HTMLElement;
@@ -76,7 +88,7 @@ describe("independent journal insights in Zotero", function () {
     item.setField("ISSN", "0031-9007");
     await item.saveTx();
     const win = Zotero.getMainWindow();
-    await win.ZoteroPane.selectItem(item.id);
+    await selectItem(win, item);
     const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
     assert.isNotNull(section);
     const collapsedSection = section.querySelector("collapsible-section");
@@ -157,16 +169,19 @@ describe("independent journal insights in Zotero", function () {
     item.setField("extra", "Manual note");
     await item.saveTx();
     const win = Zotero.getMainWindow();
-    await win.ZoteroPane.selectItem(item.id);
+    await selectItem(win, item);
     const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
+    for (let attempt = 0; attempt < 50 && section.item?.id !== item.id; attempt++)
+      await Zotero.Promise.delay(50);
     await section._handleRefresh();
     const body = section.querySelector("[data-type='body']") as HTMLElement;
-    const settings = ["easyscholar.secretKey", "easyscholar.clearExtraBeforeUpdate", "easyscholar.updateAbbreviation", "easyscholar.writeToExtra", "easyscholar.fields.jcr", "easyscholar.fields.impactFactor"];
+    const settings = ["easyscholar.secretKey", "easyscholar.clearExtraBeforeUpdate", "easyscholar.updateAbbreviation", "easyscholar.writeToExtra", "easyscholar.fields.jcr", "easyscholar.fields.impactFactor", "metadata.updateJournalInfo"];
     const previous = new Map(settings.map(key => [key, Zotero.Prefs.get(`${prefix}.${key}`, true)]));
     const request = Zotero.HTTP.request;
     let requests = 0;
     let fail = false;
     try {
+      Zotero.Prefs.set(`${prefix}.metadata.updateJournalInfo`, true, true);
       Zotero.Prefs.set(`${prefix}.easyscholar.secretKey`, "pane-isolated-key", true);
       Zotero.Prefs.set(`${prefix}.easyscholar.clearExtraBeforeUpdate`, false, true);
       Zotero.Prefs.set(`${prefix}.easyscholar.updateAbbreviation`, false, true);
@@ -216,7 +231,7 @@ describe("independent journal insights in Zotero", function () {
       assert.equal(body.querySelector("[data-journal-ranking='impactFactor']")?.textContent, "8.4");
       assert.equal(requests, 1, "rendering saved rankings does not query the API");
       const other = await create("Unknown pane QA");
-      await win.ZoteroPane.selectItem(other.id);
+      await selectItem(win, other);
       await section._handleRefresh();
       assert.isNull(body.querySelector("[data-journal-ranking='ccf']"), "switching items clears previous rankings");
       fail = true;
@@ -269,7 +284,7 @@ describe("independent journal insights in Zotero", function () {
       item.setField("extra", mergeEasyScholarExtra("Manual note", Object.fromEntries(EASYSCHOLAR_FIELD_DEFINITIONS.map(field => [field.key, "QA-A"]))));
       await item.saveTx();
       const win = Zotero.getMainWindow();
-      await win.ZoteroPane.selectItem(item.id);
+      await selectItem(win, item);
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       const body = section.querySelector("[data-type='body']") as HTMLElement;
@@ -283,7 +298,7 @@ describe("independent journal insights in Zotero", function () {
       conference.setField("extra", "CCF: A\nCORE Rankings: A*\nManual conference note");
       await conference.saveTx();
       created.push(conference);
-      await win.ZoteroPane.selectItem(conference.id);
+      await selectItem(win, conference);
       await section._handleRefresh();
       assert.isFalse(section.hidden, "conference rankings use the same pane");
       assert.equal(body.querySelector("[data-journal-title]")?.textContent, "Conference QA");
@@ -327,7 +342,7 @@ describe("independent journal insights in Zotero", function () {
         const item = await create(`Status ${scenario} QA`);
         item.setField("extra", "Manual preserved note");
         await item.saveTx();
-        await win.ZoteroPane.selectItem(item.id);
+        await selectItem(win, item);
         await plugin().hooks.onLintInBatch("tool-update-easyscholar", [item]);
         const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
         await section._handleRefresh();
@@ -355,7 +370,7 @@ describe("independent journal insights in Zotero", function () {
         Zotero.Prefs.set(`${prefix}.easyscholar.fields.${field.key}`, field.key === "jcr", true);
       const item = await create("Automatic status journal QA");
       const win = Zotero.getMainWindow();
-      await win.ZoteroPane.selectItem(item.id);
+      await selectItem(win, item);
       Zotero.Prefs.set(`${prefix}.lint.onAdded`, true, true);
       Zotero.Prefs.set(`${prefix}.metadata.autoUpdateOnAdded`, false, true);
       Zotero.Prefs.set(`${prefix}.easyscholar.autoUpdateOnAdded`, true, true);
@@ -367,7 +382,7 @@ describe("independent journal insights in Zotero", function () {
       }) as any;
       await plugin().hooks.onNotify("add", "item", [item.id], {});
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
-      assert.include(section.querySelector("[data-journal-update-status]")?.textContent || "", "Automatic fixture failure");
+      assert.include(section.querySelector("[data-journal-update-status]")?.textContent || "", "Automatic fixture failure", `section=${section.item?.id} selected=${win.ZoteroPane.getSelectedItems().map(i => i.id)} expected=${item.id} skip=${section.skipRender} hidden=${section.hidden} body=${section.textContent?.slice(0, 130)}`);
     }
     finally {
       Zotero.HTTP.request = request;
@@ -380,6 +395,8 @@ describe("independent journal insights in Zotero", function () {
     const keys = ["insights.natureSourcePriority", "insights.natureDatasetUUID", "insights.natureEnabled", "easyscholar.secretKey"];
     const previous = new Map(keys.map(key => [key, Zotero.Prefs.get(`${prefix}.${key}`, true)]));
     const request = Zotero.HTTP.request;
+    const refreshColumns = Zotero.ItemTreeManager.refreshColumns;
+    let columnResets = 0;
     let requests = 0;
     try {
       Zotero.Prefs.set(`${prefix}.insights.natureSourcePriority`, "api-only", true);
@@ -394,14 +411,29 @@ describe("independent journal insights in Zotero", function () {
       }) as any;
       const item = await create("Nature 2026 captured response QA");
       const win = Zotero.getMainWindow();
-      await win.ZoteroPane.selectItem(item.id);
+      await selectItem(win, item);
+      const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
+      const view = win.ZoteroPane.itemsView;
+      const natureColumn = (Zotero.ItemTreeManager as any).getCustomColumns(undefined, { pluginID: config.addonID }).find((column: any) => column.dataKey.endsWith("natureIndex")).dataKey;
+      assert.equal(view.getCellText(view.getRowIndexByID(item.id), natureColumn), "", "prime the native row cache before the index update");
+      Zotero.ItemTreeManager.refreshColumns = () => {
+        columnResets++;
+        return refreshColumns.call(Zotero.ItemTreeManager);
+      };
       await plugin().hooks.onLintInBatch("tool-query-nature-index", [item]);
       const result = await plugin().api.getJournalInsights(item);
       assert.isTrue(result.natureIndex);
       assert.equal(result.natureSource, "api");
       assert.equal(result.natureAPIDataset, "自然指数");
-      const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
+      for (let attempt = 0; attempt < 50 && !section.textContent?.includes("自然指数"); attempt++)
+        await Zotero.Promise.delay(50);
+      assert.equal(section.item?.id, item.id, "the journal section follows the selected item");
+      assert.deepEqual(win.ZoteroPane.getSelectedItems().map(selected => selected.id), [item.id], "data refresh never restores the previous selection");
+      assert.equal(section.querySelector("[data-journal-title]")?.textContent, "Nature 2026 captured response QA");
+      assert.notInclude(section.textContent!, "Automatic fixture failure", "the previous item's query failure is not rendered for the current item");
+      assert.equal(columnResets, 0, "index value updates redraw rows without rebuilding columns");
+      assert.equal(view.getCellText(view.getRowIndexByID(item.id), natureColumn), "✓", "the actual cached native column updates with the pane");
       assert.include(section.textContent!, "自然指数");
       const columns = (Zotero.ItemTreeManager as any).getCustomColumns(undefined, { pluginID: config.addonID });
       assert.isNotEmpty(columns.find((column: any) => column.dataKey.endsWith("natureIndex")).dataProvider(item));
@@ -409,6 +441,57 @@ describe("independent journal insights in Zotero", function () {
       assert.equal(item.getField("extra"), "");
     }
     finally {
+      Zotero.ItemTreeManager.refreshColumns = refreshColumns;
+      Zotero.HTTP.request = request;
+      for (const [key, value] of previous)
+        Zotero.Prefs.set(`${prefix}.${key}`, value as string | boolean, true);
+    }
+  });
+
+  it("keeps the new selection and pane when an older item's API response finishes late", async function () {
+    const keys = ["insights.natureSourcePriority", "insights.natureEnabled", "insights.esiSourcePriority", "easyscholar.secretKey"];
+    const previous = new Map(keys.map(key => [key, Zotero.Prefs.get(`${prefix}.${key}`, true)]));
+    const request = Zotero.HTTP.request;
+    let release!: () => void;
+    const response = new Promise<void>(resolve => release = resolve);
+    let pending: Promise<unknown> | undefined;
+    let requests = 0;
+    try {
+      Zotero.Prefs.set(`${prefix}.insights.natureSourcePriority`, "api-only", true);
+      Zotero.Prefs.set(`${prefix}.insights.natureEnabled`, true, true);
+      Zotero.Prefs.set(`${prefix}.insights.esiSourcePriority`, "local-only", true);
+      Zotero.Prefs.set(`${prefix}.easyscholar.secretKey`, "delayed-selection-fixture", true);
+      Zotero.HTTP.request = (async (method: string, url: string, options: any) => {
+        if (new URL(url).hostname !== "www.easyscholar.cc")
+          return request.call(Zotero.HTTP, method, url, options);
+        requests++;
+        await response;
+        return { responseText: JSON.stringify({ code: 200, data: { customRank: { rankInfo: [{ uuid: "1615199999904223232", abbName: "自然指数", oneRankText: " " }], rank: ["1615199999904223232&&&1"] }, officialRank: { all: {} } } }) };
+      }) as any;
+      const old = await create("Delayed response journal QA");
+      const current = await create("Current selection journal QA");
+      const win = Zotero.getMainWindow();
+      await selectItem(win, old);
+      pending = plugin().hooks.onLintInBatch("tool-query-nature-index", [old]);
+      for (let attempt = 0; attempt < 100; attempt++) {
+        if (requests)
+          break;
+        await Zotero.Promise.delay(10);
+      }
+      assert.equal(requests, 1, "the old item's explicit query is in flight");
+      await selectItem(win, current);
+      release();
+      await pending;
+      const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
+      await section._handleRefresh();
+      assert.deepEqual(win.ZoteroPane.getSelectedItems().map(item => item.id), [current.id]);
+      assert.equal(section.item?.id, current.id);
+      assert.equal(section.querySelector("[data-journal-title]")?.textContent, "Current selection journal QA");
+      assert.equal(requests, 1, "rendering the new selection does not query online");
+    }
+    finally {
+      release();
+      await pending;
       Zotero.HTTP.request = request;
       for (const [key, value] of previous)
         Zotero.Prefs.set(`${prefix}.${key}`, value as string | boolean, true);
@@ -435,7 +518,7 @@ describe("independent journal insights in Zotero", function () {
       item.setField("ISSN", "0031-9007");
       await item.saveTx();
       const win = Zotero.getMainWindow();
-      await win.ZoteroPane.selectItem(item.id);
+      await selectItem(win, item);
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       assert.equal(requests, 0, "selection and rendering do not query the API");
@@ -446,6 +529,9 @@ describe("independent journal insights in Zotero", function () {
       assert.equal(resolved.natureSource, "api");
       assert.deepEqual(resolved.categories, ["CHEMISTRY"]);
       assert.isFalse(resolved.natureIndex, "explicit API nonmembership overrides a positive local match");
+      await section._handleRefresh();
+      for (let attempt = 0; attempt < 50 && (!section.textContent?.includes("EasyScholar API") || !section.textContent?.includes("145 种自然指数统计期刊")); attempt++)
+        await Zotero.Promise.delay(50);
       assert.include(section.textContent!, "EasyScholar API");
       assert.include(section.textContent!, "145 种自然指数统计期刊");
       const columns = (Zotero.ItemTreeManager as any).getCustomColumns(undefined, { pluginID: config.addonID });
@@ -463,7 +549,7 @@ describe("independent journal insights in Zotero", function () {
       Zotero.Prefs.set(`${prefix}.insights.esiSourcePriority`, "api-only", true);
       Zotero.Prefs.set(`${prefix}.insights.natureSourcePriority`, "api-only", true);
       const unknown = await create("Unqueried priority journal QA");
-      await win.ZoteroPane.selectItem(unknown.id);
+      await selectItem(win, unknown);
       await section._handleRefresh();
       const missing = await plugin().api.getJournalInsights(unknown);
       assert.equal(missing.esi, "");

@@ -9,6 +9,7 @@ export class AutomaticItems {
   private waiters: Waiter[] = [];
   private timer?: ReturnType<typeof setTimeout>;
   private running = false;
+  private active?: Promise<void>;
 
   constructor(private process: (ids: number[]) => Promise<void>, private delay: () => number) {}
 
@@ -29,12 +30,16 @@ export class AutomaticItems {
     this.waiters.splice(0).forEach(waiter => waiter.resolve());
   }
 
+  async drain(): Promise<void> {
+    await this.active;
+  }
+
   private schedule(): void {
     if (this.timer !== undefined || this.running || !this.pending.size)
       return;
     this.timer = setTimeout(() => {
       this.timer = undefined;
-      void this.flush();
+      this.active = this.flush();
     }, this.delay());
   }
 

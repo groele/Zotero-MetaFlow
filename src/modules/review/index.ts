@@ -2,6 +2,7 @@ import type { TransformedData } from "../rules/tool-update-metadata/services/bas
 import type { BatchResult } from "../runner";
 import type { MetadataDecision, ReviewProposal } from "./policy";
 import { mapBatch } from "../../utils/batch-map";
+import { isWritableItem } from "../../utils/item-write-policy";
 
 import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
@@ -118,7 +119,7 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
       prepared?.(options);
       return options;
     },
-    async apply({ item, options, report }) {
+    async apply({ item, options, report, signal }) {
       if (options.failures.has(item.id)) {
         report({ level: "warning", code: options.failureCodes.get(item.id), message: options.failures.get(item.id)! });
         return;
@@ -133,6 +134,7 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
         if (!features.creatorsOnly && getPref("workflow.tldrEnabled" as any, true) === true) {
           const identifiers = extractIdentifiers(item);
           await backfillItemTLDR(item, identifiers, {
+            signal,
             target: getPref("workflow.tldrTarget" as any, "note"),
             extraFormat: getPref("workflow.tldrExtraFormat" as any, "tldr"),
             report,
@@ -167,7 +169,7 @@ function publishResult(result: BatchResult, history = true) {
 }
 
 export async function runReviewCommand(command: ReviewCommand, items: Zotero.Item[], integrated = false, features: ReviewFeatures = {}) {
-  const eligible = [...new Map(items.filter(item => item.id && item.isRegularItem() && !item.deleted && item.isEditable()).map(item => [item.id, item])).values()];
+  const eligible = [...new Map(items.filter(item => item.id && item.isRegularItem() && isWritableItem(item)).map(item => [item.id, item])).values()];
   if (!eligible.length)
     return;
   if (command === "tool-review-duplicates") {

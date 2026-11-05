@@ -42,6 +42,7 @@ describe("production XPI installation", function () {
       for (let attempt = 0; attempt < 100 && !(Zotero as any)[config.addonInstance]?.data.alive; attempt++)
         await Zotero.Promise.delay(50);
       const plugin = (Zotero as any)[config.addonInstance];
+      assert.isUndefined(plugin.api.testing, "production packages omit test transport overrides");
       assert.isTrue(plugin.data.alive);
       const license = await Zotero.File.getResourceAsync(installed.getResourceURI("licenses/MetaFlow-AGPL-3.0.txt").spec);
       assert.include(String(license), "GNU AFFERO GENERAL PUBLIC LICENSE");

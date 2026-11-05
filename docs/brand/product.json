@@ -16,7 +16,7 @@
   "githubDescription": "Validate, normalize, and enrich reference metadata. Part of Zotero Flow.",
   "repository": "https://github.com/groele/Zotero-MetaFlow",
   "addonID": "metaflow@groele",
-  "version": "13.5.4",
+  "version": "13.6.0",
   "releaseStatus": "released",
   "license": "AGPL-3.0-or-later"
 }

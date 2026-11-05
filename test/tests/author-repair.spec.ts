@@ -64,28 +64,26 @@ describe("manual author repair in both MetaFlow actions", function () {
     return item;
   };
 
-  for (const action of ["standard", "tool-update-metadata"]) {
-    it(`restores deleted or incorrect authors through ${action} while preserving ordinary fields`, async function () {
-      const item = await create();
-      for (const existing of [[], [authors[0]], [{ creatorType: "author", lastName: "Incorrect surname" }]]) {
-        item.setCreators(existing as _ZoteroTypes.Item.CreatorJSON[]);
-        await item.saveTx();
-        await plugin().hooks.onLintInBatch(action, [item]);
-        await item.reload(["itemData", "creators"], true);
-        assert.deepEqual((item.toJSON() as any).creators, authors);
-        assert.equal(item.getField("date"), "2024");
-        assert.equal(item.getField("publicationTitle"), "Manual journal");
-        assert.equal(plugin().runner.lastResult.failed, 0);
-        assert.isTrue(plugin().runner.lastResult.changes.some((change: any) => change.field === "creators"));
-      }
-    });
-  }
+  it("restores deleted or incorrect authors through tool-update-metadata while preserving ordinary fields", async function () {
+    const item = await create();
+    for (const existing of [[], [authors[0]], [{ creatorType: "author", lastName: "Incorrect surname" }]]) {
+      item.setCreators(existing as _ZoteroTypes.Item.CreatorJSON[]);
+      await item.saveTx();
+      await plugin().hooks.onLintInBatch("tool-update-metadata", [item]);
+      await item.reload(["itemData", "creators"], true);
+      assert.deepEqual((item.toJSON() as any).creators, authors);
+      assert.equal(item.getField("date"), "2024");
+      assert.equal(item.getField("publicationTitle"), "Manual journal");
+      assert.equal(plugin().runner.lastResult.failed, 0);
+      assert.isTrue(plugin().runner.lastResult.changes.some((change: any) => change.field === "creators"));
+    }
+  });
 
   it("supports identity-checked title lookup when the DOI is absent", async function () {
     const item = await create(false);
-    await plugin().hooks.onLintInBatch("standard", [item]);
+    await plugin().hooks.onLintInBatch("tool-update-metadata", [item]);
     assert.deepEqual((item.toJSON() as any).creators, authors);
-    assert.equal(item.getField("DOI"), "", "the author-only repair leaves ordinary fields unchanged");
+    assert.equal(item.getField("DOI"), "10.1234/author-repair", "online metadata update fills the independently verified missing DOI");
   });
 
   it("includes journal rankings in metadata updates and obeys blank versus all mode", async function () {

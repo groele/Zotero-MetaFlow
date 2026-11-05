@@ -1,6 +1,8 @@
 import type { CoreCommand, CoreStage } from "../utils/core-workflow";
 import type { BatchResult } from "./runner";
 import { coreWorkflowPlan } from "../utils/core-workflow";
+import { redrawItemValues } from "../utils/item-value-refresh";
+import { isWritableItem } from "../utils/item-write-policy";
 import { getJournalInsights } from "../utils/journal-insights";
 import { hasEnabledJournalMetrics } from "../utils/journal-permissions";
 import { getString } from "../utils/locale";
@@ -58,13 +60,13 @@ export async function stopCoreWorkflows() {
 }
 
 export function runCoreWorkflow(command: CoreCommand, items: Zotero.Item[]) {
-  const selected = [...new Map(items.filter(item => item?.id && item.isRegularItem() && !item.deleted && item.isEditable()).map(item => [item.id, item])).values()];
+  const selected = [...new Map(items.filter(item => item?.id && item.isRegularItem() && isWritableItem(item)).map(item => [item.id, item])).values()];
   const key = `${command}:${selected.map(item => item.id).sort((a, b) => a - b).join(",")}`;
   return queue.add(key, () => executeWorkflow(command, selected));
 }
 
 async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
-  items = items.filter(item => !item.deleted && item.isEditable());
+  items = items.filter(item => isWritableItem(item));
   if (!items.length || !addon.data.alive)
     return;
   const pref = (key: string, fallback: boolean) => getPref(key as any, fallback) === true;
@@ -103,7 +105,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
   if (pref("rule.require-doi", true))
     localRules.push(localDOICheck());
   const run = async (stage: CoreStage) => {
-    const current = items.filter(item => !item.deleted && item.isEditable());
+    const current = items.filter(item => isWritableItem(item));
     if (!current.length)
       return;
     if (stage === "metadata" || stage === "authors") {
@@ -139,7 +141,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
             }
           }
           if (addon.data.alive && !state.cancelled) {
-            Zotero.ItemTreeManager.refreshColumns();
+            await redrawItemValues(journals.map(item => item.id));
             setJournalUpdateResult(journals.map(item => item.id), result);
             await refreshJournalPane(journals.map(item => item.id));
           }

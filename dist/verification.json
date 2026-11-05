@@ -1,11 +1,11 @@
 {
-  "bytes": 3515340,
-  "sha512": "ed58e6aa186ef9575d352acbeab771bd046a5e4e8e2704506b6e07a2ac60e6a49534de72a526216d879433c0925aca708731d21a42fd9657207cf122e41dd865",
+  "bytes": 3518125,
+  "sha512": "36c7b7b57fc2a63bdcbb22309fd96fe7c8032eccea32691645bbf222fe2ad813deb2063fc145634309edb3793a55f58c1c5f854fb65db6ade5bf8902e3187441",
   "archive": "zotero-metaflow.xpi",
-  "sha256": "43076379787b7f427256e1b962733e4f7d73f0f70ad2520bc73105953d9e0d9d",
+  "sha256": "4b20dfa503678249d6b2a06f6473035a3af7f07578b509f8cb592a1701bfeab6",
   "addon_id": "metaflow@groele",
   "name": "Zotero MetaFlow",
-  "version": "13.5.4",
+  "version": "13.6.0",
   "strict_min_version": "10.0",
   "strict_max_version": "12.*"
 }

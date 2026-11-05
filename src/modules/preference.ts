@@ -50,7 +50,10 @@ export async function registerPrefs() {
     helpURL: homepage,
   });
   try {
-    return await preferenceRegistration;
+    const id = await preferenceRegistration;
+    if (!addon.data.alive)
+      Zotero.PreferencePanes.unregister(id);
+    return id;
   }
   catch (error) {
     preferenceRegistration = undefined;

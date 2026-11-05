@@ -146,7 +146,7 @@ describe("metadata workflow in Zotero", function () {
       assert.equal(new Set(preferenceKeys).size, preferenceKeys.length, "each preference should have one visible control");
       const controlIDs = [...metarefPane.querySelectorAll<HTMLElement>("[id]")].map(element => element.id);
       assert.equal(new Set(controlIDs).size, controlIDs.length, "settings controls should have unique IDs");
-      for (const id of ["menu-group-maintenance", "section-article-abbreviation", "section-article-esi", "section-article-pagination", "metadata-update-defaults", "metadata-provider-options", "section-about"]) {
+      for (const id of ["menu-group-maintenance", "section-article-abbreviation", "section-article-esi", "section-article-pagination", "workflow-update-heading", "metadata-provider-options", "section-about"]) {
         const heading = metarefPane.querySelector(`[data-l10n-id='metaref-${id}']`);
         assert.isNotNull(heading, `settings group ${id} should be present`);
         assert.isNotEmpty(heading!.textContent!.trim(), `settings group ${id} should be localized`);

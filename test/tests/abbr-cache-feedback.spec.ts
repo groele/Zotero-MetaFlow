@@ -2,10 +2,12 @@ import { assert } from "chai";
 import { config } from "../../package.json";
 import { SemanticScholarService } from "../../src/modules/rules/tool-update-metadata/services/semantic-scholar-service";
 import { clearRequestCache, requestServiceGET } from "../../src/utils/http";
+import { useHTTPTransport } from "../../src/utils/http-transport";
 import { clearStoredServiceCache, flushServiceCache, resetServiceCacheSession } from "../../src/utils/service-cache-storage";
 
 describe("abbreviations, durable cache and quiet completion in Zotero", function () {
   this.timeout(30_000);
+  let restoreTransport: (() => void) | undefined;
   const plugin = () => (Zotero as any)[config.addonInstance];
   const prefs = new Map<string, unknown>();
   const items: Zotero.Item[] = [];
@@ -26,6 +28,7 @@ describe("abbreviations, durable cache and quiet completion in Zotero", function
   };
 
   before(function () {
+    restoreTransport = useHTTPTransport((method, url, options) => Zotero.HTTP.request(method, url, options));
     pref("lint.onAdded", false);
     pref("rule.require-journal-abbr.sourceMode", "auto");
     pref("rule.require-journal-abbr.existingPolicy", "known");
@@ -38,6 +41,7 @@ describe("abbreviations, durable cache and quiet completion in Zotero", function
   });
 
   after(async function () {
+    restoreTransport?.();
     clearRequestCache();
     await clearStoredServiceCache();
     for (const item of items)

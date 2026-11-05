@@ -36,7 +36,7 @@ describe("complete journal metric columns", function () {
     await item.saveTx();
     created.push(item);
     const columns = (Zotero.ItemTreeManager as any).getCustomColumns(undefined, { pluginID: config.addonID });
-    assert.lengthOf(columns, 67);
+    assert.lengthOf(columns, 68);
     const request = Zotero.HTTP.request;
     let requests = 0;
     try {
@@ -109,7 +109,7 @@ describe("complete journal metric columns", function () {
       set("insights.natureEnabled", false);
       set("easyscholar.columns.jcr", true);
       set("easyscholar.clearExtraBeforeUpdate", true);
-      await wait(() => columns().length === 3);
+      await wait(() => columns().length === 4);
       assert.isFalse(columns().some((column: any) => column.dataKey.endsWith("easyScholar-jcr")));
       const win = Zotero.getMainWindow();
       await win.ZoteroPane.selectItem(item.id);
@@ -126,7 +126,7 @@ describe("complete journal metric columns", function () {
       set("easyscholar.fields.jcr", false);
       set("easyscholar.fields.impactFactor", false);
       set("easyscholar.fields.casBasic", false);
-      await wait(() => columns().length === 1);
+      await wait(() => columns().length === 2);
       Zotero.HTTP.request = (async () => {
         requests++;
         throw new Error("Disabled metrics must not query services");
@@ -142,7 +142,7 @@ describe("complete journal metric columns", function () {
       Zotero.HTTP.request = request;
       for (const [key, value] of previous)
         Zotero.Prefs.set(`${config.prefsPrefix}.${key}`, value as boolean, true);
-      await wait(() => columns().length === 67);
+      await wait(() => columns().length === 68);
     }
   });
 });

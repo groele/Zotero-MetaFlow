@@ -1,6 +1,7 @@
 import type { BatchResult } from "../runner";
 import { cleanupResourcesSync } from "../../utils/cleanup";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../utils/easyscholar";
+import { redrawItemValues } from "../../utils/item-value-refresh";
 import { isJournalFeedback } from "../../utils/journal-feedback";
 import { clearJournalInsights, getJournalInsights, loadJournalInsights } from "../../utils/journal-insights";
 import { hasEnabledJournalMetrics, isJournalIndexEnabled } from "../../utils/journal-permissions";
@@ -15,6 +16,7 @@ import {
   supportsSection,
 } from "./actions";
 import { renderJournalPaneCard } from "./cards";
+import { journalPaneItem } from "./section-context";
 import { ensureJournalPaneStyles } from "./styles";
 
 export {
@@ -31,7 +33,6 @@ let sectionID: string | undefined;
 const observers: symbol[] = [];
 const refreshers = new Map<HTMLElement, () => Promise<void>>();
 const renders = new WeakMap<HTMLElement, object>();
-const items = new WeakMap<HTMLElement, Zotero.Item>();
 const queryMessages = new Map<number, { level?: string; message: string }[]>();
 const navigationListeners = new Map<Document, EventListener>();
 const updating = new Set<number>();
@@ -77,7 +78,7 @@ export function registerJournalPane() {
             return;
           const sidenav = button.closest("item-pane-sidenav") as Element & { container?: Element };
           const activeBody = [...refreshers.keys()].find(node => node.ownerDocument === doc && sidenav.container?.contains(node));
-          const item = activeBody && items.get(activeBody);
+          const item = activeBody && journalPaneItem(activeBody);
           if (item && !item.deleted && (typeof item.isEditable !== "function" || item.isEditable()) && supportsRankings(item) && !updating.has(item.id))
             void completeFromNavigation(item).catch(error => logger.error(error));
         };
@@ -85,14 +86,14 @@ export function registerJournalPane() {
         navigationListeners.set(doc, listener);
       }
       refreshers.set(body, async () => {
-        setEnabled(supportsSection(items.get(body)));
+        const item = journalPaneItem(body);
+        setEnabled(supportsSection(item));
         await refresh();
       });
     },
     onDestroy({ body }) {
       refreshers.delete(body);
       renders.delete(body);
-      items.delete(body);
       const doc = body.ownerDocument;
       if (doc && ![...refreshers.keys()].some(node => node.ownerDocument === doc)) {
         const listener = navigationListeners.get(doc);
@@ -102,10 +103,6 @@ export function registerJournalPane() {
       }
     },
     onItemChange({ item, body, setEnabled }) {
-      if (item)
-        items.set(body, item);
-      else
-        items.delete(body);
       renders.delete(body);
       body.replaceChildren();
       body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
@@ -117,8 +114,6 @@ export function registerJournalPane() {
         summary.style.display = "none";
     },
     onRender({ body, item, setEnabled }) {
-      if (item)
-        items.set(body, item);
       renders.delete(body);
       const enabled = supportsSection(item);
       setEnabled(enabled);
@@ -142,11 +137,13 @@ export function registerJournalPane() {
         body.textContent = getString("journal-insights-loading");
       }
     },
-    onAsyncRender: context => renderJournalPaneCard(context, {
-      queryMessages,
-      renders,
-      refreshJournalPane,
-    }),
+    onAsyncRender: (context) => {
+      return renderJournalPaneCard(context, {
+        queryMessages,
+        renders,
+        refreshJournalPane,
+      });
+    },
   });
   if (id)
     sectionID = id;
@@ -166,7 +163,7 @@ async function completeFromNavigation(item: Zotero.Item) {
     return;
   // 双核边界与无静默联网守卫：展开侧边栏仅在显式开启 metadata.updateJournalInfo 且配置了有效 EasyScholar 密钥或 API 优先源时才执行在线补全
   const allowAutoUpdate = typeof Zotero !== "undefined" && Zotero.Prefs?.get
-    ? Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.metadata.updateJournalInfo`) !== false
+    ? Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.metadata.updateJournalInfo`, true) !== false
     : true;
   if (!allowAutoUpdate)
     return;
@@ -176,7 +173,7 @@ async function completeFromNavigation(item: Zotero.Item) {
     const saved = new Set(journalRankingRows(String(item.getField("extra") || ""), item).map(row => row.key));
     const enabled = getEnabledEasyScholarFields();
     const secretKey = typeof Zotero !== "undefined" && Zotero.Prefs?.get
-      ? String(Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.easyscholar.secretKey`) || "").trim()
+      ? String(Zotero.Prefs.get(`${addon.data.config.prefsPrefix}.easyscholar.secretKey`, true) || "").trim()
       : "";
     const missingRankings = Boolean(secretKey) && EASYSCHOLAR_FIELD_DEFINITIONS.some(field => enabled.has(field.key) && !saved.has(field.key));
     const missingIndexes = Boolean(secretKey) && item.itemType === "journalArticle" && ((isJournalIndexEnabled("esi") && (!insights.categories.length || insights.esiAPIWarning)) || (isJournalIndexEnabled("nature") && (insights.natureIndex === undefined || insights.natureAPIWarning)));
@@ -212,7 +209,7 @@ function refreshData() {
     registerExtraColumns();
     await loadJournalInsights();
     if (addon.data.alive) {
-      Zotero.ItemTreeManager.refreshColumns();
+      await redrawItemValues();
       await Promise.all([...refreshers.values()].map(refresh => refresh()));
     }
   }).catch(error => logger.error(error)).finally(() => {
@@ -228,14 +225,17 @@ export async function refreshJournalInsights() {
   await loadJournalInsights();
   if (!addon.data.alive)
     return;
-  Zotero.ItemTreeManager.refreshColumns();
+  await redrawItemValues();
   await Promise.all([...refreshers.values()].map(refresh => refresh()));
 }
 
 export async function refreshJournalPane(itemIDs?: number[]) {
   if (!addon.data.alive)
     return;
-  await Promise.all([...refreshers].filter(([body]) => !itemIDs || itemIDs.includes(items.get(body)?.id || 0)).map(([, refresh]) => refresh()));
+  await Promise.all([...refreshers].filter(([body]) => {
+    const item = journalPaneItem(body);
+    return !itemIDs || (item && itemIDs.includes(item.id));
+  }).map(([, refresh]) => refresh()));
 }
 
 export function setJournalUpdateResult(itemIDs: number[], result?: BatchResult) {

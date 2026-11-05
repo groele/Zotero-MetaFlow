@@ -1,7 +1,7 @@
 import { requestHTTP } from "../../../../utils/http";
 import { titlesAgree } from "../policy";
 import { defineService } from "./base-service";
-import { doTranslate, transform } from "./translate-service";
+import { doTranslate, runTranslationOperation, transform } from "./translate-service";
 
 // CNKI title lookup follows Green Frog's public search flow without copying its embedded cookies.
 export const CnkiTitleService = defineService({
@@ -25,11 +25,13 @@ export const CnkiTitleService = defineService({
     if (urls.length !== 1)
       return undefined;
     signal?.throwIfAborted();
-    const documents = await Zotero.HTTP.processDocuments(urls[0], doc => doc);
-    signal?.throwIfAborted();
-    const translate = new Zotero.Translate.Web();
-    translate.setDocument(documents[0]);
-    return await doTranslate(translate);
+    return runTranslationOperation(async (active) => {
+      const documents = await Zotero.HTTP.processDocuments(urls[0], doc => doc);
+      active.throwIfAborted();
+      const translate = new Zotero.Translate.Web();
+      translate.setDocument(documents[0]);
+      return await doTranslate(translate, active);
+    }, signal);
   },
   transform,
 });

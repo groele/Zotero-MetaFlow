@@ -1,6 +1,8 @@
 import type { RuleForRegularScopeField } from "./rules/rule-base";
 import { cleanupResourcesSync } from "../utils/cleanup";
 import { showZoteroDirectory } from "../utils/directories";
+import { redrawItemValues } from "../utils/item-value-refresh";
+import { isWritableItem } from "../utils/item-write-policy";
 import { getJournalInsights } from "../utils/journal-insights";
 import { canRunJournalRule } from "../utils/journal-permissions";
 import { getLocaleID } from "../utils/locale";
@@ -24,7 +26,7 @@ async function menuItems(context: LibraryContext): Promise<Zotero.Item[]> {
 
 function hasMenuItems(context: LibraryContext): boolean {
   if (context.items)
-    return context.items.some(item => item.isRegularItem() && !item.deleted && item.isEditable());
+    return context.items.some(item => item.isRegularItem() && isWritableItem(item));
   return Boolean(context.collectionTreeRows?.length);
 }
 
@@ -76,7 +78,7 @@ function registerFieldMenus() {
           return;
 
         // set enabled state: setDisabled returns true when item should be disabled
-        const disabled: boolean = !context.editable || !context.items.some(item => item.isRegularItem() && !item.deleted && item.isEditable()) || !!rule.fieldMenu?.setDisabled?.(context);
+        const disabled: boolean = !context.editable || !context.items.some(item => item.isRegularItem() && isWritableItem(item)) || !!rule.fieldMenu?.setDisabled?.(context);
         context.setEnabled(!disabled);
       },
       onShown(event, context) {
@@ -159,7 +161,7 @@ function registerItemMenus() {
         if (indexing) {
           const journals = items.filter(item => item.isRegularItem() && !item.deleted && item.itemType === "journalArticle");
           await Promise.all(journals.map(item => getJournalInsights(item, { queryAPI: true })));
-          Zotero.ItemTreeManager.refreshColumns();
+          await redrawItemValues(journals.map(item => item.id));
           await refreshJournalPane(journals.map(item => item.id));
           return;
         }

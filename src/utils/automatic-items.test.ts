@@ -63,4 +63,25 @@ describe("automatic import queue", () => {
     await second;
     expect(process).toHaveBeenCalledTimes(2);
   });
+  it("drains an active import before shutdown persistence while cancelling buffered work", async () => {
+    vi.useFakeTimers();
+    let release!: () => void;
+    const process = vi.fn(() => new Promise<void>((resolve) => {
+      release = resolve;
+    }));
+    const queue = new AutomaticItems(process, () => 500);
+    const first = queue.enqueue([1]);
+    await vi.advanceTimersByTimeAsync(500);
+    const buffered = queue.enqueue([2]);
+    queue.cancelPending();
+    await buffered;
+    const done = vi.fn();
+    const drained = queue.drain().then(done);
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+    release();
+    await Promise.all([first, drained]);
+    expect(done).toHaveBeenCalledOnce();
+    expect(process).toHaveBeenCalledExactlyOnceWith([1]);
+  });
 });

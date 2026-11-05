@@ -1,5 +1,6 @@
 import type { DuplicatePair } from "./duplicate-matching";
 import type { DefaultDuplicateAction, MasterStrategy } from "./duplicate-policy";
+import { isWritableItem } from "../../utils/item-write-policy";
 import { getString } from "../../utils/locale";
 import { getPref } from "../../utils/prefs";
 import { recordRuntimeResult } from "../../utils/runtime-data-storage";
@@ -137,7 +138,7 @@ export async function processImportedDuplicates(items: Zotero.Item[]) {
   const action = getPref("duplicates.defaultAction" as any, "cancel") as DefaultDuplicateAction;
   if (action === "cancel")
     return;
-  const eligible = items.filter(item => !item.deleted && item.isEditable());
+  const eligible = items.filter(item => isWritableItem(item));
   if (!eligible.length)
     return;
   return addon.runner.exclusive(async (signal) => {

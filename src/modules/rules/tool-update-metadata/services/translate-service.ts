@@ -1,3 +1,4 @@
+import { waitForOperation } from "../../../../utils/rule-execution";
 import { defineService } from "./base-service";
 
 export function transform(response: any) {
@@ -7,8 +8,32 @@ export function transform(response: any) {
   return response;
 }
 
-export async function doTranslate(translate: any) {
+export async function runTranslationOperation<T>(operation: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
+  signal?.throwIfAborted();
+  const Controller = typeof AbortController === "undefined"
+    ? (Zotero.getMainWindow() as unknown as Window & typeof globalThis).AbortController
+    : AbortController;
+  const controller = new Controller();
+  const abort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(() => controller.abort(new Error("Translation deadline exceeded")), 15_000);
+  try {
+    return await waitForOperation(() => operation(controller.signal), controller.signal);
+  }
+  finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+    controller.abort();
+  }
+}
+
+export async function doTranslate(translate: any, signal?: AbortSignal) {
+  return runTranslationOperation(active => translateItem(translate, active), signal);
+}
+
+async function translateItem(translate: any, signal: AbortSignal) {
   const translators = await translate.getTranslators();
+  signal.throwIfAborted();
   if (translators.length === 0)
     return undefined;
 
@@ -18,6 +43,7 @@ export async function doTranslate(translate: any) {
   // https://github.com/zotero/translate/blob/05755f5051a77737c56458440c79964c7a8874cf/src/translation/translate.js#L1208-L1210
   // 配置这一项后返回的不再是 Zotero.Item[]，而是一个包含字段信息的 Object[]
   const newItems = await translate.translate({ libraryID: false });
+  signal.throwIfAborted();
   if (newItems.length === 0)
     return undefined;
 
@@ -30,7 +56,7 @@ export const ItemTranslateService = defineService({
   cooldown: 100,
   shouldApply: (): boolean => true,
 
-  fetch: async ({ item }) => {
+  fetch: async ({ item, signal }) => {
     const itemTemp = Zotero.Utilities.Internal.itemToExportFormat(item, false);
 
     // 如果 Item 包含多个标识符，优先使用 DOI
@@ -47,7 +73,7 @@ export const ItemTranslateService = defineService({
     }
     const translate = new Zotero.Translate.Search();
     translate.setSearch(itemTemp);
-    return await doTranslate(translate);
+    return await doTranslate(translate, signal);
   },
 
   transform,
@@ -60,10 +86,10 @@ export const IdentifiersTranslateService = defineService({
   cooldown: 100,
   shouldApply: ({ identifiers }): boolean => Object.values(identifiers).some(Boolean),
 
-  fetch: async ({ identifiers }) => {
+  fetch: async ({ identifiers, signal }) => {
     const translate = new Zotero.Translate.Search();
     translate.setIdentifier(identifiers);
-    return await doTranslate(translate);
+    return await doTranslate(translate, signal);
   },
 
   transform,
@@ -76,14 +102,17 @@ export const URLTranslateService = defineService({
   cooldown: 100,
   shouldApply: ({ identifiers }) => !!identifiers.URL,
 
-  fetch: async ({ identifiers }) => {
+  fetch: async ({ identifiers, signal }) => {
     if (!identifiers.URL)
       return;
 
     const translate = new Zotero.Translate.Web();
-    const doc = await Zotero.HTTP.processDocuments(identifiers.URL, doc => doc);
-    translate.setDocument(doc[0]);
-    return await doTranslate(translate);
+    return runTranslationOperation(async (active) => {
+      const doc = await Zotero.HTTP.processDocuments(identifiers.URL!, doc => doc);
+      active.throwIfAborted();
+      translate.setDocument(doc[0]);
+      return translateItem(translate, active);
+    }, signal);
   },
 
   transform,

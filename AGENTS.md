@@ -76,14 +76,24 @@ Rule IDs are the source of truth for the `ID` type: `zotero-plugin.config.ts`'s 
 
 ### Runner
 
-`src/modules/runner.ts` (`LintRunner`) orchestrates a batch. It:
+`src/modules/runner.ts` (`LintRunner`) owns the serial queue, bounded batch workers, owner cancellation and shutdown. Its domain layers live in `src/modules/runner/`:
 
-1. Calls each rule's `prepare` to build an `optionsMap`.
-2. Queues batches serially and processes items with bounded workers (1–16, from pref `lint.numConcurrent`).
-3. For each item, iterates rules, skipping via `shouldApplyRule` (item-type + field-validity checks), wraps each `apply` in a 60s timeout, and collects errors without aborting sibling rules. Modified items are saved together; a failed transaction reloads and restores snapshots before individual retries.
-4. Aggregates results into a report shown via `reporter.ts` (`ProgressUI` + results dialog).
+- `state.ts` (`RunnerState`): batch state, cancellation signals, progress, result aggregation, history and cache cleanup.
+- `execution.ts` (`RuleExecution`): applicability, preparation, per-item execution and rule-level mutation rollback.
+- `persistence.ts` (`BatchPersistence`): transaction save, snapshot rebasing, individual retries and failed-save recovery.
+- `types.ts`: shared result and statistics contracts. `BatchResult` remains re-exported by `runner.ts` for existing callers.
+
+The inheritance chain is `RunnerState` → `RuleExecution` → `BatchPersistence` → `LintRunner`. Domain methods use protected state; public entry points remain on `LintRunner`. `runner/architecture.test.ts` enforces the 360-line ceiling for these modules, prevents method shadowing across layers, and checks that only the first source-template settings card is open. Existing runner behavior tests cover queueing, cancellation, rollback and save conflicts. Other historical oversized modules remain separate incremental work.
+
+Credential-bearing requests must use `credential-request.ts` through `http-transport.ts`: the native HTTP logger does not reliably redact `secretKey`. Import the privileged XMLHttpRequest constructor using the same public Gecko mechanism as Zotero itself; do not patch the host logger or expose query strings in errors. Unit/service fixtures replace the transport, while `credential-transport.spec.ts` exercises the real transport. `api.testing` is unavailable in production. Keep loopback fixtures alive until the scaffold test process exits, because `Test.run()` returns after launch.
 
 Entry points into a batch run go through `addon.hooks.onLintInBatch(ruleIDs, items)` in `hooks.ts`.
+
+Write eligibility comes from `src/utils/item-write-policy.ts`: reject both `deleted` and `inTrash`, and require `item.isEditable()`. Check again after asynchronous work and inside the persistence boundary. A rule mutation journal owns only that rule's writes; recovery must preserve intervening user edits. Child-note saves and attachment file operations have their own boundaries and are not implicitly rolled back with the parent batch.
+
+`AutomaticItems.cancelPending()` clears buffered imports; shutdown must also await `drain()` after cancelling active runner/core work and before flushing persistence. DOM observers are owned by `DocumentObservers` per document. Preference observers share the pane's AbortSignal, resynchronize from authoritative preference values and notify domain dependencies through `metaref-preferences-synced`. Use Promise microtasks in the plugin sandbox; do not assume the window's global `queueMicrotask` is available.
+
+TLDR parsing is in `tldr-content.ts`, writes/backfill in `tldr.ts`, and legacy Extra migration in `tldr-migration.ts`. Remove old Extra text only after the note is durable and the source is still unchanged. Native translation/document adapters use `runTranslationOperation` for a 15-second waiting bound and cooperative cancellation; this does not guarantee physical cancellation of host I/O already issued.
 
 ### Dual-pipeline architecture: Local offline check & repair vs. Online metadata update
 
@@ -102,6 +112,12 @@ MetaFlow strictly decouples its core processing into two independent pipelines w
 3. **User Preference Controls**:
    - Both pipelines and all individual atomic rules/services must provide independent, explicit toggle switches in the preferences window (`addon/content/preferences.xhtml`).
    - The plugin must never perform silent or unsolicited network requests without explicit user activation.
+
+### Journal pane and item value refresh
+
+`src/modules/journal-pane/` separates lifecycle/refresh orchestration (`index.ts`), index and ranking cards (`cards.ts`), preprint/snapshot actions (`quick-actions.ts`), sharing (`share-button.ts`), and section-local public item resolution (`section-context.ts`). An architecture test guards the 360-line ceiling for these modules. Async card completion checks both its render token and the current connected section's item.
+
+Use `redrawItemValues()` from `src/utils/item-value-refresh.ts` for changed journal/index/TL;DR values: it invalidates the native row cache in every open main window and sends a public `redraw/item` notification. Do not call `ItemTreeManager.refreshColumns()` for value-only changes: Zotero 10 rebuilds columns and can restore a selection captured before a concurrent user selection. Real column additions/removals still use the native column registration API. Native tests that change many column definitions must finish their schema-refresh setup before simulating item selection, without assigning host private fields.
 
 ### Metadata update services
 

@@ -1,3 +1,4 @@
+import { requestTransport } from "./http-transport";
 import { abortableDelay, waitForOperation } from "./rule-execution";
 import { PUBLIC_CACHE_BYTES, PUBLIC_CACHE_LIMIT, PUBLIC_CACHE_TTL, publicationCacheName, SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_MEMORY_LIMIT, SERVICE_MEMORY_BYTES, serviceCacheTTL } from "./service-cache-policy";
 import { clearStoredServiceCache, readServiceCache, storeServiceAliases, storeServiceCache } from "./service-cache-storage";
@@ -209,7 +210,7 @@ export async function requestHTTP(method: "GET" | "POST", url: string, options: 
           options.cancellerReceiver?.(cancel);
         },
       };
-      const send = () => Zotero.HTTP.request(method, url, requestOptions);
+      const send = () => requestTransport(method, url, requestOptions);
       const response = await (signal ? waitForOperation(send, signal) : send());
       signal?.throwIfAborted();
       return response;

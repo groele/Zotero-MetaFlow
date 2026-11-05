@@ -1,6 +1,7 @@
 import type { ApplyContext } from "../rules/rule-base";
 import type { TransformedData } from "../rules/tool-update-metadata/services/base-service";
 import type { MetadataDecision } from "./policy";
+import { isWritableItem } from "../../utils/item-write-policy";
 import { getString } from "../../utils/locale";
 import { isFieldValidForItemType } from "../../utils/zotero";
 import { normalizeDOI } from "../rules/tool-update-metadata/policy";
@@ -24,7 +25,7 @@ export function assertReviewFresh(item: Zotero.Item, original: TransformedData):
   const current = item.toJSON() as Record<string, unknown>;
   const expected = original as Record<string, unknown>;
   const fields = new Set([...Object.keys(expected), ...Object.keys(current)]);
-  if (item.deleted || !item.isEditable() || [...fields].some(field => JSON.stringify(current[field] ?? "") !== JSON.stringify(expected[field] ?? "")))
+  if (!isWritableItem(item) || [...fields].some(field => JSON.stringify(current[field] ?? "") !== JSON.stringify(expected[field] ?? "")))
     throw new Error(getString("review-stale"));
 }
 

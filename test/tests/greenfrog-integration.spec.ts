@@ -273,7 +273,7 @@ describe("green Frog integration in Zotero", function () {
   });
 
   it("composes metadata retrieval and existing formatters in the main workflow without a second settings dialog", async function () {
-    const keys = [...Rules.getStandard().map(rule => `rule.${rule.id}`), "workflow.updateMetadata", "workflow.updateJournalRankings"];
+    const keys = [...Rules.getStandard().map(rule => `rule.${rule.id}`), "workflow.updateMetadata", "workflow.updateJournalRankings", "workflow.updateBibliographic", "workflow.formatAfterUpdate", "metadata.updateJournalInfo", "workflow.tldrEnabled"];
     const previous = new Map(keys.map(key => [key, Zotero.Prefs.get(pref(key), true)]));
     const Search = Zotero.Translate.Search;
     const item = new Zotero.Item("journalArticle");
@@ -285,6 +285,8 @@ describe("green Frog integration in Zotero", function () {
       for (const key of keys)
         Zotero.Prefs.set(pref(key), false, true);
       Zotero.Prefs.set(pref("workflow.updateMetadata"), true, true);
+      Zotero.Prefs.set(pref("workflow.updateBibliographic"), true, true);
+      Zotero.Prefs.set(pref("workflow.formatAfterUpdate"), true, true);
       Zotero.Prefs.set(pref("rule.no-title-trailing-dot"), true, true);
       Zotero.Translate.Search = class {
         setIdentifier() {}
@@ -293,12 +295,12 @@ describe("green Frog integration in Zotero", function () {
         async getTranslators() { return [{}]; }
         async translate() { return [{ itemType: "journalArticle", title: "Combined workflow test.", DOI: "10.1234/combined-qa", date: "2025", publicationTitle: "Combined QA", volume: "1", issue: "2", pages: "3-4", abstractNote: "QA abstract", creators: [{ creatorType: "author", firstName: "Ada", lastName: "Lovelace" }] }]; }
       } as any;
-      await plugin().hooks.onLintInBatch("standard", [item]);
+      await plugin().hooks.onLintInBatch("tool-update-metadata", [item], { core: true });
       assert.equal(item.getField("date"), "2025");
       assert.equal(item.getField("title"), "Combined workflow test");
       assert.equal(plugin().runner.lastResult.saved, 1);
       assert.equal(plugin().runner.lastResult.failed, 0);
-      assert.isTrue(plugin().runner.lastResult.changes.some((change: any) => change.ruleID === "tool-update-metadata"));
+      assert.isTrue(plugin().runner.lastResult.changes.some((change: any) => change.ruleID === "tool-review-metadata"));
       assert.isTrue(plugin().runner.lastResult.changes.some((change: any) => change.ruleID === "no-title-trailing-dot"));
     }
     finally {

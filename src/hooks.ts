@@ -25,6 +25,8 @@ import { clearDuplicateSearchCache } from "./utils/duplicate-search-cache";
 import { toArray } from "./utils/general";
 import { migrateGreenFrogPreferences } from "./utils/greenfrog-migration";
 import { clearRequestCache } from "./utils/http";
+import { redrawItemValues } from "./utils/item-value-refresh";
+import { isWritableItem } from "./utils/item-write-policy";
 import { closeJournalShareDialogs } from "./utils/journal-card-share";
 import { getJournalInsights, loadJournalInsights } from "./utils/journal-insights";
 import { canRunJournalRule, hasEnabledJournalMetrics } from "./utils/journal-permissions";
@@ -134,6 +136,7 @@ async function onShutdown() {
     closeAllDialogs,
     () => Zotero.getMainWindows().forEach(unregisterNativeDuplicatePane),
     () => Promise.all([stopCoreWorkflows(), addon.runner.stop()]),
+    () => automaticItems.drain(),
     flushRuntimeData,
     flushServiceCache,
     flushJournalRankingIndex,
@@ -323,13 +326,12 @@ async function onLintInBatch(
     (item): item is Zotero.Item =>
       Boolean(item)
       && item.isRegularItem()
-      && !item.deleted
-      && (typeof item.isEditable !== "function" || item.isEditable()),
+      && isWritableItem(item),
   );
   items = [...new Map(items.map(item => [item.id || item, item])).values()];
 
   const requested = [...toArray(ruleIDs)];
-  if (!context.automatic && ((context.core && requested.includes("standard")) || (context.review && requested.includes("tool-update-metadata"))))
+  if (!context.automatic && ((context.core && requested.includes("standard")) || ((context.core || context.review) && requested.includes("tool-update-metadata"))))
     return runCoreWorkflow(requested.includes("standard") ? "check" : "update", items);
   for (const command of REVIEW_COMMANDS) {
     if (requested.includes(command as ID))
@@ -373,10 +375,10 @@ async function onLintInBatch(
   const result = await addon.runner.add(tasks);
   if (updateJournal && !result?.cancelled && addon.data.alive) {
     await Promise.all(items.filter(item => item.itemType === "journalArticle").map(item => getJournalInsights(item, { queryAPI: true })));
-    Zotero.ItemTreeManager.refreshColumns();
+    await redrawItemValues(items.map(item => item.id));
   }
   if (rules.some(rule => ["tool-query-esi", "tool-query-nature-index"].includes(rule.id))) {
-    Zotero.ItemTreeManager.refreshColumns();
+    await redrawItemValues(items.map(item => item.id));
     await refreshJournalPane(items.map(item => item.id));
   }
   if (journalUpdate) {
@@ -397,7 +399,7 @@ function onRefreshJournal(item: Zotero.Item) {
     const result = await addon.runner.add({ items: [item], rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }], silent: true });
     if (addon.data.alive && !result?.cancelled) {
       await getJournalInsights(item, { queryAPI: true });
-      Zotero.ItemTreeManager.refreshColumns();
+      await redrawItemValues([item.id]);
       setJournalUpdateResult([item.id], result);
       await refreshJournalPane([item.id]);
     }

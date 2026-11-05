@@ -18,6 +18,7 @@ describe("core command execution and optional costs", function () {
   let alert: typeof Zotero.alert;
   let translations = 0;
   let requests = 0;
+  let providerRequests: string[] = [];
   let requestedJournals: string[] = [];
   let response: any;
   const create = async (title = "Core workflow fixture.", doi = "10.1234/core-workflow") => {
@@ -60,6 +61,7 @@ describe("core command execution and optional costs", function () {
     pref("lint.notify", true);
     translations = requests = 0;
     requestedJournals = [];
+    providerRequests = [];
     for (const key of ["lint.onAdded", "workflow.updateMetadata", "workflow.remoteAuthorsOnCheck", "workflow.updateJournalRankings", "workflow.reviewDuplicatesOnCheck", "workflow.reviewDuplicatesOnUpdate", "workflow.scanPDF", "workflow.searchTitle", "metadata.updateJournalInfo"])
       pref(key, false);
     pref("workflow.updateBibliographic", true);
@@ -77,6 +79,14 @@ describe("core command execution and optional costs", function () {
     (Zotero.HTTP as any).request = async (_method: string, url: string, options: any) => {
       if (url.startsWith("http://localhost:"))
         return request.call(Zotero.HTTP, _method, url, options);
+      const target = new URL(url);
+      // The host retraction service shares HTTP.request and is independent of MetaFlow.
+      // Keep this exact first-party endpoint separate from all plugin provider calls.
+      if (target.origin === "https://api.zotero.org" && target.pathname === "/retractions/search")
+        return request.call(Zotero.HTTP, _method, url, options);
+      providerRequests.push(target.origin + target.pathname);
+      if (url.includes("crossref.org") || url.includes("semanticscholar.org"))
+        return { status: 404, responseText: "{}" };
       requests++;
       if (!url.includes("easyscholar.cc")) {
         const target = new URL(url);
@@ -115,7 +125,9 @@ describe("core command execution and optional costs", function () {
     const item = await create();
     await plugin().hooks.onLintInBatch("standard", [item], { core: true });
     assert.equal(item.getField("title"), "Core workflow fixture");
-    assert.equal(translations + requests, 0);
+    assert.equal(translations, 0, "local repair must not invoke a translator");
+    assert.deepEqual(providerRequests, [], "local repair must not contact any external provider");
+    assert.equal(requests, 0, `local repair must not query a journal provider: ${requestedJournals.join(", ")}`);
   });
 
   it("honors local and cloud priority in both core commands without bypassing DOI verification", async function () {
@@ -132,8 +144,12 @@ describe("core command execution and optional costs", function () {
       await plugin().hooks.onLintInBatch(command, [item], command === "standard" ? { core: true } : { review: true });
       assert.equal(item.getField("title"), "Local corrected title");
       assert.equal(item.getField("date"), "2025");
+      if (command === "standard") {
+        assert.equal(item.getField("publicationTitle"), "Local Corrected Journal", "the local publication-title rule normalizes capitalization");
+        continue;
+      }
       pref("rule.tool-update-metadata.option.mode", "all");
-      await plugin().hooks.onLintInBatch(command, [item], command === "standard" ? { core: true } : { review: true });
+      await plugin().hooks.onLintInBatch(command, [item], { review: true });
       await item.reload(["itemData", "creators"], true);
       assert.equal(item.getField("title"), response.title);
       assert.equal(item.getField("date"), "2026");
@@ -241,10 +257,12 @@ describe("core command execution and optional costs", function () {
     pref("easyscholar.writeToExtra", true);
     for (const field of EASYSCHOLAR_FIELD_DEFINITIONS)
       pref(`easyscholar.fields.${field.key}`, field.key === "sci");
-    const original = Zotero.ItemTreeManager.refreshColumns;
-    Zotero.ItemTreeManager.refreshColumns = () => {
-      throw new Error("Injected presentation failure");
-    };
+    const original = Zotero.Notifier.trigger;
+    Zotero.Notifier.trigger = (async (event: string, type: string, ids: number[], ...args: any[]) => {
+      if (event === "redraw" && type === "item" && ids.includes(item.id))
+        throw new Error("Injected presentation failure");
+      return original.call(Zotero.Notifier, event, type, ids, ...args);
+    }) as typeof Zotero.Notifier.trigger;
     try {
       const result = await plugin().hooks.onLintInBatch("tool-update-metadata", [item], { review: true });
       assert.equal(result.saved, 1, "a presentation error cannot erase committed outcomes");
@@ -253,7 +271,7 @@ describe("core command execution and optional costs", function () {
       assert.include(item.getField("extra"), "SCI: 是");
       assert.deepEqual(plugin().data.lastCoreWorkflow.stages.map((entry: any) => entry.stage), ["journal"]);
     }
-    finally { Zotero.ItemTreeManager.refreshColumns = original; }
+    finally { Zotero.Notifier.trigger = original; }
   });
 
   it("keeps one complete result and runtime record without double-counting saves", async function () {
@@ -336,18 +354,19 @@ describe("core command execution and optional costs", function () {
     finally { runner.add = original; }
   });
 
-  it("combines full metadata and author verification once and coalesces repeated clicks", async function () {
+  it("combines full metadata and enabled author repair once and coalesces repeated clicks", async function () {
     const item = await create();
     pref("workflow.updateMetadata", true);
     pref("workflow.remoteAuthorsOnCheck", true);
-    const first = plugin().hooks.onLintInBatch("standard", [item], { core: true });
-    const second = plugin().hooks.onLintInBatch("standard", [item], { core: true });
+    pref("metadata.repairCreators", true);
+    const first = plugin().hooks.onLintInBatch("tool-update-metadata", [item], { core: true });
+    const second = plugin().hooks.onLintInBatch("tool-update-metadata", [item], { core: true });
     await Promise.all([first, second]);
     await Promise.all([first, second]);
     assert.equal(translations, 1);
     assert.equal(item.getField("title"), "Core workflow fixture");
     assert.equal(item.getField("date"), "2026");
-    assert.equal(item.getCreators()[0].lastName, "Doe", "the explicit author option takes effect even when the general author switch is off");
+    assert.equal(item.getCreators()[0].lastName, "Doe", "the current author-repair switch takes effect in the online workflow");
     const workflow = plugin().data.lastCoreWorkflow;
     assert.deepEqual(workflow.stages.map((entry: any) => entry.stage), ["metadata", "format"]);
     assert.isTrue(workflow.stages[0].result.changes.some((change: any) => change.field === "date"), "later formatting retains earlier metadata evidence");

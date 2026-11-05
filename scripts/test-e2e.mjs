@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
+import { startTransportFixture } from "./testing/transport-fixture.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const defaultManager = process.env.npm_execpath && existsSync(process.env.npm_execpath) ? process.env.npm_execpath : "pnpm";
@@ -58,8 +59,15 @@ copyFileSync(path.join(projectRoot, ".scaffold", "build", "zotero-metaflow.xpi")
 const version = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 const updateFile = version.includes("-") ? "update-beta.json" : "update.json";
 copyFileSync(path.join(projectRoot, ".scaffold", "build", updateFile), path.join(qa, "zotero-metaflow-production-update.json"));
-await run(["exec", "zotero-plugin", "test", "--no-watch"], {
-  ...process.env,
-  METAREF_TEST_PACKAGE_PATH: packagePath,
-  ZOTERO_PLUGIN_KILL_COMMAND: process.env.ZOTERO_PLUGIN_KILL_COMMAND || (process.platform === "win32" ? "pwsh -NoProfile -Command \"exit 0\"" : "true"),
-}, true);
+const fixture = await startTransportFixture();
+try {
+  await run(["exec", "zotero-plugin", "test", "--no-watch"], {
+    ...process.env,
+    METAREF_TEST_PACKAGE_PATH: packagePath,
+    METAREF_TEST_TRANSPORT_BASE_URL: fixture.url,
+    ZOTERO_PLUGIN_KILL_COMMAND: process.env.ZOTERO_PLUGIN_KILL_COMMAND || (process.platform === "win32" ? "pwsh -NoProfile -Command \"exit 0\"" : "true"),
+  }, true);
+}
+finally {
+  fixture.close();
+}

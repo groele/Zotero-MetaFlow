@@ -1,23 +1,25 @@
 import { cleanupResourcesSync } from "../utils/cleanup";
+import { DocumentObservers } from "../utils/document-observers";
+import { isTrashedItem } from "../utils/item-write-policy";
 import { getLocaleID, getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
+import { findExtraRow, getAllItemDocuments, getExtraFieldValue } from "./item-info-dom";
 import { refreshJournalPane } from "./journal-pane";
 import {
-  cleanseTLDRFromExtra,
   extractTLDRFromExtra,
   extractTLDRFromItem,
   saveTLDRToItem,
-  saveTLDRToNote,
 } from "./rules/tool-update-metadata/tldr";
+
+import { migrateLegacyTLDR } from "./tldr-migration";
 
 const logger = createLogger("item-info-row");
 
 let registeredRowID: string | false | undefined;
 const prefObserverIDs: symbol[] = [];
-const activeObservers = new Set<MutationObserver>();
+const documentObservers = new DocumentObservers();
 const activeTimers = new Set<ReturnType<typeof setTimeout>>();
-const observedTables = new WeakSet<Node>();
 const migratingItemIDs = new Set<number>();
 let isPlacingTLDR = false;
 
@@ -69,7 +71,7 @@ export function registerInfoRows() {
         return extractTLDRFromItem(item) || "";
       },
       onSetData({ item, value }) {
-        if (!addon?.data?.alive || !item || item.deleted)
+        if (!addon?.data?.alive || !item || isTrashedItem(item))
           return;
         if (typeof item.isEditable === "function" && !item.isEditable())
           return;
@@ -91,7 +93,7 @@ export function registerInfoRows() {
             return;
           }
           const isRegular = typeof item.isRegularItem === "function" ? item.isRegularItem() : true;
-          const isEditable = isRegular && !item.deleted && (typeof item.isEditable === "function" ? item.isEditable() : true);
+          const isEditable = isRegular && !isTrashedItem(item) && (typeof item.isEditable === "function" ? item.isEditable() : true);
           const isTLDREnabled = getPref("workflow.tldrEnabled" as any, true);
           const showPref = isTLDREnabled && getPref("workflow.tldrShowInInfoPane" as any, true);
           const hasTLDR = Boolean(extractTLDRFromItem(item));
@@ -106,28 +108,21 @@ export function registerInfoRows() {
           // 自动将论点沉淀至专属子笔记，并从 Extra 字段彻底移除保存（仅当 target 偏好为 note 或 abstract 时），
           // 使「其他」字段恢复纯净（不再填充 TLDR），仅在专属的「撷论」行展示！
           // 注意：此处仅处理 TLDR/撷论 格式，绝不触碰用户的个人简记 (remark/简记)！
-          if (isTLDREnabled && item && !item.deleted && typeof item.getField === "function") {
+          if (isTLDREnabled && item && !isTrashedItem(item) && typeof item.getField === "function") {
             const target = getPref("workflow.tldrTarget" as any, "note");
             if (target === "note" || target === "abstract") {
               const currentExtra = String(item.getField("extra") || "");
               const fromExtra = extractTLDRFromExtra(currentExtra);
-              const canEdit = !item.deleted && (typeof item.isEditable === "function" ? item.isEditable() : true);
+              const canEdit = !isTrashedItem(item) && (typeof item.isEditable === "function" ? item.isEditable() : true);
               const itemID = typeof item.id === "number" ? item.id : 0;
               if (fromExtra && canEdit && (!itemID || !migratingItemIDs.has(itemID))) {
                 if (itemID)
                   migratingItemIDs.add(itemID);
                 void (async () => {
                   try {
-                    if (!addon?.data?.alive || item.deleted || (typeof item.isEditable === "function" && !item.isEditable()))
-                      return;
-                    const noteSaved = await saveTLDRToNote(item, fromExtra);
-                    const cleansed = cleanseTLDRFromExtra(item);
-                    if ((noteSaved || cleansed) && typeof item.saveTx === "function") {
-                      await item.saveTx();
-                      if (addon?.data?.alive && typeof Zotero !== "undefined" && Zotero.ItemPaneManager?.refreshInfoRow) {
-                        Zotero.ItemPaneManager.refreshInfoRow("tldr");
-                      }
-                    }
+                    const changed = await migrateLegacyTLDR(item, fromExtra, currentExtra);
+                    if (changed && addon.data.alive && Zotero.ItemPaneManager?.refreshInfoRow)
+                      Zotero.ItemPaneManager.refreshInfoRow("tldr");
                   }
                   catch (err) {
                     logger.error("Failed to auto-cleanse TLDR from extra:", err);
@@ -171,137 +166,6 @@ export function registerInfoRows() {
   }
 }
 
-function getAllItemDocuments(doc?: Document): Document[] {
-  if (doc)
-    return [doc];
-  if (typeof Zotero === "undefined")
-    return [];
-
-  const docs = new Set<Document>();
-  if (typeof Zotero.getMainWindows === "function") {
-    for (const win of Zotero.getMainWindows()) {
-      if (win?.document)
-        docs.add(win.document);
-    }
-  }
-
-  if (typeof Services !== "undefined" && Services.wm?.getEnumerator) {
-    try {
-      const enumerator = Services.wm.getEnumerator("");
-      while (enumerator.hasMoreElements()) {
-        const win = enumerator.getNext() as any;
-        if (win?.document && !docs.has(win.document)) {
-          if (win.document.querySelector?.("info-box, #info-table, .item-box")) {
-            docs.add(win.document);
-          }
-        }
-      }
-    }
-    catch {
-      // Ignore if Services is not available
-    }
-  }
-
-  return [...docs];
-}
-
-function findExtraRow(infoTable: HTMLElement | Element): HTMLElement | null {
-  const candidates = [
-    ".meta-row[data-fieldname='extra']",
-    ".meta-row-extra",
-    ".meta-label-extra",
-    ".meta-label[fieldname='extra']",
-    "[fieldname='extra']",
-    "[data-fieldname='extra']",
-    "#itembox-field-value-extra",
-    "#itembox-field-extra-label",
-    "[data-l10n-id*='extra']",
-  ];
-  for (const selector of candidates) {
-    const elem = infoTable.querySelector?.(selector) as HTMLElement | null;
-    if (elem) {
-      if (elem.parentElement === infoTable)
-        return elem;
-      const row = (elem.closest?.(".meta-row") || elem.parentElement) as HTMLElement | null;
-      if (row && (row.parentElement === infoTable || !row.parentElement))
-        return row;
-      return elem;
-    }
-  }
-
-  if (infoTable.children) {
-    for (const child of Array.from(infoTable.children) as HTMLElement[]) {
-      if (child.classList?.contains("meta-row-tldr") || child.getAttribute?.("data-fieldname") === "tldr" || child.getAttribute?.("data-custom-row-id") === "tldr")
-        continue;
-      if (child.querySelector?.(".meta-label-extra, [fieldname='extra'], [data-fieldname='extra'], #itembox-field-value-extra, [data-l10n-id*='extra']"))
-        return child;
-      const label = child.querySelector?.(".meta-label, label, .label");
-      const labelText = (label?.textContent || "").trim();
-      if (labelText === "其他" || labelText.toLowerCase() === "extra")
-        return child;
-    }
-  }
-  return null;
-}
-
-function getExtraFieldValue(extraRow: HTMLElement, infoTable: HTMLElement | Element): {
-  extraText: string;
-  valElem: any;
-  inputElem: HTMLTextAreaElement | HTMLInputElement | null;
-} {
-  const valElem = (extraRow.querySelector(".meta-data > .value, .value, editable-text, [fieldname='extra'].value")
-    || extraRow.querySelector(".meta-data")
-    || extraRow) as any;
-  const inputElem = extraRow.querySelector("textarea, input") as HTMLTextAreaElement | HTMLInputElement | null;
-  let extraText = "";
-
-  // 1. 优先从 info-box 宿主元素绑定的 Zotero Item 实体直接读取权威 Extra 字段
-  try {
-    const infoBox = infoTable.closest("info-box") as any;
-    const item = infoBox?.item
-      || (typeof Zotero !== "undefined" && Zotero.getActiveZoteroPane?.()?.getSelectedItems?.()?.[0])
-      || (typeof Zotero !== "undefined" && (Zotero as any).Pane?.item);
-    if (item && typeof item.getField === "function") {
-      const fieldVal = item.getField("extra");
-      if (typeof fieldVal === "string" && fieldVal.trim()) {
-        extraText = fieldVal.trim();
-      }
-    }
-  }
-  catch {
-    // ignore
-  }
-
-  // 2. 从 editable-text 组件的 value 属性或 DOM attribute 读取
-  if (!extraText && valElem) {
-    if (typeof valElem.value === "string" && valElem.value.trim()) {
-      extraText = valElem.value.trim();
-    }
-    else {
-      const attrVal = valElem.getAttribute?.("value");
-      if (attrVal && attrVal.trim()) {
-        extraText = attrVal.trim();
-      }
-    }
-  }
-
-  // 3. 从 textarea / input 原生表单元素的 value 读取
-  if (!extraText && inputElem && typeof inputElem.value === "string" && inputElem.value.trim()) {
-    extraText = inputElem.value.trim();
-  }
-
-  // 4. 回退至 DOM textContent（去除开头的行标签“其他”或“Extra”）
-  if (!extraText && valElem?.textContent?.trim()) {
-    extraText = valElem.textContent.trim();
-  }
-  if (!extraText && extraRow.textContent?.trim()) {
-    const raw = extraRow.textContent.trim();
-    extraText = raw.replace(/^(?:其他|Extra)[:：\s]*/i, "").trim();
-  }
-
-  return { extraText, valElem, inputElem };
-}
-
 export function placeTLDRBeforeExtra(doc?: Document) {
   if (typeof Zotero === "undefined" || isPlacingTLDR)
     return;
@@ -316,19 +180,7 @@ export function placeTLDRBeforeExtra(doc?: Document) {
       try {
         const tables = d.querySelectorAll<HTMLElement>("#info-table");
         for (const table of Array.from<HTMLElement>(tables)) {
-          if (!observedTables.has(table) && typeof MutationObserver !== "undefined") {
-            try {
-              const observer = new MutationObserver(() => {
-                placeTLDRBeforeExtra(d);
-              });
-              observer.observe(table, { childList: true, subtree: true });
-              activeObservers.add(observer);
-              observedTables.add(table);
-            }
-            catch (err) {
-              logger.error("Failed to observe infoTable mutations:", err);
-            }
-          }
+          documentObservers.observe(d, table, () => placeTLDRBeforeExtra(d));
         }
 
         const tldrRows = d.querySelectorAll<HTMLElement>(".meta-row[data-custom-row-id=\"tldr\"]");
@@ -337,19 +189,7 @@ export function placeTLDRBeforeExtra(doc?: Document) {
           if (!infoTable)
             continue;
 
-          if (!observedTables.has(infoTable) && typeof MutationObserver !== "undefined") {
-            try {
-              const observer = new MutationObserver(() => {
-                placeTLDRBeforeExtra(d);
-              });
-              observer.observe(infoTable, { childList: true, subtree: true });
-              activeObservers.add(observer);
-              observedTables.add(infoTable);
-            }
-            catch (err) {
-              logger.error("Failed to observe infoTable mutations:", err);
-            }
-          }
+          documentObservers.observe(d, infoTable, () => placeTLDRBeforeExtra(d));
 
           const labelElem = tldrRow.querySelector?.(".meta-label");
           if (labelElem && labelElem.classList) {
@@ -488,17 +328,7 @@ export function unregisterInfoRows() {
     () => {
       clearPendingTimers();
     },
-    () => {
-      for (const obs of activeObservers) {
-        try {
-          obs.disconnect();
-        }
-        catch {
-          // ignore
-        }
-      }
-      activeObservers.clear();
-    },
+    () => documentObservers.clear(),
     () => {
       if (typeof Zotero.Prefs?.unregisterObserver === "function") {
         while (prefObserverIDs.length) {
