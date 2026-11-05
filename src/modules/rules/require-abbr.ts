@@ -1,4 +1,5 @@
 import type { JournalLookupMaps } from "../../utils/data-loader";
+import { isBuiltinAbbreviationPath } from "../../utils/builtin-abbreviation-file";
 import { DataLoader } from "../../utils/data-loader";
 import { watchItemFields } from "../../utils/field-conflicts";
 import { buildJournalMaps, lookupJournalAbbreviation, styleJournalAbbreviation } from "../../utils/journal-abbreviation";
@@ -38,6 +39,11 @@ async function prepare(includeConferenceCustom = false): Promise<Options> {
     tagSource: getPref("rule.require-journal-abbr.tagSource" as any, false),
     withDots: getPref("rule.require-journal-abbr.withDots", true),
   };
+  if (options.customDataPath && isBuiltinAbbreviationPath(options.customDataPath)) {
+    options.customDataPath = "";
+    if (options.sourceMode === "custom")
+      options.sourceMode = "auto";
+  }
   if (options.customDataPath && (includeConferenceCustom || ["auto", "custom"].includes(options.sourceMode || "auto"))) {
     try {
       options.customAbbr = await loadCustomAbbreviations(options.customDataPath);

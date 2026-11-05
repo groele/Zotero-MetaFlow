@@ -33,7 +33,11 @@ describe("settings panel layout and validation in Zotero", function () {
     win?.close();
   });
 
-  it("initializes once and omits the removed search, section jump and global disclosure controls", function () {
+  it("initializes once and omits the removed search, section jump and global disclosure controls", async function () {
+    const abbrPath = find("rule.require-journal-abbr.customDataPath") as HTMLInputElement;
+    for (let attempt = 0; attempt < 100 && !abbrPath.value; attempt++)
+      await Zotero.Promise.delay(25);
+    assert.isTrue(abbrPath.value.endsWith("journal-abbr.json"), "the default built-in path stays visible");
     const actions = pane.querySelectorAll(".metaref-shortcut-action").length;
     pane.dispatchEvent(new win.Event("load"));
     pane.dispatchEvent(new win.Event("load"));
@@ -779,8 +783,18 @@ describe("settings panel layout and validation in Zotero", function () {
         assert.equal(input.value, path);
         assert.equal(status.textContent, "");
         row.querySelector("[data-reset-path='true']")!.dispatchEvent(new win.Event("command", { bubbles: true }));
-        assert.equal(input.value, "");
-        assert.equal(Zotero.Prefs.get(pref(key), true), "");
+        if (kind === "abbr") {
+          const builtin = row.querySelector("#metaref-abbr-use-builtin-button")!;
+          builtin.dispatchEvent(new win.Event("command", { bubbles: true }));
+          for (let attempt = 0; attempt < 200 && row.hasAttribute("data-busy"); attempt++)
+            await Zotero.Promise.delay(25);
+          assert.isTrue(input.value.endsWith("journal-abbr.json"));
+          const data = await IOUtils.readJSON(input.value) as Record<string, string>;
+          assert.equal(data["Nano Letters"], "Nano Lett.");
+          assert.isAbove(Object.keys(data).length, 44000);
+        }
+        else { assert.equal(input.value, ""); }
+        assert.equal(Zotero.Prefs.get(pref(key), true), kind === "abbr" ? input.value : "");
       }
     }
     finally {

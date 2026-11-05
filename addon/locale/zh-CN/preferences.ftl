@@ -606,3 +606,6 @@ metaref-workflow-update-heading = 更新元数据（在线增强与智能补全�
 metaref-workflow-update-description = 在线检索学术数据库，补全书目元数据、转正预印本、修复作者、提炼 AI 核心论点（撷论）及同步期刊指标。
 settings-abbr-file-types = 期刊缩写数据（JSON / CSV）
 settings-abbr-provenance-file = 这是来源审计文件，不含完整的期刊全称—缩写映射。插件已内置缩写库，无需导入；自定义数据请选 journal-abbr.json 或双列 CSV。
+settings-abbr-use-builtin =
+    .label = 使用内置缩写库
+settings-abbr-builtin-ready = 已更新内置缩写文件并恢复内置来源，路径已显示。

@@ -1,3 +1,4 @@
+import { builtinAbbreviationPath } from "../utils/builtin-abbreviation-file";
 import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
 import { getPref, setPref } from "../utils/prefs";
 
@@ -19,7 +20,15 @@ export function setupCustomDataReset(pane: Element) {
         input.value = "";
         const win = input.ownerDocument.defaultView as Window & typeof globalThis;
         input.dispatchEvent(new win.Event("change", { bubbles: true }));
-        setPref(key as any, "");
+        if (key === "rule.require-journal-abbr.customDataPath") {
+          input.value = builtinAbbreviationPath();
+          setPref(key as any, input.value);
+          setPref("rule.require-journal-abbr.sourceMode", "auto");
+          const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
+          if (source)
+            source.value = "auto";
+        }
+        else { setPref(key as any, ""); }
       });
     }
     input.parentElement!.appendChild(button);
@@ -62,7 +71,7 @@ export function setupDependencies(pane: Element) {
       }
       const input = button.parentElement?.querySelector("input[preference]") as HTMLInputElement | null;
       if (input)
-        button.disabled = input.disabled || (button.dataset.resetPath === "true" && !input.value);
+        button.disabled = input.disabled || (button.dataset.resetPath === "true" && !getPref(key(input) as any));
     }
     for (const control of controls)
       control.closest(".metaref-check-option, .subordinate-row")?.classList.toggle("is-disabled", control.disabled);

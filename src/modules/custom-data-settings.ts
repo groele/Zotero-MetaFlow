@@ -1,3 +1,4 @@
+import { builtinAbbreviationPath, writeBuiltinAbbreviationFile } from "../utils/builtin-abbreviation-file";
 import { DataLoader } from "../utils/data-loader";
 import { getString } from "../utils/locale";
 import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
@@ -21,9 +22,49 @@ export function setupCustomDataFiles(pane: Element) {
     row.appendChild(status);
     input.setAttribute("aria-describedby", status.id);
     const syncPath = () => {
-      input.value = String(getPref(key as any, ""));
+      input.value = String(getPref(key as any, "")) || (kind === "abbr" ? builtinAbbreviationPath() : "");
     };
     syncPath();
+    if (kind === "abbr") {
+      const builtin = doc.createXULElement("button");
+      builtin.id = "metaref-abbr-use-builtin-button";
+      doc.l10n!.setAttributes(builtin, "metaref-settings-abbr-use-builtin");
+      button.before(builtin);
+      const refreshBuiltin = async (activate: boolean) => {
+        if (row.hasAttribute("data-busy"))
+          return;
+        row.setAttribute("data-busy", "true");
+        row.setAttribute("aria-busy", "true");
+        const buttons = [...row.querySelectorAll<HTMLButtonElement>("button")];
+        buttons.forEach(button => button.disabled = true);
+        try {
+          await writeBuiltinAbbreviationFile();
+          if (preferenceLifetime(pane).aborted || !pane.isConnected || !addon.data.alive)
+            return;
+          if (activate || !getPref(key as any))
+            setPref(key as any, builtinAbbreviationPath());
+          if (activate) {
+            setPref("rule.require-journal-abbr.sourceMode", "auto");
+            const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
+            if (source)
+              source.value = "auto";
+            status.textContent = getString("settings-abbr-builtin-ready");
+          }
+          syncPath();
+        }
+        catch (error) {
+          status.textContent = getString("settings-file-error", { args: { error: String(error) } });
+        }
+        finally {
+          row.removeAttribute("data-busy");
+          row.removeAttribute("aria-busy");
+          buttons.forEach(button => button.disabled = input.disabled || (button.dataset.resetPath === "true" && !getPref(key as any)));
+        }
+      };
+      listen(builtin, "command", () => refreshBuiltin(true));
+      void refreshBuiltin(false);
+    }
+    listen(pane, "metaref-preferences-synced", syncPath);
     const observer = Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${key}`, syncPath, true);
     const signal = preferenceLifetime(pane);
     signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
@@ -74,7 +115,7 @@ export function setupCustomDataFiles(pane: Element) {
         busy = false;
         row.removeAttribute("data-busy");
         row.removeAttribute("aria-busy");
-        buttons.forEach(button => button.disabled = input.disabled || (button.dataset.resetPath === "true" && !input.value));
+        buttons.forEach(button => button.disabled = input.disabled || (button.dataset.resetPath === "true" && !getPref(key as any)));
       }
     });
   }
