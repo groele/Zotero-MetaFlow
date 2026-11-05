@@ -129,7 +129,7 @@ export function registerPrefsScripts(_window: Window) {
       if (cacheButton.hasAttribute("disabled"))
         return;
       const status = pane.querySelector("#metaref-api-cache-status")!;
-      cacheButton.setAttribute("disabled", "true");
+      (cacheButton as HTMLButtonElement).disabled = true;
       status.textContent = getString("api-cache-clearing");
       try {
         clearEasyScholarCache();

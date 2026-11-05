@@ -6,10 +6,10 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-14.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v14.0.0)
+[![Version](https://img.shields.io/badge/version-14.0.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v14.0.1)
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-760%20unit%20%7C%20227%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-762%20unit%20%7C%20227%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [🌐 运行环境](#compatibility) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
 
@@ -323,7 +323,7 @@ flowchart TD
 
 <a id="architecture"></a>
 
-## 🛡️ 现代化架构与数据安全机制 (v14.0.0 深度加固)
+## 🛡️ 现代化架构与数据安全机制 (v14.0.1 深度加固)
 
 Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gecko 运行时架构：
 
@@ -355,7 +355,7 @@ Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gec
 
 ### 手动安装步骤
 
-1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新正式发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v14.0.0/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
+1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新正式发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v14.0.1/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
 2. 在 Zotero 客户端顶部菜单中打开 **工具 → 插件／附加组件**（Tools → Plugins）。
 3. 点击附加组件管理器右上角的 **设置齿轮图标 ⚙️**，选择 **从文件安装插件...（Install Add-on From File...）**。
 4. 选择刚刚下载的 `.xpi` 文件，按照提示完成安装并重启 Zotero。
@@ -374,8 +374,8 @@ Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gec
 | --------------- | ------------------------------------------------------------ | ------------------------------------------------------------- |
 | **Zotero 版本** | **Zotero 10.0 ～ 12.***（Gecko 153+ / Firefox 140 现代架构） | 基于 Zotero 10 开发打磨，前瞻兼容 Zotero 11 与 12 全生命周期  |
 | **操作系统**    | Windows 10 / 11、macOS（Intel / Apple Silicon）、Linux       | 全平台一致的高性能原生体验与路径安全清洗                      |
-| **测试套件**    | **760 项单元测试 + 227 项原生 E2E 测试**（100% 通过）        | 持续集成覆盖真实 Zotero 宿主与 SQLite 事务                    |
-| **插件版本**    | **v14.0.0**                                                  | [查看 14.0.0 版本详细说明](docs/releases/metaflow-v14.0.0.md) |
+| **测试套件**    | **762 项单元测试 + 227 项原生 E2E 测试**（100% 通过）        | 持续集成覆盖真实 Zotero 宿主与 SQLite 事务                    |
+| **插件版本**    | **v14.0.1**                                                  | [查看 14.0.1 版本详细说明](docs/releases/metaflow-v14.0.1.md) |
 
 ---
 

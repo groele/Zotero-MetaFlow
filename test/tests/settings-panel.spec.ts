@@ -613,6 +613,8 @@ describe("settings panel layout and validation in Zotero", function () {
       assert.isNotNull(input.closest(".metaref-card-body"));
       for (const width of [920, 780]) {
         win.resizeTo(width, 800);
+        for (const overview of pane.querySelectorAll(".metaref-collapsible-card > p"))
+          assert.equal(win.getComputedStyle(overview).marginInlineStart, "0px", "level-one overview starts at the card content edge");
         card.scrollIntoView({ block: "center" });
         await Zotero.Promise.delay(100);
         const rect = card.getBoundingClientRect();

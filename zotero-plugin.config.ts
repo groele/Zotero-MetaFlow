@@ -23,7 +23,6 @@ export default defineConfig({
       "addon/**/*.*",
       "data/journal-abbr/journal-abbr.json",
       "data/journal-abbr/journal-abbr-profiles.json",
-      "data/journal-abbr/journal-abbr-provenance.json",
       "data/journal-abbr/ltwa.tsv",
       "data/journal-abbr/shortwords.txt",
       "data/conference-abbr.json",

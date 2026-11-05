@@ -143,7 +143,7 @@ export function registerNativeDuplicatePane(win: Window) {
         const line = lines[0]._hbox!;
         popup = line.ownerDocument!.defaultView!;
         popup.document.documentElement!.setAttribute("data-metaref-native-duplicates", "true");
-        line.setAttribute("hidden", "true");
+        (line as HTMLElement).hidden = true;
         line.parentElement!.append(feedback!);
         popup.addEventListener("unload", close, { once: true });
         popup.addEventListener("resize", retile);

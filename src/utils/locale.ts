@@ -49,6 +49,7 @@ export function initLocale() {
 export function unloadLocale() {
   // @ts-expect-error - Zotero.ftl not yet typed in zotero-types
   Zotero.ftl.removeResourceIds(["metaref-addon.ftl", "metaref-main-window.ftl"]);
+  Services.strings.flushBundles();
 }
 
 interface GetStringOptions {

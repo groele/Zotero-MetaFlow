@@ -1,7 +1,6 @@
-import type { ApplyContext } from "../../rule-base";
+import type { ApplyContext, Rule } from "../../rule-base";
 import type { Identifiers } from "../identifiers";
 import { abortableDelay } from "../../../../utils/rule-execution";
-import { Rule } from "../../rule-base";
 
 type MetadataResponse = Record<string, any>;
 
