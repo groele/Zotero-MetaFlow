@@ -3,8 +3,8 @@ type RequestOptions = NonNullable<Parameters<typeof Zotero.HTTP.request>[2]>;
 /** Privileged XHR avoids the host HTTP logger, which does not redact secretKey. */
 export function requestCredentials(method: "GET" | "POST", url: string, options: RequestOptions): Promise<XMLHttpRequest> {
   // Use the same privileged global constructor as Zotero's own network module.
-  if (typeof XMLHttpRequest === "undefined" && typeof Components !== "undefined")
-    Components.utils.importGlobalProperties(["XMLHttpRequest"]);
+  if (typeof XMLHttpRequest === "undefined" && typeof Cu !== "undefined")
+    Cu.importGlobalProperties(["XMLHttpRequest"]);
   const win = Zotero.getMainWindow?.() as unknown as (Window & typeof globalThis) | undefined;
   let XHR = typeof XMLHttpRequest !== "undefined" ? XMLHttpRequest : win && !win.closed ? win.XMLHttpRequest : undefined;
   if (!XHR && typeof Services !== "undefined") {

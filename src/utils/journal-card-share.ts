@@ -79,7 +79,7 @@ export async function shareJournalCard(data: JournalCardData, options?: { mode?:
 async function copyCardImage(win: Window | null | undefined, canvas: HTMLCanvasElement | null, blobPromise: Promise<Blob | null> | null) {
   if (!canvas)
     throw new Error("Canvas unavailable");
-  if (typeof Components !== "undefined") {
+  if (typeof Cc !== "undefined") {
     new ClipboardHelper().addImage(canvas.toDataURL("image/png")).copy();
     return;
   }
@@ -126,9 +126,9 @@ function generateCardText(data: JournalCardData): string {
 
 async function copyTextToClipboard(win: Window | null | undefined, text: string) {
   try {
-    if (typeof Components !== "undefined" && (Components as any)?.classes) {
-      const helper = (Components.classes as any)["@mozilla.org/widget/clipboardhelper;1"].getService(
-        (Components.interfaces as any).nsIClipboardHelper,
+    if (typeof Cc !== "undefined") {
+      const helper = (Cc as any)["@mozilla.org/widget/clipboardhelper;1"].getService(
+        (Ci as any).nsIClipboardHelper,
       );
       helper.copyString(text);
       return;

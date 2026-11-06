@@ -7,6 +7,33 @@ import { stripVTControlCharacters } from "node:util";
 import { startTransportFixture } from "./testing/transport-fixture.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+function resolveZoteroBin() {
+  if (process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH)
+    return process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH;
+  if (process.platform === "win32") {
+    const candidates = [
+      "C:\\Program Files\\Zotero\\zotero.exe",
+      "C:\\Program Files (x86)\\Zotero\\zotero.exe",
+      path.join(process.env.LOCALAPPDATA || "", "Zotero\\zotero.exe"),
+    ];
+    for (const c of candidates) {
+      if (existsSync(c))
+        return c;
+    }
+  }
+  else if (process.platform === "darwin") {
+    const macBin = "/Applications/Zotero.app/Contents/MacOS/zotero";
+    if (existsSync(macBin))
+      return macBin;
+  }
+  return undefined;
+}
+if (!process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH) {
+  const detected = resolveZoteroBin();
+  if (detected)
+    process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH = detected;
+}
+
 const defaultManager = process.env.npm_execpath && existsSync(process.env.npm_execpath) ? process.env.npm_execpath : "pnpm";
 async function run(args, env = process.env, requireTests = false) {
   // Reuse the manager selected by the parent instead of re-entering a global

@@ -1,7 +1,7 @@
 {
   "name": "zotero-metaflow",
   "type": "module",
-  "version": "14.1.0",
+  "version": "16.0.0",
   "packageManager": "pnpm@12.3.4",
   "description": "Validate, normalize, and enrich reference metadata.",
   "config": {
@@ -34,7 +34,8 @@
     "coverage": "vitest run --coverage",
     "release": "zotero-plugin release",
     "update-deps": "pnpx taze minor -w -i",
-    "prepare": "husky"
+    "prepare": "husky",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "csvtojson": "^2.0.14",
