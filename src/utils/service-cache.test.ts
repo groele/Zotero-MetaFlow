@@ -17,6 +17,7 @@ describe("authenticated service response cache", () => {
     vi.stubGlobal("Zotero", { HTTP: { request }, Profile: { dir: "/isolated-profile" }, Utilities: { Internal: { md5: (key: string) => createHash("md5").update(key).digest("hex") } } });
     vi.stubGlobal("PathUtils", { join: (...parts: string[]) => parts.join("/") });
     vi.stubGlobal("IOUtils", {
+      makeDirectory: async () => {},
       exists: async (path: string) => files.has(path),
       stat: async (path: string) => ({ size: JSON.stringify(files.get(path) || {}).length }),
       readJSON: async (path: string) => structuredClone(files.get(path)),
@@ -75,6 +76,7 @@ describe("authenticated service response cache", () => {
     clearRequestCache();
     resetServiceCacheSession();
     await fetch();
+    await flushServiceCache();
     expect(request).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(61 * 60_000);
     await fetch();
@@ -120,6 +122,22 @@ describe("authenticated service response cache", () => {
     resetServiceCacheSession();
     await fetch();
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts a fresh cache in the new folder and does not read the retired profile-root file", async () => {
+    await fetch();
+    await flushServiceCache();
+    const cachePath = "/isolated-profile/zotero-metaflow-cache/api-responses-v1.json";
+    const legacyPath = "/isolated-profile/metaflow-api-cache-v1.json";
+    files.set(legacyPath, structuredClone(files.get(cachePath)));
+    files.delete(cachePath);
+    request.mockClear();
+    clearRequestCache();
+    resetServiceCacheSession();
+    await fetch();
+    await flushServiceCache();
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(files.has(cachePath)).toBe(true);
   });
 
   it("keeps the original deadline of a version 1 six-hour cache", async () => {

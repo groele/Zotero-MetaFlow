@@ -20,6 +20,7 @@ import { onShortcuts } from "./modules/shortcut-actions";
 import { registerShortcuts } from "./modules/shortcuts";
 import { AutomaticItems } from "./utils/automatic-items";
 import { createAutomaticWorkflow, runAutomaticWorkflow } from "./utils/automatic-workflow";
+import { startCacheMaintenance, stopCacheMaintenance } from "./utils/cache-maintenance";
 import { cleanupResources } from "./utils/cleanup";
 import { closeAllDialogs } from "./utils/dialog";
 import { clearDuplicateSearchCache } from "./utils/duplicate-search-cache";
@@ -55,6 +56,7 @@ async function onStartup() {
   try {
     unregisterPersistence?.();
     unregisterPersistence = registerPersistenceShutdown(async () => {
+      await stopCacheMaintenance();
       const results = await Promise.allSettled([flushRuntimeData(), flushServiceCache(), flushJournalRankingIndex()]);
       for (const result of results) {
         if (result.status === "rejected")
@@ -63,6 +65,7 @@ async function onStartup() {
     });
     migrateGreenFrogPreferences();
     initLocale();
+    startCacheMaintenance();
     await registerPrefs();
     if (!addon.data.alive)
       return;
@@ -147,6 +150,7 @@ async function onShutdown() {
   closeJournalShareDialogs();
   addon.data.alive = false;
   await cleanupResources([
+    stopCacheMaintenance,
     () => automaticItems.cancelPending(),
     clearRequestCache,
     clearSupplementalJournalCache,

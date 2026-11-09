@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import { config } from "../../package.json";
+import { waitForItemTree } from "../helpers/item-tree";
 
 const key = `${config.prefsPrefix}.lint.onAdded`;
 
@@ -66,6 +67,13 @@ describe("native flat menu commands", function () {
     }
     popup.hidePopup();
     await wait(() => popup.state === "closed", "menu close");
+    await menuCleanup();
+  }
+
+  function menuCleanup(): Promise<void> {
+    // Zotero's MenuManager removes command listeners in requestIdleCallback
+    // after popuphidden. Let it finish before rebuilding the next native menu.
+    return new Promise(resolve => Zotero.getMainWindow().requestIdleCallback(() => resolve(), { timeout: 1000 }));
   }
 
   beforeEach(async function () {
@@ -78,11 +86,13 @@ describe("native flat menu commands", function () {
     // Isolate menu focus from timed native notices left by earlier commands.
     Zotero.ProgressWindowSet.closeAll();
     const win = Zotero.getMainWindow();
+    if (win.windowState === win.STATE_MINIMIZED)
+      win.restore();
     win.focus();
     await wait(() => win.document.hasFocus(), "main window focus");
+    await wait(() => !win.document.hidden, "main window visibility");
     // Earlier settings suites may still be rebuilding their column definitions.
-    await Promise.resolve();
-    await Zotero.Notifier.trigger("refresh", "itemtree", [], {});
+    await waitForItemTree(win);
     if (items[0]) {
       await win.ZoteroPane.selectItem(items[0].id);
       await win.ZoteroPane.itemSelected();
@@ -91,29 +101,43 @@ describe("native flat menu commands", function () {
     const popup = win.document.getElementById("zotero-itemmenu") as any;
     popup.hidePopup();
     await wait(() => popup.state === "closed", "previous popup closing");
+    await menuCleanup();
     (win as any).windowUtils.sendMouseEvent("mousemove", 0, 0, 0, 0, 0);
     await win.ZoteroPane.buildItemContextMenu();
     const show = async (target: any, open: () => void, label: string) => {
+      let listener: (event: Event) => void;
+      let timer: ReturnType<typeof setTimeout>;
       const shown = new Promise<void>((resolve) => {
-        const listener = (event: Event) => {
+        listener = (event: Event) => {
           if (event.target === target) {
-            target.removeEventListener("popupshown", listener);
             resolve();
           }
         };
         target.addEventListener("popupshown", listener);
       });
-      open();
-      await Promise.race([shown, Zotero.Promise.delay(10_000).then(() => {
-        throw new Error(`${label} did not emit popupshown (state=${target.state})`);
-      })]);
+      try {
+        open();
+        await Promise.race([shown, new Promise<never>((_resolve, reject) => {
+          timer = setTimeout(() => reject(new Error(`${label} did not emit popupshown ${JSON.stringify({ state: target.state, connected: target.isConnected, hidden: win.document.hidden, windowState: win.windowState, anchor: target.parentElement?.getBoundingClientRect().toJSON(), popup: popup.getBoundingClientRect().toJSON(), children: target.children.length, focus: win.document.hasFocus() })}`)), 10_000);
+        })]);
+      }
+      finally {
+        clearTimeout(timer!);
+        target.removeEventListener("popupshown", listener!);
+      }
     };
     await show(popup, () => popup.openPopup(win.document.getElementById("zotero-items-tree"), "after_start", 0, 0, true), "Main popup");
     await wait(() => Boolean(popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']")), "native menu initialization");
     const root = popup.querySelector("menu[data-l10n-id='metaref-menuitem-label']") as any;
     assert.isFalse(root.disabled);
+    // The native context menu may scroll on a shorter desktop. Reveal its
+    // submenu anchor and let widget layout settle before opening its child.
+    root.scrollIntoView({ block: "nearest", behavior: "instant" });
+    await Zotero.Promise.delay(50);
     const sub = root.querySelector("menupopup") as any;
-    await show(sub, () => sub.openPopup(root, "end_before", 0, 0, false, false), "MetaFlow submenu");
+    await show(sub, () => {
+      root.open = true;
+    }, "MetaFlow submenu");
     assert.equal(sub.querySelectorAll(":scope > menu").length, 0, "no nested menu arrows");
     assert.equal(sub.querySelectorAll(":scope > menuitem").length, 33);
     for (const entry of [root, ...sub.querySelectorAll("menuitem"), ...popup.querySelectorAll(":scope > menuitem[data-l10n-id^='metaref-']")]) {

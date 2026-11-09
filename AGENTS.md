@@ -43,6 +43,8 @@ Two test tiers exist because plugin code depends on the Zotero global runtime:
 - **Unit tests** (`*.test.ts`, vitest) — for pure logic that does not touch the `Zotero` global (e.g. string/pinyin/numeral helpers).
 - **E2E tests** (`test/tests/*.spec.ts`, mocha+chai driven by `zotero-plugin test`) — run inside a live Zotero.
 
+`pnpm test:e2e` runs the journal-column/pane, native-menu and remaining workflow suites sequentially in fresh isolated profiles. `scripts/testing/native-suites.mjs` checks that every test file belongs to exactly one group; diagnostic hooks are shared and each spec retains its own compiled entry. `METAREF_TEST_ENTRIES` still selects a focused directory, and `METAREF_TEST_MONOLITHIC=1` restores a shared-profile run for cross-suite diagnosis. The test configuration disables automatic devtools and Windows window-occlusion tracking so an occluded window can still paint native popups. These are fixture settings, not production preferences.
+
 ## Architecture
 
 ### Lifecycle: Bootstrap → sandbox globals → hooks

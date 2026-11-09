@@ -7,6 +7,7 @@ import { watchPreferencePane } from "../utils/preference-window";
 import { clearStoredServiceCache } from "../utils/service-cache-storage";
 import { clearSupplementalJournalCache } from "../utils/supplemental-journals";
 import { setupBatchFeedback } from "./batch-feedback";
+import { refreshCacheUsage, setupCacheSettings } from "./cache-settings";
 import { setupCustomDataFiles } from "./custom-data-settings";
 import { setupDuplicateSettings } from "./duplicate-settings";
 import { setupJournalDatabases, setupJournalShareSettings } from "./journal-database-settings";
@@ -121,6 +122,7 @@ export function registerPrefsScripts(_window: Window) {
   setupShortcutInputs(pane);
   setupSettingsPanel(pane);
   setupBatchFeedback(pane);
+  setupCacheSettings(pane);
 
   // 2. API 缓存清理动作
   const cacheButton = pane.querySelector("#metaref-clear-api-cache");
@@ -136,6 +138,7 @@ export function registerPrefsScripts(_window: Window) {
         clearSemanticScholarCache();
         clearSupplementalJournalCache();
         await clearStoredServiceCache(undefined, true);
+        await refreshCacheUsage(pane);
         if (pane.isConnected && addon.data.alive)
           status.textContent = getString("api-cache-cleared");
       }

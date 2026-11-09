@@ -367,7 +367,7 @@ metadata-tldr-extra-format-tldr =
 
 menu-placement-none = None (hidden)
 batch-feedback-heading = Run feedback and reports
-batch-feedback-description = Completion uses a brief status toast; detailed reports never open automatically. Run summaries, field names and reason codes are stored locally. Titles, field contents and raw error text are not persisted. Open the full report for this session on demand.
+batch-feedback-description = Completion uses a brief status toast; detailed reports never open automatically. Operation summaries and core workflow stage records are stored locally. Titles, field contents, PDF text and raw error text are not persisted. Open the full report for this session on demand.
 batch-feedback-view-report =
     .label = View last run report
 batch-feedback-empty = No run results in this session.
@@ -428,7 +428,10 @@ abbr-settings-description = Integrates journalabbr source priorities, output for
 abbr-custom-required = Select and validate a custom abbreviation file before using the custom-only source.
 
 api-cache-heading = API lookup cache
-api-cache-description = Successful EasyScholar responses are cached for 72 hours and Semantic Scholar responses for 24 hours. Successful empty journal results expire within 5 minutes. These two caches persist in this profile across restarts, storing only responses and hashed indexes without request URLs or API keys. Concurrent journal queries and known paper identifiers share responses. Successful Chinese supplemental lookups are cached for 10 minutes in this session and are also removed by explicit clearing. Connection tests go online; expiry, eviction, changed queries or credentials and explicit clearing allow fresh requests.
+api-cache-description = Successful EasyScholar responses are cached for 72 hours and Semantic Scholar responses for 24 hours. Successful empty journal results expire within 5 minutes. Persistent data is stored in the zotero-metaflow-cache folder shown below and survives restarts; only responses and hashed indexes are stored, without request URLs or API keys. Concurrent journal queries and known paper identifiers share responses. Successful Chinese supplemental lookups are cached for 10 minutes in this session and are also removed by explicit clearing. Connection tests go online; expiry, eviction, changed queries or credentials and explicit clearing allow fresh requests.
+cache-folder-path = Cache and operation records folder: { $path }
+cache-folder-open =
+    .label = Open Cache Folder
 api-cache-clear =
     .label = Clear API lookup cache
 api-cache-cleared = API lookup cache cleared. The next lookup will request fresh data; saved item fields are preserved.
@@ -550,8 +553,8 @@ review-auto-evidence = Title or PDF evidence lacks independent year or author ag
 runtime-data-open = Open Local Runtime Records
 
 data-settings-heading = Data, Cache and Run Feedback
-data-settings-description = Zotero stores references and attachments and manages plugin settings. Reusable API responses and runtime summaries are stored separately in the profile directory. Clearing API caches preserves references, settings, saved rankings and runtime records.
-runtime-data-policy = Local run records are kept for { $days } days, up to { $count } runs and { $size } MiB. They store summaries, field names, reason codes and local identifiers for up to 50 items; titles, field contents and raw error text are omitted. Truncated reports are marked.
+data-settings-description = Zotero stores references and attachments and manages plugin settings. Reusable API responses and operation records are stored in the zotero-metaflow-cache folder in the Zotero profile. Clearing API caches preserves references, settings, saved rankings and operation records.
+runtime-data-policy = Local operation records are kept for { $days } days, up to { $count } runs and { $size } MiB. Records include core workflow stage starts and outcomes, field names, reason codes and local identifiers for up to 50 items. Titles, field contents, PDF text and raw error text are omitted; stages still running after an abrupt exit are marked interrupted. Truncated records are marked.
 core-feedback-errors = The workflow encountered errors. Earlier saves and stage results are retained; open the details.
 core-feedback-empty = No stages ran. Enable the desired steps in the core command settings.
 core-task-running = { $command } · { $index }/{ $total }: { $stage }
@@ -610,3 +613,12 @@ settings-abbr-provenance-file = This provenance audit file does not contain the 
 settings-abbr-use-builtin =
     .label = Use built-in abbreviations
 settings-abbr-builtin-ready = Built-in abbreviation file updated and built-in lookup restored. The file path is shown.
+
+cache-usage-summary = { $entries } API index entries, { $runs } operation records; { $size } MiB on disk including backups and temporary files.
+cache-usage-refresh =
+    .label = Refresh Usage
+cache-expired-clean =
+    .label = Clean Expired Cache
+cache-maintenance-policy = Expired data is cleaned at startup and every 10 minutes. The API primary file is limited to 8 MiB and 1,024 index entries; the operation primary file is limited to 2 MiB and 200 runs for 30 days, with backup space counted separately. Cleanup retains valid responses and operation records.
+cache-maintenance-failed = Cache maintenance could not finish. Check free space and cache folder write permissions, then retry.
+cache-format-protected = A newer cache format is protected from writes and cleanup by this version.

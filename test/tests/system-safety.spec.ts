@@ -113,9 +113,10 @@ describe("system recovery and cancellation safety", function () {
     assert.isAtLeast(Number.parseFloat(statusStyle.fontSize), 13);
     const profile = (Zotero as any).Profile.dir as string;
     assert.include(profile.replaceAll("\\", "/"), "/.scaffold/test/profile");
-    const file = PathUtils.join(profile, "metaflow-api-cache-v1.json");
+    const cacheDirectory = PathUtils.join(profile, "zotero-metaflow-cache");
+    const file = PathUtils.join(cacheDirectory, "api-responses-v1.json");
     const obstruction = `${file}.tmp`;
-    assert.equal(PathUtils.parent(obstruction), profile);
+    assert.equal(PathUtils.parent(obstruction), cacheDirectory);
     assert.isFalse(await IOUtils.exists(obstruction));
     const previous = await IOUtils.exists(file) ? await IOUtils.readUTF8(file) : undefined;
     await IOUtils.makeDirectory(obstruction);

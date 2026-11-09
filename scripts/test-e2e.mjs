@@ -4,6 +4,7 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { stripVTControlCharacters } from "node:util";
+import { nativeSuites } from "./testing/native-suites.mjs";
 import { startTransportFixture } from "./testing/transport-fixture.mjs";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,6 +27,12 @@ function resolveZoteroBin() {
     if (existsSync(macBin))
       return macBin;
   }
+  else {
+    for (const linuxBin of ["/usr/bin/zotero", "/usr/lib/zotero/zotero"]) {
+      if (existsSync(linuxBin))
+        return linuxBin;
+    }
+  }
   return undefined;
 }
 if (!process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH) {
@@ -40,8 +47,13 @@ async function run(args, env = process.env, requireTests = false) {
   // version-manager wrapper, which can require another registry verification.
   const manager = env.npm_execpath && existsSync(env.npm_execpath) ? env.npm_execpath : defaultManager;
   const script = /\.[cm]?js$/i.test(manager);
-  const actualArgs = args[0] === "build" && !/pnpm/i.test(manager) ? ["run", "build"] : args;
-  await new Promise((resolve, reject) => {
+  const isPnpm = /pnpm/i.test(manager);
+  const actualArgs = args[0] === "build" && !isPnpm
+    ? ["run", "build"]
+    : args[0] === "exec" && !isPnpm
+      ? ["exec", "--", ...args.slice(1)]
+      : args;
+  return new Promise((resolve, reject) => {
     const child = spawn(script ? process.execPath : manager, script ? [manager, ...actualArgs] : actualArgs, { cwd: projectRoot, stdio: requireTests ? ["inherit", "pipe", "pipe"] : "inherit", shell: process.platform === "win32" && !script && !/\.exe$/i.test(manager), env });
     let output = "";
     for (const [stream, target] of [[child.stdout, process.stdout], [child.stderr, process.stderr]]) {
@@ -62,7 +74,7 @@ async function run(args, env = process.env, requireTests = false) {
         reject(new Error("The E2E runner did not report any passing tests; refusing an empty or incomplete run."));
         return;
       }
-      resolve();
+      resolve(count ? Number(count[1]) : 0);
     });
   });
 }
@@ -86,15 +98,22 @@ copyFileSync(path.join(projectRoot, ".scaffold", "build", "zotero-metaflow.xpi")
 const version = JSON.parse(readFileSync(path.join(projectRoot, "package.json"), "utf8")).version;
 const updateFile = version.includes("-") ? "update-beta.json" : "update.json";
 copyFileSync(path.join(projectRoot, ".scaffold", "build", updateFile), path.join(qa, "zotero-metaflow-production-update.json"));
-const fixture = await startTransportFixture();
-try {
-  await run(["exec", "zotero-plugin", "test", "--no-watch"], {
-    ...process.env,
-    METAREF_TEST_PACKAGE_PATH: packagePath,
-    METAREF_TEST_TRANSPORT_BASE_URL: fixture.url,
-    ZOTERO_PLUGIN_KILL_COMMAND: process.env.ZOTERO_PLUGIN_KILL_COMMAND || (process.platform === "win32" ? "pwsh -NoProfile -Command \"exit 0\"" : "true"),
-  }, true);
+const suites = nativeSuites(projectRoot, qa, process.env.METAREF_TEST_ENTRIES, process.env.METAREF_TEST_MONOLITHIC === "1");
+let passed = 0;
+for (const suite of suites) {
+  console.log(`Native suite: ${suite.name} (fresh isolated profile)`);
+  const fixture = await startTransportFixture();
+  try {
+    passed += await run(["exec", "zotero-plugin", "test", "--no-watch"], {
+      ...process.env,
+      METAREF_TEST_ENTRIES: path.relative(projectRoot, suite.directory).replaceAll("\\", "/"),
+      METAREF_TEST_PACKAGE_PATH: packagePath,
+      METAREF_TEST_TRANSPORT_BASE_URL: fixture.url,
+      ZOTERO_PLUGIN_KILL_COMMAND: process.env.ZOTERO_PLUGIN_KILL_COMMAND || (process.platform === "win32" ? "pwsh -NoProfile -Command \"exit 0\"" : "true"),
+    }, true);
+  }
+  finally {
+    fixture.close();
+  }
 }
-finally {
-  fixture.close();
-}
+console.log(`Native suites completed - ${passed} passed across ${suites.length} isolated profiles`);

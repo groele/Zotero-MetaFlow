@@ -3,7 +3,9 @@ import { resolve } from "node:path";
 import { env } from "node:process";
 import { defineConfig } from "zotero-plugin-scaffold";
 import { fse } from "zotero-plugin-scaffold/vendor";
+import product from "./docs/brand/product.json";
 import pkg from "./package.json";
+import { packDeterministic, writeReleaseMetadata } from "./scripts/release-artifacts.mjs";
 
 export default defineConfig({
   source: ["src", "addon"],
@@ -15,6 +17,7 @@ export default defineConfig({
   updateURL: "https://raw.githubusercontent.com/groele/Zotero-MetaFlow/main/dist/update.json",
   xpiDownloadLink: `https://github.com/groele/Zotero-MetaFlow/releases/download/v${pkg.version}/zotero-metaflow.xpi`,
   server: {
+    devtools: env.NODE_ENV !== "test",
     startArgs: ["-no-remote"],
   },
 
@@ -36,7 +39,7 @@ export default defineConfig({
       description: pkg.description,
       homepage: pkg.homepage,
       buildVersion: pkg.version,
-      buildTime: "{{buildTime}}",
+      buildTime: product.buildTime,
     },
     prefs: {
       prefix: pkg.config.prefsPrefix,
@@ -52,6 +55,8 @@ export default defineConfig({
         bundle: true,
         format: "esm",
         target: "firefox140",
+        minify: false,
+        charset: "utf8",
         outdir: `.scaffold/build/addon/content/scripts/`,
         external: ["Zotero"],
       },
@@ -61,6 +66,8 @@ export default defineConfig({
       updates: [],
     },
     hooks: {
+      "build:pack": ctx => packDeterministic(ctx.dist),
+      "build:makeUpdateJSON": (ctx) => { writeReleaseMetadata(ctx.dist); },
       "build:bundle": async () => {
         fse.ensureDirSync(".scaffold/build/addon/licenses");
         copyFileSync("LICENSE", ".scaffold/build/addon/licenses/MetaFlow-AGPL-3.0.txt");
@@ -104,6 +111,9 @@ export default defineConfig({
   test: {
     entries: [env.METAREF_TEST_ENTRIES || "test/tests"],
     prefs: {
+      // Windows can report focus while an occluded chrome window is hidden,
+      // leaving native popupshown events suspended on a shared desktop.
+      "widget.windows.window_occlusion_tracking.enabled": false,
       // Host background retraction checks are independent of MetaFlow's offline pipeline.
       "extensions.zotero.retractions.enabled": false,
       "metaref.test.fixturePath": resolve("test/data"),

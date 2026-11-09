@@ -263,6 +263,8 @@ describe("settings panel layout and validation in Zotero", function () {
     assert.isNotNull(data.querySelector("#metaref-runtime-data-open"));
     assert.isNotNull(data.querySelector("#metaref-last-batch-report"));
     assert.isNotNull(data.querySelector("#metaref-clear-api-cache"));
+    assert.isNotNull(data.querySelector("#metaref-open-cache-folder"));
+    assert.include(data.querySelector("#metaref-cache-folder-path")!.textContent!, "zotero-metaflow-cache");
     assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "200");
     assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "30");
     assert.lengthOf(pane.querySelectorAll("#metaref-clear-api-cache"), 1);
@@ -524,11 +526,11 @@ describe("settings panel layout and validation in Zotero", function () {
     const button = pane.querySelector<HTMLButtonElement>("#metaref-easyscholar-test")!;
     const status = pane.querySelector<HTMLElement>("#metaref-easyscholar-test-status")!;
     const previousValue = input.value;
+    const previousKey = Zotero.Prefs.get(pref("easyscholar.secretKey"), true);
     const request = Zotero.HTTP.request;
     let requests = 0;
     let accepted = true;
     try {
-      input.value = "connection-fixture-key";
       Zotero.HTTP.request = (async (method: string, url: string, options: any) => {
         if (new URL(url).hostname !== "www.easyscholar.cc")
           return request.call(Zotero.HTTP, method, url, options);
@@ -537,7 +539,10 @@ describe("settings panel layout and validation in Zotero", function () {
         await Zotero.Promise.delay(50);
         return { responseText: JSON.stringify(accepted ? { code: 200 } : { code: 403, msg: "Rejected connection-fixture-key" }) };
       }) as any;
-      const run = async () => {
+      const run = async (key = "connection-fixture-key") => {
+        input.value = key;
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        input.dispatchEvent(new win.Event("change", { bubbles: true }));
         button.dispatchEvent(new win.Event("command", { bubbles: true }));
         assert.isTrue(button.disabled);
         button.dispatchEvent(new win.Event("command", { bubbles: true }));
@@ -555,12 +560,15 @@ describe("settings panel layout and validation in Zotero", function () {
       assert.notEqual(status.textContent, success);
       assert.notInclude(status.textContent!, "connection-fixture-key");
       assert.include(status.textContent!, "[redacted]");
-      input.value = "";
-      await run();
+      await run("");
       assert.equal(requests, 2, "an empty key makes no request");
     }
     finally {
       Zotero.HTTP.request = request;
+      if (previousKey === undefined)
+        Zotero.Prefs.clear(pref("easyscholar.secretKey"), true);
+      else
+        Zotero.Prefs.set(pref("easyscholar.secretKey"), previousKey as string, true);
       input.value = previousValue;
     }
   });

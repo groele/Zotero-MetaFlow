@@ -1,4 +1,5 @@
 import type { BatchResult } from "./runner";
+import { ensureMetaFlowCacheDirectory, metaflowCacheDirectory } from "../utils/cache-paths";
 import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { preferenceListeners } from "../utils/preference-listeners";
@@ -130,6 +131,19 @@ export function setupBatchFeedback(pane: Element) {
   if (policy)
     policy.textContent = getString("runtime-data-policy", { args: { days: RUNTIME_HISTORY_TTL / 86_400_000, count: RUNTIME_HISTORY_LIMIT, size: RUNTIME_HISTORY_BYTES / 1024 / 1024 } });
   const report = pane.querySelector("#metaref-last-batch-report");
+  const cachePath = pane.querySelector("#metaref-cache-folder-path");
+  if (cachePath)
+    cachePath.textContent = getString("cache-folder-path", { args: { path: metaflowCacheDirectory() } });
+  const cacheFolder = pane.querySelector("#metaref-open-cache-folder");
+  if (cacheFolder) {
+    preferenceListeners(pane)(cacheFolder, "command", async () => {
+      try {
+        await ensureMetaFlowCacheDirectory();
+        await Zotero.File.reveal(metaflowCacheDirectory());
+      }
+      catch (error) { logger.error("Cannot open cache folder", error); }
+    });
+  }
   if (report && !pane.querySelector("#metaref-runtime-data-open")) {
     const open = ztoolkit.UI.createElement(pane.ownerDocument!, "button", { attributes: { type: "button" }, properties: { id: "metaref-runtime-data-open", textContent: getString("runtime-data-open") } });
     report.after(open);

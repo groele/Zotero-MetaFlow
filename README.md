@@ -8,7 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-16.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.0)
+[![Version](https://img.shields.io/badge/version-16.0.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.2)
+
+16.0.2 新增专用缓存文件夹、阶段操作记录、占用展示和过期清理。缓存位于 Zotero 配置目录的 `zotero-metaflow-cache`，旧版散落文件不参与新缓存。详见[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-763%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
@@ -386,7 +388,7 @@ Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gec
 
 ### 手动安装步骤
 
-1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新正式发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v16.0.0/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
+1. 前往 [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases) 下载最新正式发行版安装包 **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v16.0.2/zotero-metaflow.xpi)**（切勿下载 Source code ZIP 源码包）。
 2. 在 Zotero 客户端顶部菜单中打开 **工具 → 插件／附加组件**（Tools → Plugins）。
 3. 点击附加组件管理器右上角的 **设置齿轮图标 ⚙️**，选择 **从文件安装插件...（Install Add-on From File...）**。
 4. 选择刚刚下载的 `.xpi` 文件，按照提示完成安装并重启 Zotero。
@@ -406,7 +408,7 @@ Zotero MetaFlow 遵循严格的企业级数据保护、内存安全与现代 Gec
 | **Zotero 版本** | **Zotero 10.0 ～ 12.***（Gecko 153+ / Firefox 140 现代架构） | 基于 Zotero 10 开发打磨，前瞻兼容 Zotero 11 与 12 全生命周期  |
 | **操作系统**    | Windows 10 / 11、macOS（Intel / Apple Silicon）、Linux       | 全平台一致的高性能原生体验与路径安全清洗                      |
 | **测试套件**    | **763 项单元测试 + 23 项设置与安装包原生测试**（100% 通过）  | 持续集成覆盖真实 Zotero 宿主与 SQLite 事务                    |
-| **插件版本**    | **v16.0.0**                                                  | [查看 16.0.0 版本详细说明](docs/releases/metaflow-v16.0.0.md) |
+| **插件版本**    | **v16.0.2**                                                  | [查看 16.0.2 版本详细说明](docs/releases/metaflow-v16.0.2.md) |
 
 ---
 

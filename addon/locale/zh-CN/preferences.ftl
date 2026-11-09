@@ -366,7 +366,7 @@ metadata-tldr-extra-format-tldr =
 
 menu-placement-none = 无（隐藏）
 batch-feedback-heading = 运行反馈与报告
-batch-feedback-description = 完成后只显示短暂状态提示，不自动打开详细报告。运行摘要、字段名和原因码写入本地记录；题名、字段原文和错误文本不会持久化。需要查看本次会话的完整报告时，可手动打开。
+batch-feedback-description = 完成后只显示短暂状态提示，不自动打开详细报告。操作摘要与核心流程阶段记录写入本地缓存；题名、字段原文、PDF 正文和错误文本不会持久化。需要查看本次会话的完整报告时，可手动打开。
 batch-feedback-view-report =
     .label = 查看上次运行报告
 batch-feedback-empty = 当前会话尚无运行结果。
@@ -427,7 +427,10 @@ abbr-settings-description = 整合 zotero-journalabbr 的来源优先级、格�
 abbr-custom-required = 请先选择并验证自定义缩写文件，再使用“仅自定义文件”来源。
 
 api-cache-heading = API 查询缓存
-api-cache-description = EasyScholar 成功响应缓存 72 小时，Semantic Scholar 成功响应缓存 24 小时；无期刊结果的成功响应最多缓存 5 分钟。这两类缓存保存到当前 Zotero 配置目录，可跨重启使用；仅保存响应与哈希索引，不保存请求 URL 或密钥。同刊并发和已知论文标识符共享响应。中文补充来源的成功查询在本次运行内缓存 10 分钟，主动清理时也会移除。连接测试直接联网；过期、淘汰、查询或凭据改变、主动清缓存后重新请求。
+api-cache-description = EasyScholar 成功响应缓存 72 小时，Semantic Scholar 成功响应缓存 24 小时；无期刊结果的成功响应最多缓存 5 分钟。持久缓存位于下方显示的 zotero-metaflow-cache 文件夹，可跨重启使用；仅保存响应与哈希索引，不保存请求 URL 或密钥。同刊并发和已知论文标识符共享响应。中文补充来源的成功查询在本次运行内缓存 10 分钟，主动清理时也会移除。连接测试直接联网；过期、淘汰、查询或凭据改变、主动清缓存后重新请求。
+cache-folder-path = 缓存和操作记录文件夹：{ $path }
+cache-folder-open =
+    .label = 打开缓存文件夹
 api-cache-clear =
     .label = 清除 API 查询缓存
 api-cache-cleared = API 查询缓存已清除，下次查询将重新请求；已写入文献的数据不受影响。
@@ -549,8 +552,8 @@ review-auto-evidence = 仅有标题或 PDF 线索，缺少年份或作者的交�
 runtime-data-open = 打开本地运行记录
 
 data-settings-heading = 数据、缓存与运行反馈
-data-settings-description = 文献与附件保存在 Zotero 文献库；插件设置由 Zotero 管理；可复用的联网响应和运行摘要独立保存在配置目录。清理接口缓存不会删除文献、设置、已保存评级或运行记录。
-runtime-data-policy = 本地运行记录保留 { $days } 天，最多 { $count } 次、{ $size } MiB；保存摘要、字段名、原因码及最多 50 条目的本地标识，不保存题名、字段原文或错误文本。超出上限的报告会标记为已截断。
+data-settings-description = 文献与附件保存在 Zotero 文献库；插件设置由 Zotero 管理；可复用的联网响应与操作记录保存在 Zotero 配置目录中的 zotero-metaflow-cache 文件夹。清理接口缓存不会删除文献、设置、已保存评级或操作记录。
+runtime-data-policy = 本地操作记录保留 { $days } 天，最多 { $count } 次、{ $size } MiB；记录核心流程的各阶段开始和结果，以及字段名、原因码和最多 50 条目的本地标识。不保存题名、字段原文、PDF 正文或错误文本；异常退出后仍运行的阶段会标记为中断。超出上限的记录会标记为已截断。
 core-feedback-errors = 本次组合流程遇到错误，已保留前序保存和各阶段结果；请查看详情。
 core-feedback-empty = 本次命令未执行任何阶段，请在核心功能设置中启用所需步骤。
 core-task-running = { $command } · { $index }/{ $total }：{ $stage }
@@ -609,3 +612,12 @@ settings-abbr-provenance-file = 这是来源审计文件，不含完整的期刊
 settings-abbr-use-builtin =
     .label = 使用内置缩写库
 settings-abbr-builtin-ready = 已更新内置缩写文件并恢复内置来源，路径已显示。
+
+cache-usage-summary = API 索引 { $entries } 条，操作记录 { $runs } 次；磁盘文件共 { $size } MiB（含备份和临时文件）。
+cache-usage-refresh =
+    .label = 刷新占用情况
+cache-expired-clean =
+    .label = 清理过期缓存
+cache-maintenance-policy = 启动后及每 10 分钟主动清理过期数据。API 缓存主文件最多 8 MiB、1,024 条索引；操作记录主文件最多 2 MiB、200 次，保留 30 天，备份另计。清理过期数据保留仍有效的响应和操作记录。
+cache-maintenance-failed = 缓存维护未完成，请检查缓存文件夹的可用空间和写入权限后重试。
+cache-format-protected = 缓存由较新格式创建，当前版本已保护该文件，无法改写或清理。

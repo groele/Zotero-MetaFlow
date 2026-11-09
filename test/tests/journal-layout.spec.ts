@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import { config } from "../../package.json";
+import { waitForItemTree } from "../helpers/item-tree";
 
 describe("journal pane layout", function () {
   this.timeout(30000);
@@ -28,7 +29,9 @@ describe("journal pane layout", function () {
       item.setField("extra", "SCI: 是\nJCR 分区：Q1\n影响因子：8.4");
       await item.saveTx();
       const win = Zotero.getMainWindow();
+      await waitForItemTree(win);
       await win.ZoteroPane.selectItem(item.id);
+      await win.ZoteroPane.itemSelected();
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       const body = section.querySelector("[data-type='body']") as HTMLElement;

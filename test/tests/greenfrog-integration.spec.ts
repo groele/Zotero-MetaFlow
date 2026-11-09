@@ -40,6 +40,7 @@ describe("green Frog integration in Zotero", function () {
     try {
       for (let attempt = 0; attempt < 100 && !win.document.getElementById("metaref-shortcut-profileDirectory"); attempt++)
         await Zotero.Promise.delay(50);
+      await (win as any).Zotero_Preferences.waitForFirstPaneLoad();
       const pane = win.document.getElementById(config.addonRef)!;
       await win.document.l10n!.translateFragment(pane);
       win.resizeTo(920, 800);
@@ -58,6 +59,8 @@ describe("green Frog integration in Zotero", function () {
       journalSettings.scrollIntoView({ block: "start" });
       await Zotero.Promise.delay(100);
       const grid = rankInput.closest(".metaref-choice-grid")!;
+      for (let attempt = 0; attempt < 100 && !grid.children[0].getBoundingClientRect().width; attempt++)
+        await Zotero.Promise.delay(50);
       const cells = [...grid.children].map(child => child.getBoundingClientRect());
       assert.isAbove(cells[1].left, cells[0].left + 100, "options occupy two distinct columns");
       assert.closeTo(cells[0].top, cells[1].top, 1, "the two columns align by row");

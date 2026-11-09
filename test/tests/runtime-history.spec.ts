@@ -61,6 +61,16 @@ describe("local runtime data persistence", function () {
     assert.lengthOf((await instance().read()).runs, 1);
   });
 
+  it("marks a persisted running workflow and stage as interrupted after restart", async function () {
+    const store = instance();
+    await store.append({ ...entry("in-progress"), status: "running", stages: [{ name: "metadata", startedAt: Date.now(), status: "running", processed: 3, saved: 1, failed: 0, warnings: 0, rules: ["tool-review-metadata"], reasons: ["metadata-field-filled"] }] });
+    await store.flush();
+    const recovered = await instance().read();
+    assert.equal(recovered.runs[0].status, "interrupted");
+    assert.equal(recovered.runs[0].stages[0].status, "interrupted");
+    assert.equal(recovered.runs[0].stages[0].processed, 3);
+  });
+
   it("recovers a corrupt primary from the previous valid snapshot", async function () {
     const store = instance();
     await store.append(entry("first"));
@@ -219,7 +229,8 @@ describe("local runtime data persistence", function () {
       } }] });
       await plugin().api.runtimeData.flush();
       const path = plugin().api.runtimeData.path();
-      assert.equal(PathUtils.filename(path), "metaflow-runtime-data-v1.json");
+      assert.equal(PathUtils.filename(path), "operation-history-v1.json");
+      assert.equal(PathUtils.parent(path), PathUtils.join((Zotero as any).Profile.dir, "zotero-metaflow-cache"));
       const text = await IOUtils.readUTF8(path);
       assert.notInclude(text, "private-runtime-key");
       assert.notInclude(text, "Private runtime fixture title");

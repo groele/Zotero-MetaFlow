@@ -8,7 +8,7 @@ import { hasEnabledJournalMetrics } from "../utils/journal-permissions";
 import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
-import { recordRuntimeResult } from "../utils/runtime-data-storage";
+import { beginRuntimeOperation, beginRuntimeStage, finishRuntimeStage, recordRuntimeResult } from "../utils/runtime-data-storage";
 import { REMOTE_STANDARD_RULES } from "../utils/workflow-policy";
 import { combineWorkflowResults, CoreWorkflowQueue } from "../utils/workflow-result";
 import { showCoreCompletionToast, updateBatchFeedback } from "./batch-feedback";
@@ -89,6 +89,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
     controller.abort(new Error("Core workflow cancelled"));
   } };
   const started = Date.now();
+  const operationID = await beginRuntimeOperation(`core-${command}`, items.length);
   const overwrite = getPref("rule.tool-update-metadata.option.mode") === "all";
   const reviewOptions = {
     scanPDF: pref("workflow.scanPDF", false),
@@ -169,12 +170,23 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
       state.stage = stage;
       state.index = index + 1;
       updateBatchFeedback();
-      const result = await run(stage);
-      if (result)
-        stages.push({ stage, result });
-      if (result?.cancelled) {
-        state.cancelled = true;
-        break;
+      if (operationID)
+        await beginRuntimeStage(operationID, stage);
+      try {
+        const result = await run(stage);
+        if (result)
+          stages.push({ stage, result });
+        if (operationID)
+          await finishRuntimeStage(operationID, stage, result);
+        if (result?.cancelled) {
+          state.cancelled = true;
+          break;
+        }
+      }
+      catch (error) {
+        if (operationID)
+          await finishRuntimeStage(operationID, stage, undefined, true);
+        throw error;
       }
     }
   }
@@ -189,7 +201,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
     result.preparationFailed++;
     result.records.push({ itemID: 0, title: "", ruleID: "tool-update-metadata", code: "workflow-stage-failed", level: "error", message: String(failure) });
   }
-  recordRuntimeResult(result, `core-${command}`);
+  await recordRuntimeResult(result, `core-${command}`, operationID);
   if (addon.data.alive) {
     addon.runner.lastResult = result;
     addon.data.lastCoreWorkflow = { lastResult: result, stages };

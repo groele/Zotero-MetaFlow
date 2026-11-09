@@ -8,7 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-16.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.0)
+[![Version](https://img.shields.io/badge/version-16.0.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.2)
+
+16.0.2 adds a dedicated cache folder, workflow checkpoints, usage reporting and expired-data cleanup. Data is stored in `zotero-metaflow-cache` inside the Zotero profile; retired profile-root cache files are ignored. See the [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-763%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
@@ -259,7 +261,7 @@ Open **Edit ➔ Settings** (or **Zotero ➔ Settings** on macOS) and navigate to
 
 ### Manual Installation
 
-1. Download the latest release package **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v16.0.0/zotero-metaflow.xpi)** from [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases).
+1. Download the latest release package **[zotero-metaflow.xpi](https://github.com/groele/Zotero-MetaFlow/releases/download/v16.0.2/zotero-metaflow.xpi)** from [GitHub Releases](https://github.com/groele/Zotero-MetaFlow/releases).
 2. In Zotero, navigate to **Tools ➔ Plugins** (or **Tools ➔ Add-ons**).
 3. Click the gear icon ⚙️ in the upper-right corner and choose **Install Add-on From File...**.
 4. Select the downloaded `.xpi` file, confirm the installation, and restart Zotero.
@@ -279,7 +281,7 @@ The extension includes configured update manifests ([dist/update.json](https://g
 | **Zotero Host**       | **Zotero 10.0 ～ 12.*** (Gecko 153+ / Firefox 140)                       | Developed on Zotero 10, forward-compatible through Zotero 11 & 12 |
 | **Operating Systems** | Windows 10/11, macOS (Intel & Apple Silicon), Linux                      | Cross-platform native performance and filesystem safety           |
 | **Test Coverage**     | **763 Unit Tests + 23 Scoped Native Settings/Package Tests** (100% Pass) | Verified against live Zotero runtime and SQLite transactions      |
-| **Plugin Version**    | **v16.0.0**                                                              | [View v16.0.0 Release Notes](docs/releases/metaflow-v16.0.0.md)   |
+| **Plugin Version**    | **v16.0.2**                                                              | [View v16.0.2 Release Notes](docs/releases/metaflow-v16.0.2.md)   |
 
 ---
 

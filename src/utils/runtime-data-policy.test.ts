@@ -42,4 +42,12 @@ describe("bounded runtime data", () => {
     expect(row.items).toEqual([]);
     expect(row.rules).toEqual(["valid"]);
   });
+  it("stores bounded stage checkpoints and converts an unfinished stage to an interrupted record", () => {
+    const row = normalizeRuntimeRun({ ...run(), status: "running", stages: [{ name: "metadata", startedAt: Date.now(), status: "running", processed: 4, saved: 2, failed: 0, warnings: 1, rules: ["tool-review-metadata"], reasons: ["metadata-auto-conflict"], message: "private error" }] })!;
+    expect(row.status).toBe("running");
+    expect(row.stages[0]).toMatchObject({ name: "metadata", status: "running", processed: 4, saved: 2 });
+    expect(JSON.stringify(row)).not.toContain("private error");
+    expect(normalizeRuntimeRun({ ...row, status: "interrupted", stages: row.stages.map(stage => ({ ...stage, status: "interrupted" })) })?.stages[0].status).toBe("interrupted");
+    expect(normalizeRuntimeRun({ ...row, stages: [{ name: "../escape", startedAt: Date.now() }] })?.stages).toEqual([]);
+  });
 });

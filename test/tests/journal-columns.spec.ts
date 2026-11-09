@@ -3,6 +3,7 @@ import { assert } from "chai";
 import { config } from "../../package.json";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../src/utils/easyscholar";
 import { journalNumericDisplayValue } from "../../src/utils/journal-column-sort";
+import { waitForItemTree } from "../helpers/item-tree";
 
 describe("complete journal metric columns", function () {
   this.timeout(30_000);
@@ -85,6 +86,8 @@ describe("complete journal metric columns", function () {
   });
 
   it("enforces master selections in the live pane, registry and direct actions while preserving saved data", async function () {
+    // Several native tree rebuilds, including restoration of all 61 definitions.
+    this.timeout(90_000);
     const keys = ["insights.natureEnabled", "easyscholar.columns.jcr", "easyscholar.clearExtraBeforeUpdate", ...EASYSCHOLAR_FIELD_DEFINITIONS.map(field => `easyscholar.fields.${field.key}`)];
     const previous = new Map(keys.map(key => [key, Zotero.Prefs.get(`${config.prefsPrefix}.${key}`, true)]));
     const set = (key: string, value: boolean) => Zotero.Prefs.set(`${config.prefsPrefix}.${key}`, value, true);
@@ -112,7 +115,9 @@ describe("complete journal metric columns", function () {
       await wait(() => columns().length === 4);
       assert.isFalse(columns().some((column: any) => column.dataKey.endsWith("easyScholar-jcr")));
       const win = Zotero.getMainWindow();
+      await waitForItemTree(win);
       await win.ZoteroPane.selectItem(item.id);
+      await win.ZoteroPane.itemSelected();
       const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
       await section._handleRefresh();
       const body = section.querySelector("[data-type='body']") as HTMLElement;
@@ -143,6 +148,7 @@ describe("complete journal metric columns", function () {
       for (const [key, value] of previous)
         Zotero.Prefs.set(`${config.prefsPrefix}.${key}`, value as boolean, true);
       await wait(() => columns().length === 68);
+      await waitForItemTree(Zotero.getMainWindow());
     }
   });
 });

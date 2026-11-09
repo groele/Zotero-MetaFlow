@@ -24,6 +24,7 @@ beforeEach(() => {
   });
   vi.stubGlobal("PathUtils", { join: (...parts: string[]) => parts.join("/") });
   vi.stubGlobal("IOUtils", {
+    makeDirectory: async () => {},
     exists: async (path: string) => files.has(path),
     stat: async (path: string) => ({ size: JSON.stringify(files.get(path) || {}).length }),
     readJSON: async (path: string) => structuredClone(files.get(path)),

@@ -1,3 +1,4 @@
+import { ensureMetaFlowCacheDirectory, metaflowCacheDirectory } from "./cache-paths";
 import { createLogger } from "./logger";
 import { SERVICE_CACHE_BYTES, SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_LIMIT, SERVICE_CACHE_TTL, serviceCacheTTL } from "./service-cache-policy";
 
@@ -16,10 +17,11 @@ let revision = 0;
 let dirty = false;
 let queuedRevision = -1;
 let readOnly = false;
+let writeFailed = false;
 const validKey = /^(?:easyscholar|semantic-scholar):[a-f0-9]{32}$/;
 function path() {
   return typeof IOUtils !== "undefined" && (Zotero as any).Profile?.dir
-    ? PathUtils.join((Zotero as any).Profile.dir, "metaflow-api-cache-v1.json")
+    ? PathUtils.join(metaflowCacheDirectory(), "api-responses-v1.json")
     : undefined;
 }
 const digest = (key: string) => `${key.slice(0, key.indexOf(":"))}:${Zotero.Utilities.Internal.md5(key)}`;
@@ -61,9 +63,10 @@ async function load() {
     if (!file)
       return;
     try {
-      if (!await IOUtils.exists(file) || (await IOUtils.stat(file)).size! > SERVICE_CACHE_BYTES * 2)
+      const source = file;
+      if (!await IOUtils.exists(source) || (await IOUtils.stat(source)).size! > SERVICE_CACHE_BYTES * 2)
         return;
-      const data = await IOUtils.readJSON(file) as { version?: number; entries?: [string, Entry][] };
+      const data = await IOUtils.readJSON(source) as { version?: number; entries?: [string, Entry][] };
       if (token !== session)
         return;
       if ((data.version || 0) > 3) {
@@ -202,7 +205,9 @@ export async function flushServiceCache() {
   const snapshot = { version: 3, entries: [...entries] };
   queuedRevision = token;
   writes = writes.then(async () => {
+    await ensureMetaFlowCacheDirectory();
     await IOUtils.writeJSON(file, snapshot, { tmpPath: `${file}.tmp` });
+    writeFailed = false;
     if (revision === token)
       dirty = false;
     return true;
@@ -210,6 +215,7 @@ export async function flushServiceCache() {
     if (queuedRevision === token)
       queuedRevision = -1;
     logger.debug("API cache write failed", error);
+    writeFailed = true;
     return false;
   });
   return writes;
@@ -223,8 +229,14 @@ export function resetServiceCacheSession() {
   ready = undefined;
   dirty = false;
   readOnly = false;
+  writeFailed = false;
   queuedRevision = -1;
   revision++;
   generation++;
   session++;
+}
+
+export async function getServiceCacheStatus() {
+  await load();
+  return { entries: entries.size, bytes, readOnly, writeFailed };
 }

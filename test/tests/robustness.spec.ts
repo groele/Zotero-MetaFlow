@@ -38,8 +38,9 @@ describe("data processing resilience in Zotero", function () {
   afterEach(closeReports);
 
   after(async function () {
-    for (const item of created)
-      await item.eraseTx();
+    // One native transaction and notifier batch avoid a redraw/commit for
+    // every fixture item when cleaning up this large resilience suite.
+    await Zotero.Items.erase(created.map(item => item.id));
     for (const [key, value] of prefs) {
       if (value === undefined)
         Zotero.Prefs.clear(key, true);

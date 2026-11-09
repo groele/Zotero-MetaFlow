@@ -2,11 +2,12 @@ import { assert } from "chai";
 import { config } from "../../package.json";
 import { mergeEasyScholarExtra } from "../../src/modules/rules/tool-update-easyscholar";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../src/utils/easyscholar";
+import { waitForItemTree } from "../helpers/item-tree";
 
 const prefix = config.prefsPrefix;
 
 describe("independent journal insights in Zotero", function () {
-  this.timeout(30_000);
+  this.timeout(90_000);
   const plugin = () => (Zotero as any)[config.addonInstance];
   const created: Zotero.Item[] = [];
   const key = `${prefix}.insights.showPane`;
@@ -43,8 +44,7 @@ describe("independent journal insights in Zotero", function () {
   const selectItem = async (win: Window & typeof globalThis, item: Zotero.Item) => {
     // Preference fixtures can change 61 column definitions at once. Finish that
     // host schema refresh before simulating the next user selection.
-    await Promise.resolve();
-    await Zotero.Notifier.trigger("refresh", "itemtree", [], {});
+    await waitForItemTree(win);
     await win.ZoteroPane.selectItem(item.id);
     // selectItem resolves after row selection; itemSelected awaits the public pane update.
     await win.ZoteroPane.itemSelected();

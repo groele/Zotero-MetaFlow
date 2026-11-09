@@ -183,6 +183,27 @@
     </groupbox>
     <groupbox>
       <label><html:h3 data-l10n-id="api-cache-heading" /></label>
+      <html:p id="metaref-cache-folder-path" class="metaref-pref-description" />
+      <html:p
+        id="metaref-cache-usage"
+        class="metaref-pref-description"
+        role="status"
+        aria-live="polite"
+      />
+      <description
+        data-l10n-id="cache-maintenance-policy"
+        class="metaref-pref-description"
+      />
+      <button
+        id="metaref-refresh-cache-usage"
+        data-l10n-id="cache-usage-refresh"
+        native="true"
+      />
+      <button
+        id="metaref-clean-expired-cache"
+        data-l10n-id="cache-expired-clean"
+        native="true"
+      />
       <description
         data-l10n-id="api-cache-description"
         class="metaref-pref-description"
@@ -190,6 +211,11 @@
       <button
         id="metaref-clear-api-cache"
         data-l10n-id="api-cache-clear"
+        native="true"
+      />
+      <button
+        id="metaref-open-cache-folder"
+        data-l10n-id="cache-folder-open"
         native="true"
       />
       <html:div

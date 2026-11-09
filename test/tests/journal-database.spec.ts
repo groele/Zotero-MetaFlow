@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import { config } from "../../package.json";
+import { waitForItemTree } from "../helpers/item-tree";
 
 describe("user-defined journal databases in Zotero", function () {
   this.timeout(60_000);
@@ -55,7 +56,9 @@ describe("user-defined journal databases in Zotero", function () {
     await item.saveTx();
     items.push(item);
     const win = Zotero.getMainWindow();
+    await waitForItemTree(win);
     await win.ZoteroPane.selectItem(item.id);
+    await win.ZoteroPane.itemSelected();
     await plugin().api.refreshJournalInsights();
     const section = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-journal-insights']") as any;
     await section._handleRefresh();

@@ -7,39 +7,21 @@ on:
 
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
 
 jobs:
-  validate-tag:
+  publish-verified-package:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - run: |
-          git check-ref-format "refs/tags/$RELEASE_TAG"
-          git fetch --no-tags origin "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
-          python3 scripts/release-tags.py --tag "$RELEASE_TAG"
+      - name: Verify annotated tag and committed release artifact
+        run: |
+          python3 scripts/release-tags.py --tag "$GITHUB_REF_NAME"
+          python3 scripts/verify-release.py
+      - name: Publish the verified installer unchanged
         env:
-          RELEASE_TAG: ${{ github.ref_name }}
-
-  create-release:
-    needs: validate-tag
-    uses: zotero-plugin-dev/workflows/.github/workflows/release-plugin.yml@main
-
-    with:
-      release: |
-        version="${GITHUB_REF_NAME#v}"
-        notes_file="$(find docs/releases -maxdepth 1 -type f -iname "metaflow-v${version}.md" -print -quit)"
-        if [ -z "$notes_file" ]; then
-          notes_file="$(find docs/releases -maxdepth 1 -type f -iname "v${version}.md" -print -quit)"
-        fi
-        if [ -n "$notes_file" ]; then
-          gh release create "$GITHUB_REF_NAME" dist/zotero-metaflow.xpi --title "Zotero MetaFlow ${version}" --notes-file "$notes_file"
-        else
-          gh release create "$GITHUB_REF_NAME" dist/zotero-metaflow.xpi --title "Zotero MetaFlow ${version}" --generate-notes
-        fi
-      comment-template: ""
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" dist/zotero-metaflow.xpi --verify-tag --title "Zotero MetaFlow ${version}" --notes-file "docs/releases/metaflow-v${version}.md"
