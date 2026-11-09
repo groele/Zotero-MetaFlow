@@ -107,6 +107,203 @@
       class="metaref-pref-description"
     />
     <html:p id="metaref-runtime-data-policy" class="metaref-pref-description" />
+    <groupbox id="metaref-cache-settings-group">
+      <label><html:h3 data-l10n-id="api-cache-heading" /></label>
+      <hbox
+        id="metaref-cache-directory-row"
+        class="metaref-cache-path-row"
+        align="center"
+      >
+        <label
+          id="metaref-cache-custom-path-label"
+          data-l10n-id="cache-directory-label"
+        />
+        <html:input
+          style="flex: 1"
+          type="text"
+          readonly="true"
+          size="42"
+          id="metaref-cache-custom-path"
+          data-l10n-id="cache-directory-input"
+          preference="cache.customDirectory"
+          aria-labelledby="metaref-cache-custom-path-label"
+        />
+        <button
+          id="metaref-cache-choose-directory"
+          data-l10n-id="cache-directory-choose"
+          native="true"
+        />
+      </hbox>
+      <html:p id="metaref-cache-folder-path" class="metaref-pref-description" />
+      <html:div class="metaref-cache-policy-grid">
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-easyscholar-hours-label"
+            data-l10n-id="cache-easyscholar-hours"
+          />
+          <html:input
+            id="metaref-cache-easyscholar-hours"
+            type="number"
+            min="1"
+            max="720"
+            step="1"
+            preference="cache.easyScholarHours"
+            aria-labelledby="metaref-cache-easyscholar-hours-label"
+          />
+        </hbox>
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-semanticscholar-hours-label"
+            data-l10n-id="cache-semanticscholar-hours"
+          />
+          <html:input
+            id="metaref-cache-semanticscholar-hours"
+            type="number"
+            min="1"
+            max="720"
+            step="1"
+            preference="cache.semanticScholarHours"
+            aria-labelledby="metaref-cache-semanticscholar-hours-label"
+          />
+        </hbox>
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-history-days-label"
+            data-l10n-id="cache-history-days"
+          />
+          <html:input
+            id="metaref-cache-history-days"
+            type="number"
+            min="1"
+            max="365"
+            step="1"
+            preference="cache.historyDays"
+            aria-labelledby="metaref-cache-history-days-label"
+          />
+        </hbox>
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-history-limit-label"
+            data-l10n-id="cache-history-limit"
+          />
+          <html:input
+            id="metaref-cache-history-limit"
+            type="number"
+            min="20"
+            max="2000"
+            step="10"
+            preference="cache.historyLimit"
+            aria-labelledby="metaref-cache-history-limit-label"
+          />
+        </hbox>
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-max-mib-label"
+            data-l10n-id="cache-max-mib"
+          />
+          <html:input
+            id="metaref-cache-max-mib"
+            type="number"
+            min="1"
+            max="64"
+            step="1"
+            preference="cache.maxMiB"
+            aria-labelledby="metaref-cache-max-mib-label"
+          />
+        </hbox>
+        <hbox class="metaref-cache-policy-item" align="center">
+          <label
+            id="metaref-cache-max-entries-label"
+            data-l10n-id="cache-max-entries"
+          />
+          <html:input
+            id="metaref-cache-max-entries"
+            type="number"
+            min="64"
+            max="10000"
+            step="64"
+            preference="cache.maxEntries"
+            aria-labelledby="metaref-cache-max-entries-label"
+          />
+        </hbox>
+      </html:div>
+      <html:div class="metaref-cache-status-card">
+        <html:p
+          id="metaref-cache-usage"
+          class="metaref-pref-description"
+          role="status"
+          aria-live="polite"
+        />
+        <html:div
+          id="metaref-api-cache-status"
+          class="metaref-pref-description"
+          role="status"
+          aria-live="polite"
+        />
+        <html:div class="metaref-action-row">
+          <button
+            id="metaref-refresh-cache-usage"
+            data-l10n-id="cache-usage-refresh"
+            native="true"
+          />
+          <button
+            id="metaref-clean-expired-cache"
+            data-l10n-id="cache-expired-clean"
+            native="true"
+          />
+          <button
+            id="metaref-clear-api-cache"
+            data-l10n-id="api-cache-clear"
+            native="true"
+          />
+          <button
+            id="metaref-open-cache-folder"
+            data-l10n-id="cache-folder-open"
+            native="true"
+          />
+        </html:div>
+      </html:div>
+      <description
+        id="metaref-cache-maintenance-policy"
+        data-l10n-id="cache-maintenance-policy"
+        class="metaref-pref-description"
+      />
+      <description
+        data-l10n-id="api-cache-description"
+        class="metaref-pref-description"
+      />
+    </groupbox>
+    <groupbox>
+      <label><html:h3 data-l10n-id="batch-feedback-heading" /></label>
+      <description
+        data-l10n-id="batch-feedback-description"
+        class="metaref-pref-description"
+      />
+      <html:div class="metaref-cache-status-card">
+        <html:div
+          id="metaref-last-batch-status"
+          class="metaref-pref-description"
+          role="status"
+          aria-live="polite"
+        />
+        <html:div class="metaref-action-row">
+          <button
+            id="metaref-last-batch-report"
+            data-l10n-id="batch-feedback-view-report"
+            native="true"
+          />
+          <button
+            id="__addonRef__-integration-status"
+            data-l10n-id="integration-status-button"
+            native="true"
+          />
+        </html:div>
+      </html:div>
+      <description
+        data-l10n-id="integration-undo-description"
+        class="metaref-pref-description"
+      />
+    </groupbox>
     <groupbox id="metaref-feedback-performance">
       <label><html:h3 data-l10n-id="feedback-performance-heading" /></label>
       <checkbox
@@ -153,76 +350,6 @@
           class="metaref-pref-description"
         />
       </hbox>
-    </groupbox>
-    <groupbox>
-      <label><html:h3 data-l10n-id="batch-feedback-heading" /></label>
-      <button
-        id="__addonRef__-integration-status"
-        data-l10n-id="integration-status-button"
-        native="true"
-      />
-      <description
-        data-l10n-id="integration-undo-description"
-        class="metaref-pref-description"
-      />
-
-      <description
-        data-l10n-id="batch-feedback-description"
-        class="metaref-pref-description"
-      />
-      <html:div
-        id="metaref-last-batch-status"
-        role="status"
-        aria-live="polite"
-      />
-      <button
-        id="metaref-last-batch-report"
-        data-l10n-id="batch-feedback-view-report"
-        native="true"
-      />
-    </groupbox>
-    <groupbox>
-      <label><html:h3 data-l10n-id="api-cache-heading" /></label>
-      <html:p id="metaref-cache-folder-path" class="metaref-pref-description" />
-      <html:p
-        id="metaref-cache-usage"
-        class="metaref-pref-description"
-        role="status"
-        aria-live="polite"
-      />
-      <description
-        data-l10n-id="cache-maintenance-policy"
-        class="metaref-pref-description"
-      />
-      <button
-        id="metaref-refresh-cache-usage"
-        data-l10n-id="cache-usage-refresh"
-        native="true"
-      />
-      <button
-        id="metaref-clean-expired-cache"
-        data-l10n-id="cache-expired-clean"
-        native="true"
-      />
-      <description
-        data-l10n-id="api-cache-description"
-        class="metaref-pref-description"
-      />
-      <button
-        id="metaref-clear-api-cache"
-        data-l10n-id="api-cache-clear"
-        native="true"
-      />
-      <button
-        id="metaref-open-cache-folder"
-        data-l10n-id="cache-folder-open"
-        native="true"
-      />
-      <html:div
-        id="metaref-api-cache-status"
-        role="status"
-        aria-live="polite"
-      />
     </groupbox>
   </groupbox>
 

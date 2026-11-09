@@ -114,7 +114,7 @@ describe("system recovery and cancellation safety", function () {
     const profile = (Zotero as any).Profile.dir as string;
     assert.include(profile.replaceAll("\\", "/"), "/.scaffold/test/profile");
     const cacheDirectory = PathUtils.join(profile, "zotero-metaflow-cache");
-    const file = PathUtils.join(cacheDirectory, "api-responses-v1.json");
+    const file = PathUtils.join(cacheDirectory, "api-cache.json");
     const obstruction = `${file}.tmp`;
     assert.equal(PathUtils.parent(obstruction), cacheDirectory);
     assert.isFalse(await IOUtils.exists(obstruction));

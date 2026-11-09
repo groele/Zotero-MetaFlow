@@ -1,6 +1,6 @@
-import { ensureMetaFlowCacheDirectory, metaflowCacheDirectory } from "./cache-paths";
+import { API_CACHE_FILE, ensureMetaFlowCacheDirectory, metaflowCacheDirectory } from "./cache-paths";
 import { createLogger } from "./logger";
-import { SERVICE_CACHE_BYTES, SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_LIMIT, SERVICE_CACHE_TTL, serviceCacheTTL } from "./service-cache-policy";
+import { SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_TTL, serviceCacheBytes, serviceCacheLimit, serviceCacheTTL } from "./service-cache-policy";
 
 interface StoredResponse { status: number; response: string; responseText: string }
 interface Entry { expires: number; value?: StoredResponse; alias?: string }
@@ -9,6 +9,7 @@ const entries = new Map<string, Entry>();
 const sizes = new Map<string, number>();
 let bytes = 0;
 let ready: Promise<void> | undefined;
+let loadedFile: string | undefined;
 let timer: ReturnType<typeof setTimeout> | undefined;
 let writes = Promise.resolve(true);
 let generation = 0;
@@ -21,7 +22,7 @@ let writeFailed = false;
 const validKey = /^(?:easyscholar|semantic-scholar):[a-f0-9]{32}$/;
 function path() {
   return typeof IOUtils !== "undefined" && (Zotero as any).Profile?.dir
-    ? PathUtils.join(metaflowCacheDirectory(), "api-responses-v1.json")
+    ? PathUtils.join(metaflowCacheDirectory(), API_CACHE_FILE)
     : undefined;
 }
 const digest = (key: string) => `${key.slice(0, key.indexOf(":"))}:${Zotero.Utilities.Internal.md5(key)}`;
@@ -45,7 +46,9 @@ function put(key: string, entry: Entry) {
   entries.set(key, entry);
   sizes.set(key, size);
   bytes += size;
-  while (entries.size > SERVICE_CACHE_LIMIT || bytes > SERVICE_CACHE_BYTES - 128)
+  const maxEntries = serviceCacheLimit();
+  const maxBytes = serviceCacheBytes();
+  while (entries.size > maxEntries || bytes > maxBytes - 128)
     remove(entries.keys().next().value!);
   return true;
 }
@@ -57,14 +60,18 @@ function touch(key: string) {
   }
 }
 async function load() {
+  const currentFile = path();
+  if (loadedFile && currentFile !== loadedFile)
+    resetServiceCacheSession();
+  loadedFile = currentFile;
   ready ||= (async () => {
     const token = session;
-    const file = path();
+    const file = currentFile;
     if (!file)
       return;
     try {
       const source = file;
-      if (!await IOUtils.exists(source) || (await IOUtils.stat(source)).size! > SERVICE_CACHE_BYTES * 2)
+      if (!await IOUtils.exists(source) || (await IOUtils.stat(source)).size! > serviceCacheBytes() * 2)
         return;
       const data = await IOUtils.readJSON(source) as { version?: number; entries?: [string, Entry][] };
       if (token !== session)
@@ -76,7 +83,7 @@ async function load() {
       if (![1, 2, 3].includes(data.version || 0) || !Array.isArray(data.entries))
         return;
       const valid: [string, Entry][] = [];
-      for (const row of data.entries.slice(-SERVICE_CACHE_LIMIT)) {
+      for (const row of data.entries.slice(-serviceCacheLimit())) {
         if (!Array.isArray(row) || row.length !== 2)
           continue;
         const [key, entry] = row;
@@ -192,12 +199,26 @@ export async function flushServiceCache() {
   if (!file)
     return;
   await load();
+  const now = Date.now();
   for (const [key, entry] of entries) {
-    if (entry.expires <= Date.now()) {
+    const maxExpires = now + serviceCacheTTL(key.split(":")[0]);
+    if (entry.expires > maxExpires) {
+      entry.expires = maxExpires;
+      dirty = true;
+      revision++;
+    }
+    if (entry.expires <= now) {
       remove(key);
       dirty = true;
       revision++;
     }
+  }
+  const maxEntries = serviceCacheLimit();
+  const maxBytes = serviceCacheBytes();
+  while (entries.size > maxEntries || bytes > maxBytes - 128) {
+    remove(entries.keys().next().value!);
+    dirty = true;
+    revision++;
   }
   if (readOnly || !dirty || queuedRevision === revision)
     return writes;

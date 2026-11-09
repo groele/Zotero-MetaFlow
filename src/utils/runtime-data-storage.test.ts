@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { normalizeRuntimeRun, RUNTIME_HISTORY_TTL } from "./runtime-data-policy";
 
 const files = new Map<string, any>();
-const file = "/profile/zotero-metaflow-cache/operation-history-v1.json";
+const file = "/profile/zotero-metaflow-cache/operation-history.json";
 const entry = () => normalizeRuntimeRun({ id: "run-one", at: Date.now(), status: "running", stages: [{ name: "metadata", startedAt: Date.now(), status: "running" }] })!;
 
 beforeEach(() => {

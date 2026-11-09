@@ -229,7 +229,7 @@ describe("local runtime data persistence", function () {
       } }] });
       await plugin().api.runtimeData.flush();
       const path = plugin().api.runtimeData.path();
-      assert.equal(PathUtils.filename(path), "operation-history-v1.json");
+      assert.equal(PathUtils.filename(path), "operation-history.json");
       assert.equal(PathUtils.parent(path), PathUtils.join((Zotero as any).Profile.dir, "zotero-metaflow-cache"));
       const text = await IOUtils.readUTF8(path);
       assert.notInclude(text, "private-runtime-key");

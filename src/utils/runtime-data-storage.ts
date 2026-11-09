@@ -1,6 +1,6 @@
 import type { BatchResult } from "../modules/runner";
 import type { RuntimeData, RuntimeItem, RuntimeRun, RuntimeStage } from "./runtime-data-policy";
-import { metaflowCacheDirectory } from "./cache-paths";
+import { metaflowCacheDirectory, OPERATION_HISTORY_FILE } from "./cache-paths";
 import { boundRuntimeRuns, normalizeRuntimeRun, RUNTIME_HISTORY_BYTES } from "./runtime-data-policy";
 
 const logger = { debug: (...args: unknown[]) => Zotero.debug(`[MetaFlow runtime-data] ${args.map(String).join(" ")}`) };
@@ -127,10 +127,13 @@ export class RuntimeDataStore {
 let store: RuntimeDataStore | undefined;
 const runIDs = new WeakMap<BatchResult, string>();
 export function runtimeDataPath(): string {
-  return PathUtils.join(metaflowCacheDirectory(), "operation-history-v1.json");
+  return PathUtils.join(metaflowCacheDirectory(), OPERATION_HISTORY_FILE);
 }
 function runtimeStore() {
-  return store ||= new RuntimeDataStore(runtimeDataPath());
+  const file = runtimeDataPath();
+  if (!store || store.file !== file)
+    store = new RuntimeDataStore(file);
+  return store;
 }
 export const readRuntimeData = () => runtimeStore().read();
 export const getRuntimeDataStatus = () => runtimeStore().status();

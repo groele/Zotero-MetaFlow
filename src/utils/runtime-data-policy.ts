@@ -1,6 +1,29 @@
 export const RUNTIME_HISTORY_LIMIT = 200;
 export const RUNTIME_HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;
 export const RUNTIME_HISTORY_BYTES = 2 * 1024 * 1024;
+
+function readIntPref(key: string, fallback: number, min: number, max: number): number {
+  try {
+    const value = (Zotero as any)?.Prefs?.get?.(`extensions.zotero.metaref.${key}`, true);
+    const num = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+    return Number.isInteger(num) && num >= min && num <= max ? num : fallback;
+  }
+  catch {
+    return fallback;
+  }
+}
+
+export function runtimeHistoryDays(): number {
+  return readIntPref("cache.historyDays", 30, 1, 365);
+}
+
+export function runtimeHistoryLimit(): number {
+  return readIntPref("cache.historyLimit", RUNTIME_HISTORY_LIMIT, 20, 2000);
+}
+
+export function runtimeHistoryTTL(): number {
+  return runtimeHistoryDays() * 24 * 60 * 60 * 1000;
+}
 export interface RuntimeItem {
   libraryID: number;
   key: string;
@@ -72,13 +95,15 @@ export function normalizeRuntimeRun(value: unknown): RuntimeRun | undefined {
 }
 
 export function boundRuntimeRuns(values: unknown[], now = Date.now()): RuntimeRun[] {
+  const ttl = runtimeHistoryTTL();
+  const limit = runtimeHistoryLimit();
   const unique = new Map<string, RuntimeRun>();
   for (const value of values) {
     const row = normalizeRuntimeRun(value);
-    if (row && row.at > now - RUNTIME_HISTORY_TTL && row.at <= now + 300_000)
+    if (row && row.at > now - ttl && row.at <= now + 300_000)
       unique.set(row.id, row);
   }
-  const recent = [...unique.values()].sort((a, b) => a.at - b.at).slice(-RUNTIME_HISTORY_LIMIT);
+  const recent = [...unique.values()].sort((a, b) => a.at - b.at).slice(-limit);
   let bytes = 128;
   const kept: RuntimeRun[] = [];
   const encoder = new TextEncoder();

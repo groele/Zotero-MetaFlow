@@ -4,7 +4,7 @@ import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { preferenceListeners } from "../utils/preference-listeners";
 import { getPref } from "../utils/prefs";
-import { RUNTIME_HISTORY_BYTES, RUNTIME_HISTORY_LIMIT, RUNTIME_HISTORY_TTL } from "../utils/runtime-data-policy";
+import { RUNTIME_HISTORY_BYTES, runtimeHistoryDays, runtimeHistoryLimit } from "../utils/runtime-data-policy";
 import { flushRuntimeData, readRuntimeData, runtimeDataPath } from "../utils/runtime-data-storage";
 import { configureCompletionNotice } from "./completion-notice";
 import { createReporter, ProgressUI } from "./reporter";
@@ -129,7 +129,7 @@ function updateCoreFeedback() {
 export function setupBatchFeedback(pane: Element) {
   const policy = pane.querySelector("#metaref-runtime-data-policy");
   if (policy)
-    policy.textContent = getString("runtime-data-policy", { args: { days: RUNTIME_HISTORY_TTL / 86_400_000, count: RUNTIME_HISTORY_LIMIT, size: RUNTIME_HISTORY_BYTES / 1024 / 1024 } });
+    policy.textContent = getString("runtime-data-policy", { args: { days: runtimeHistoryDays(), count: runtimeHistoryLimit(), size: RUNTIME_HISTORY_BYTES / 1024 / 1024 } });
   const report = pane.querySelector("#metaref-last-batch-report");
   const cachePath = pane.querySelector("#metaref-cache-folder-path");
   if (cachePath)

@@ -127,7 +127,7 @@ describe("authenticated service response cache", () => {
   it("starts a fresh cache in the new folder and does not read the retired profile-root file", async () => {
     await fetch();
     await flushServiceCache();
-    const cachePath = "/isolated-profile/zotero-metaflow-cache/api-responses-v1.json";
+    const cachePath = "/isolated-profile/zotero-metaflow-cache/api-cache.json";
     const legacyPath = "/isolated-profile/metaflow-api-cache-v1.json";
     files.set(legacyPath, structuredClone(files.get(cachePath)));
     files.delete(cachePath);
@@ -275,5 +275,31 @@ describe("authenticated service response cache", () => {
     const snapshot = files.values().next().value;
     expect(snapshot.entries.length).toBeLessThan(30);
     expect(new TextEncoder().encode(JSON.stringify(snapshot)).byteLength).toBeLessThanOrEqual(8 * 1024 * 1024);
+  });
+
+  it("respects custom cache directory and custom TTL/capacity preferences", async () => {
+    const prefs = new Map<string, unknown>([
+      ["extensions.zotero.metaref.cache.customDirectory", "/custom-cache-dir"],
+      ["extensions.zotero.metaref.cache.semanticScholarHours", 2],
+      ["extensions.zotero.metaref.cache.easyScholarHours", 6],
+      ["extensions.zotero.metaref.cache.maxEntries", 64],
+      ["extensions.zotero.metaref.cache.maxMiB", 1],
+    ]);
+    (Zotero as any).Prefs = {
+      get: (key: string) => prefs.get(key),
+    };
+    vi.stubGlobal("addon", { data: { config: { prefsPrefix: "extensions.zotero.metaref" } } });
+    resetServiceCacheSession();
+    await fetch();
+    await flushServiceCache();
+    expect(files.has("/custom-cache-dir/api-cache.json")).toBe(true);
+    await vi.advanceTimersByTimeAsync(119 * 60_000);
+    clearRequestCache();
+    resetServiceCacheSession();
+    await fetch();
+    expect(request).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(2 * 60_000);
+    await fetch();
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });

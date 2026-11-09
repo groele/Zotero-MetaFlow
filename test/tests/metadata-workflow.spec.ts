@@ -110,7 +110,7 @@ describe("metadata workflow in Zotero", function () {
       assert.lengthOf(metarefPane.querySelectorAll(".metaref-shortcut-actions"), 12, "reloading the pane must not duplicate shortcut buttons");
       assert.isNull(metarefPane.querySelector(".metaref-settings-search, .metaref-settings-jump"));
       const resets = metarefPane.querySelectorAll("button[data-l10n-id='metaref-settings-custom-data-reset']");
-      assert.lengthOf(resets, 4);
+      assert.lengthOf(resets, 5);
       const resetRow = metarefPane.querySelector("#metaref-title-choose-custom-data-button")!.parentElement!;
       const resetFile = resetRow.querySelector("button[data-l10n-id='metaref-settings-custom-data-reset']")!;
       const resetPath = resetRow.querySelector("input[preference]") as HTMLInputElement;

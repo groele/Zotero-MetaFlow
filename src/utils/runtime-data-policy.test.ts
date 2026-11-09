@@ -50,4 +50,25 @@ describe("bounded runtime data", () => {
     expect(normalizeRuntimeRun({ ...row, status: "interrupted", stages: row.stages.map(stage => ({ ...stage, status: "interrupted" })) })?.stages[0].status).toBe("interrupted");
     expect(normalizeRuntimeRun({ ...row, stages: [{ name: "../escape", startedAt: Date.now() }] })?.stages).toEqual([]);
   });
+  it("honors customized history retention days and record count limits", () => {
+    const prefs = new Map<string, unknown>([
+      ["extensions.zotero.metaref.cache.historyDays", 7],
+      ["extensions.zotero.metaref.cache.historyLimit", 25],
+    ]);
+    (globalThis as any).Zotero = { Prefs: { get: (key: string) => prefs.get(key) } };
+    (globalThis as any).addon = { data: { config: { prefsPrefix: "extensions.zotero.metaref" } } };
+    try {
+      const now = Date.now();
+      const rows = boundRuntimeRuns([
+        ...Array.from({ length: 40 }, (_, index) => run(`recent-${index}`, now - index * 1000)),
+        run("expired-8d", now - 8 * 86_400_000),
+      ], now);
+      expect(rows).toHaveLength(25);
+      expect(rows.some(item => item.id === "expired-8d")).toBe(false);
+    }
+    finally {
+      delete (globalThis as any).Zotero;
+      delete (globalThis as any).addon;
+    }
+  });
 });

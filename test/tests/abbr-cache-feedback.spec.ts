@@ -103,7 +103,7 @@ describe("abbreviations, durable cache and quiet completion in Zotero", function
       await Promise.all([fetch(), fetch(), fetch()]);
       assert.equal(calls, 1);
       await flushServiceCache();
-      const path = PathUtils.join((Zotero as any).Profile.dir, "zotero-metaflow-cache", "api-responses-v1.json");
+      const path = PathUtils.join((Zotero as any).Profile.dir, "zotero-metaflow-cache", "api-cache.json");
       const text = await IOUtils.readUTF8(path);
       assert.notInclude(text, "fixture-do-not-persist-key");
       assert.include(text, "durable-fixture");

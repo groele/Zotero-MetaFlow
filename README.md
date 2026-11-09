@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-16.0.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.2)
+[![Version](https://img.shields.io/badge/version-16.0.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.3)
 
-16.0.2 新增专用缓存文件夹、阶段操作记录、占用展示和过期清理。缓存位于 Zotero 配置目录的 `zotero-metaflow-cache`，旧版散落文件不参与新缓存。详见[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+16.0.3 重构「数据、缓存与运行反馈」设置面板布局，支持自定义缓存与操作记录目录路径（默认显示当前 Zotero 配置目录下的 `zotero-metaflow-cache` 并支持一键恢复默认），同时开放 EasyScholar 缓存小时数、Semantic Scholar 缓存小时数、操作记录保留天数与条数上限、API 缓存容量与索引条数上限等 6 项自定义参数。详见[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-763%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

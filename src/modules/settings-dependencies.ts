@@ -1,6 +1,8 @@
 import { builtinAbbreviationPath } from "../utils/builtin-abbreviation-file";
+import { defaultMetaFlowCacheDirectory } from "../utils/cache-paths";
 import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
 import { getPref, setPref } from "../utils/prefs";
+import { resetServiceCacheSession } from "../utils/service-cache-storage";
 
 export function setupCustomDataReset(pane: Element) {
   const listen = preferenceListeners(pane);
@@ -27,6 +29,12 @@ export function setupCustomDataReset(pane: Element) {
           const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
           if (source)
             source.value = "auto";
+        }
+        else if (key === "cache.customDirectory") {
+          setPref("cache.customDirectory", "");
+          resetServiceCacheSession();
+          input.value = defaultMetaFlowCacheDirectory();
+          input.title = input.value;
         }
         else { setPref(key as any, ""); }
       });

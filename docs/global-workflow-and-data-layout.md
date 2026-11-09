@@ -48,9 +48,9 @@ PDF 标识符扫描和无标识符标题检索默认关闭，统一由补充检�
 | 文献、作者、关系、附件 | Zotero 文献库和附件目录 | 由 Zotero 保存；插件缓存不能替代文库备份 |
 | 功能开关、服务凭据、非重复判定 | Zotero 偏好设置 | 保留现有 `extensions.zotero.metaref` 命名空间；缓存键使用凭据摘要，运行摘要不记录凭据 |
 | 内置缩写、ESI、Nature Index 数据 | 插件打包的数据资源 | 懒加载、索引复用；明确重载或版本更换时更新 |
-| 联网响应 | 配置目录 `zotero-metaflow-cache/api-responses-v1.json` | 内存共享请求，再读取持久缓存，最后联网；按服务区分期限和容量 |
+| 联网响应 | 配置目录 `zotero-metaflow-cache/api-cache.json` | 内存共享请求，再读取持久缓存，最后联网；按服务区分期限和容量 |
 | 已保存的期刊评级 | 配置目录 `metaflow-journal-rankings-v1.json` | 作为已保存结果回退，区别于仍在有效期的联网响应 |
-| 操作记录 | 配置目录 `zotero-metaflow-cache/operation-history-v1.json` 及 `.bak` | 最多 30 天、200 次、2 MiB；最多 50 个条目摘要并记录核心流程阶段检查点 |
+| 操作记录 | 配置目录 `zotero-metaflow-cache/operation-history.json` 及 `.bak` | 最多 30 天、200 次、2 MiB；最多 50 个条目摘要并记录核心流程阶段检查点 |
 | 详细字段变更、可点击报告 | 当前插件会话 | 不复制到运行摘要；需要完整内容时由用户主动导出报告 |
 
 清理接口缓存不会删除文献、设置、已保存评级或操作记录。新目录从空缓存开始，旧版在配置目录根部的缓存文件不迁移、不读取、不删除。操作记录不是撤销日志，也不是数据库备份。完整的期限、字节限制和损坏恢复策略见[缓存与存储策略](automatic-metadata-and-runtime-cache.md)。

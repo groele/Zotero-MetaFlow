@@ -264,9 +264,79 @@ describe("settings panel layout and validation in Zotero", function () {
     assert.isNotNull(data.querySelector("#metaref-last-batch-report"));
     assert.isNotNull(data.querySelector("#metaref-clear-api-cache"));
     assert.isNotNull(data.querySelector("#metaref-open-cache-folder"));
+    const cacheInput = data.querySelector<HTMLInputElement>("#metaref-cache-custom-path")!;
+    assert.isNotNull(cacheInput);
+    assert.include(cacheInput.value, "zotero-metaflow-cache");
     assert.include(data.querySelector("#metaref-cache-folder-path")!.textContent!, "zotero-metaflow-cache");
     assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "200");
     assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "30");
+    assert.lengthOf(data.querySelectorAll(".metaref-cache-policy-grid .metaref-cache-policy-item input[type='number']"), 6);
+    const policyChecks: Array<[string, string, number, number]> = [
+      ["metaref-cache-easyscholar-hours", "cache.easyScholarHours", 48, 72],
+      ["metaref-cache-semanticscholar-hours", "cache.semanticScholarHours", 12, 24],
+      ["metaref-cache-history-days", "cache.historyDays", 15, 30],
+      ["metaref-cache-history-limit", "cache.historyLimit", 120, 200],
+      ["metaref-cache-max-mib", "cache.maxMiB", 16, 8],
+      ["metaref-cache-max-entries", "cache.maxEntries", 512, 1024],
+    ];
+    try {
+      for (const [id, key, nextVal] of policyChecks) {
+        const input = data.querySelector<HTMLInputElement>(`#${id}`)!;
+        input.value = String(nextVal);
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        assert.equal(Zotero.Prefs.get(pref(key), true), nextVal, `${key} persists valid integer`);
+        input.value = "0";
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+        assert.equal(input.getAttribute("aria-invalid"), "true", `${key} rejects out-of-range value`);
+        assert.equal(Zotero.Prefs.get(pref(key), true), nextVal);
+        input.dispatchEvent(new win.Event("blur"));
+        assert.equal(input.value, String(nextVal));
+      }
+      for (let attempt = 0; attempt < 40 && !data.querySelector("#metaref-cache-usage")!.textContent!.includes("512"); attempt++)
+        await Zotero.Promise.delay(25);
+      assert.include(data.querySelector("#metaref-cache-usage")!.textContent!, "512");
+      assert.include(data.querySelector("#metaref-cache-usage")!.textContent!, "120");
+      assert.include(data.querySelector("#metaref-cache-usage")!.textContent!, "16 MiB");
+      assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "15");
+      assert.include(data.querySelector("#metaref-runtime-data-policy")!.textContent!, "120");
+    }
+    finally {
+      for (const [id, key, , defaultVal] of policyChecks) {
+        Zotero.Prefs.set(pref(key), defaultVal, true);
+        const input = data.querySelector<HTMLInputElement>(`#${id}`)!;
+        input.value = String(defaultVal);
+        input.dispatchEvent(new win.Event("input", { bubbles: true }));
+      }
+    }
+    const plugin = (Zotero as any)[config.addonInstance];
+    const picker = plugin.data.ztoolkit.FilePicker.prototype;
+    const originalOpen = picker.open;
+    const customCacheDir = PathUtils.join(PathUtils.tempDir, `metaflow-custom-cache-${Date.now()}`);
+    const chooseBtn = data.querySelector<HTMLButtonElement>("#metaref-cache-choose-directory")!;
+    const resetBtn = data.querySelector<HTMLButtonElement>("#metaref-cache-directory-row [data-reset-path='true']")!;
+    try {
+      picker.open = async () => customCacheDir;
+      chooseBtn.dispatchEvent(new win.Event("command", { bubbles: true }));
+      for (let attempt = 0; attempt < 100 && data.querySelector("#metaref-cache-directory-row")?.hasAttribute("data-busy"); attempt++)
+        await Zotero.Promise.delay(25);
+      assert.equal(Zotero.Prefs.get(pref("cache.customDirectory"), true), customCacheDir);
+      assert.equal(cacheInput.value, customCacheDir);
+      assert.include(data.querySelector("#metaref-cache-folder-path")!.textContent!, customCacheDir);
+      assert.equal(plugin.api.runtimeData.cacheDirectory(), customCacheDir);
+      await plugin.api.runtimeData.flush();
+      assert.isTrue(await IOUtils.exists(PathUtils.join(customCacheDir, "operation-history.json")), "runtime history writes to custom directory");
+      resetBtn.dispatchEvent(new win.Event("command", { bubbles: true }));
+      for (let attempt = 0; attempt < 40 && !cacheInput.value.includes("zotero-metaflow-cache"); attempt++)
+        await Zotero.Promise.delay(25);
+      assert.equal(Zotero.Prefs.get(pref("cache.customDirectory"), true), "");
+      assert.include(cacheInput.value, "zotero-metaflow-cache");
+      assert.include(data.querySelector("#metaref-cache-folder-path")!.textContent!, "zotero-metaflow-cache");
+    }
+    finally {
+      picker.open = originalOpen;
+      Zotero.Prefs.set(pref("cache.customDirectory"), "", true);
+      await IOUtils.remove(customCacheDir, { recursive: true, ignoreAbsent: true });
+    }
     assert.lengthOf(pane.querySelectorAll("#metaref-clear-api-cache"), 1);
     const cards = [...pane.querySelectorAll<HTMLDetailsElement>(":scope > .metaref-section-card")];
     assert.isTrue(cards[0].open, "the first group opens initially");

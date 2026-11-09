@@ -303,6 +303,13 @@ declare namespace _ZoteroTypes {
       "duplicates.mergeDifferentTypes": boolean;
       "duplicates.showStats": boolean;
       "duplicates.nonDuplicatePairs": string;
+      "cache.customDirectory": string;
+      "cache.easyScholarHours": number;
+      "cache.semanticScholarHours": number;
+      "cache.historyDays": number;
+      "cache.historyLimit": number;
+      "cache.maxMiB": number;
+      "cache.maxEntries": number;
     };
   }
 }
