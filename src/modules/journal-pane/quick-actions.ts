@@ -3,6 +3,7 @@ import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
 import {
   extractArxivID,
+  extractPreprintDOI,
 } from "./actions";
 import { ensureJournalPaneStyles } from "./styles";
 
@@ -13,6 +14,7 @@ export function renderPreprintCard(
   refreshPane: (itemIDs?: number[]) => Promise<void>,
 ) {
   const arxivID = extractArxivID(item);
+  const preprintDOI = extractPreprintDOI(item);
   body.replaceChildren();
   body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
   ensureJournalPaneStyles(doc || body.ownerDocument);
@@ -24,20 +26,21 @@ export function renderPreprintCard(
   badgeRow.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;margin:0 0 10px;gap:8px;");
 
   const badge = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-  badge.textContent = "arXiv Preprint";
+  badge.textContent = arxivID ? "arXiv Preprint" : "bioRxiv / medRxiv Preprint";
   badge.setAttribute("style", "display:inline-flex;align-items:center;background:color-mix(in srgb, #b31b1b 15%, transparent);color:#b31b1b;border:1px solid color-mix(in srgb, #b31b1b 30%, transparent);padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;letter-spacing:0.3px;");
   badgeRow.append(badge);
 
-  if (arxivID) {
+  if (arxivID || preprintDOI) {
+    const linkTarget = arxivID ? `https://arxiv.org/abs/${arxivID}` : `https://doi.org/${preprintDOI}`;
     const arxivLink = doc.createElementNS("http://www.w3.org/1999/xhtml", "a") as HTMLAnchorElement;
-    arxivLink.textContent = `arXiv:${arxivID}`;
-    arxivLink.href = `https://arxiv.org/abs/${arxivID}`;
+    arxivLink.textContent = arxivID ? `arXiv:${arxivID}` : `DOI:${preprintDOI}`;
+    arxivLink.href = linkTarget;
     arxivLink.setAttribute("target", "_blank");
     arxivLink.setAttribute("rel", "noopener noreferrer");
     arxivLink.setAttribute("style", "font-size:12px;color:var(--accent-blue, #245ac7);text-decoration:none;font-family:ui-monospace, monospace;");
     arxivLink.addEventListener("click", (e) => {
       e.stopPropagation();
-      Zotero.launchURL(`https://arxiv.org/abs/${arxivID}`);
+      Zotero.launchURL(linkTarget);
     });
     badgeRow.append(arxivLink);
   }

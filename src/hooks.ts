@@ -24,6 +24,7 @@ import { startCacheMaintenance, stopCacheMaintenance } from "./utils/cache-maint
 import { cleanupResources } from "./utils/cleanup";
 import { closeAllDialogs } from "./utils/dialog";
 import { clearDuplicateSearchCache } from "./utils/duplicate-search-cache";
+import { invalidateEasyScholarTitle } from "./utils/easyscholar";
 import { migrateGreenFrogPreferences } from "./utils/greenfrog-migration";
 import { clearRequestCache } from "./utils/http";
 import { redrawItemValues } from "./utils/item-value-refresh";
@@ -37,7 +38,7 @@ import { registerPersistenceShutdown } from "./utils/persistence-shutdown";
 import { getPref } from "./utils/prefs";
 import { flushRuntimeData } from "./utils/runtime-data-storage";
 import { flushServiceCache } from "./utils/service-cache-storage";
-import { clearSupplementalJournalCache } from "./utils/supplemental-journals";
+import { clearSupplementalJournalCache, invalidateSupplementalJournalTitle } from "./utils/supplemental-journals";
 
 const windowBindings = new Map<Window, { closed: boolean; readyPromise: Promise<void> }>();
 const shortcutCleanups = new Map<Window, () => void>();
@@ -305,14 +306,21 @@ async function onPrefsEvent(type: string, data: { [key: string]: never }) {
  * @param items 需要批量处理的 Zotero.Item[]，或通过触发批量任务的位置决定 Zotero Item 的获取方式。 "item" | "collection" | XUL.MenuPopup | "menuFile" | "menuEdit" | "menuView" | "menuGo" | "menuTools" | "menuHelp"
  */
 
-function onRefreshJournal(item: Zotero.Item) {
+function onRefreshJournal(item: Zotero.Item, force = false) {
   if (!hasEnabledJournalMetrics() || !item || item.deleted || !item.isEditable() || !["journalArticle", "conferencePaper"].includes(item.itemType))
     return Promise.resolve();
   const existing = journalRefreshes.get(item.id);
   if (existing)
     return existing;
   const task = (async () => {
-    const mode = getPref("rule.tool-update-metadata.option.mode") === "all" ? "all" as const : "blank" as const;
+    if (force) {
+      const title = String(item.getField("publicationTitle") || item.getField("conferenceName") || item.getField("proceedingsTitle") || "").trim();
+      if (title) {
+        invalidateEasyScholarTitle(title);
+        invalidateSupplementalJournalTitle(title);
+      }
+    }
+    const mode = force ? "all" as const : getPref("rule.tool-update-metadata.option.mode") === "all" ? "all" as const : "blank" as const;
     const result = await addon.runner.add({ items: [item], rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }], silent: true });
     if (addon.data.alive && !result?.cancelled) {
       await getJournalInsights(item, { queryAPI: true });

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { clearRequestCache, clearServiceRequestCache, requestServiceGET } from "./http";
+import { clearRequestCache, clearServiceRequestCache, invalidateServiceRequest, requestServiceGET } from "./http";
 import { clearStoredServiceCache, flushServiceCache, resetServiceCacheSession } from "./service-cache-storage";
 
 vi.mock("./logger", () => ({ createLogger: () => ({ debug: vi.fn() }) }));
@@ -312,5 +312,21 @@ describe("authenticated service response cache", () => {
     resetServiceCacheSession();
     await queryCrossref();
     expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it("invalidates a single service cache entry without evicting other cached journals", async () => {
+    request.mockResolvedValue(response({ code: 200, data: { officialRank: { all: { sciif: "8.4" } } } } as any));
+    const urlA = "https://example.test/journal?publicationName=Nature";
+    const urlB = "https://example.test/journal?publicationName=Science";
+    await requestServiceGET("easyscholar", urlA);
+    await requestServiceGET("easyscholar", urlB);
+    await flushServiceCache();
+    expect(request).toHaveBeenCalledTimes(2);
+    invalidateServiceRequest("easyscholar", urlA);
+    await flushServiceCache();
+    await requestServiceGET("easyscholar", urlB);
+    expect(request).toHaveBeenCalledTimes(2);
+    await requestServiceGET("easyscholar", urlA);
+    expect(request).toHaveBeenCalledTimes(3);
   });
 });

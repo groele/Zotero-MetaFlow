@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractArxivID, isUnconvertedArxivPreprint, isUnrevivedSnapshot, supportsSection } from "./journal-pane";
+import { extractArxivID, extractPreprintDOI, isUnconvertedArxivPreprint, isUnconvertedBiorxivPreprint, isUnrevivedSnapshot, supportsSection } from "./journal-pane";
 
 function mockItem(fields: Record<string, string>, itemType = "preprint", regular = true): Zotero.Item {
   return {
@@ -123,5 +123,15 @@ describe("supportsSection", () => {
   it("activates journal pane for unrevived snapshots", () => {
     const snapshot = mockItem({ url: "https://example.com/page" }, "webpage");
     expect(supportsSection(snapshot)).toBe(true);
+  });
+
+  it("extracts bioRxiv / medRxiv preprint DOIs and activates preprint card", () => {
+    const biorxiv = mockItem({
+      DOI: "10.1101/2024.01.01.573822v1",
+      url: "https://www.biorxiv.org/content/10.1101/2024.01.01.573822v1",
+    }, "preprint");
+    expect(extractPreprintDOI(biorxiv)).toBe("10.1101/2024.01.01.573822");
+    expect(isUnconvertedBiorxivPreprint(biorxiv)).toBe(true);
+    expect(supportsSection(biorxiv)).toBe(true);
   });
 });

@@ -30,6 +30,17 @@ export function extractArxivID(item?: Zotero.Item): string | undefined {
   return undefined;
 }
 
+export function extractPreprintDOI(item?: Zotero.Item): string | undefined {
+  if (!item || !item.isRegularItem())
+    return undefined;
+  const doi = String(item.getField("DOI") || "");
+  const url = String(item.getField("url") || "");
+  const extra = String(item.getField("extra") || "");
+  const allText = `${doi}\n${url}\n${extra}`;
+  const match = allText.match(/\b(10\.1101\/(?:\d{4}\.\d{2}\.\d{2}\.)?\d{6,8})(?:v\d+)?\b/i);
+  return match ? match[1].toLowerCase() : undefined;
+}
+
 export function isUnconvertedArxivPreprint(item?: Zotero.Item): boolean {
   if (!item || !item.isRegularItem())
     return false;
@@ -46,6 +57,24 @@ export function isUnconvertedArxivPreprint(item?: Zotero.Item): boolean {
   const isArxivDOI = /^10\.48550\/arxiv\./i.test(doi);
   const isArxivPub = !publication || /^(?:arxiv|corr)(?:\.org)?$/i.test(publication) || publication.toLowerCase().includes("arxiv preprint");
   return isArxivDOI || isArxivPub;
+}
+
+export function isUnconvertedBiorxivPreprint(item?: Zotero.Item): boolean {
+  if (!item || !item.isRegularItem())
+    return false;
+  const preprintDOI = extractPreprintDOI(item);
+  if (!preprintDOI)
+    return false;
+  const extra = String(item.getField("extra") || "");
+  if (extra.includes("MetaFlow preprint"))
+    return false;
+  if (item.itemType === "preprint")
+    return true;
+  const doi = String(item.getField("DOI") || "");
+  const publication = String(item.getField(item.itemType === "conferencePaper" ? "proceedingsTitle" : "publicationTitle") || "").trim();
+  const isBiorxivDOI = /^10\.1101\//.test(doi);
+  const isBiorxivPub = !publication || /^(?:biorxiv|medrxiv)(?:\.org)?$/i.test(publication);
+  return isBiorxivDOI || isBiorxivPub;
 }
 
 export function isUnrevivedSnapshot(item?: Zotero.Item): boolean {
@@ -77,6 +106,7 @@ export function supportsSection(item?: Zotero.Item): boolean {
   return Boolean(
     item && getPref("insights.showPane", true) && (
       isUnconvertedArxivPreprint(item)
+      || isUnconvertedBiorxivPreprint(item)
       || isUnrevivedSnapshot(item)
       || (supportsRankings(item) && hasEnabledJournalMetrics())
     ),

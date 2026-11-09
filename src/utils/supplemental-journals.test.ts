@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearSupplementalJournalCache, fetchSupplementalJournalRank, getNjauCore } from "./supplemental-journals";
+import { clearSupplementalJournalCache, fetchSupplementalJournalRank, getNjauCore, invalidateSupplementalJournalTitle } from "./supplemental-journals";
 
 describe("supplemental journal sources", () => {
   afterEach(() => {
@@ -32,6 +32,10 @@ describe("supplemental journal sources", () => {
     expect(request).toHaveBeenCalledTimes(1);
     expect((await fetchSupplementalJournalRank("JOURNAL OF TESTING", fields)).data.njauQuality).toBe("A 类");
     expect(request).toHaveBeenCalledTimes(1);
+    invalidateSupplementalJournalTitle("Journal of Testing");
+    request.mockResolvedValueOnce({ responseText: JSON.stringify({ classname: "B 类" }) });
+    expect((await fetchSupplementalJournalRank("journal of testing", fields)).data.njauQuality).toBe("B 类");
+    expect(request).toHaveBeenCalledTimes(2);
   });
   it("does not repopulate a cleared cache when an earlier request completes", async () => {
     let release!: (value: { responseText: string }) => void;

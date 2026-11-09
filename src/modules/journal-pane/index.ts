@@ -21,7 +21,9 @@ import { ensureJournalPaneStyles } from "./styles";
 
 export {
   extractArxivID,
+  extractPreprintDOI,
   isUnconvertedArxivPreprint,
+  isUnconvertedBiorxivPreprint,
   isUnrevivedSnapshot,
   supportsRankings,
   supportsSection,

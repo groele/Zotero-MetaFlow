@@ -37,3 +37,23 @@ export function createShareSvgIcon(doc: Document): SVGElement {
   svg.append(path);
   return svg;
 }
+
+export function createRefreshSvgIcon(doc: Document): SVGElement {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = doc.createElementNS(svgNS, "svg") as unknown as SVGElement;
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "15");
+  svg.setAttribute("height", "15");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("style", "width:15px;height:15px;display:block;pointer-events:none;color:inherit;stroke:currentColor;");
+
+  const path = doc.createElementNS(svgNS, "path");
+  path.setAttribute("d", "M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8m0-5v5h5m-5 4a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16m0 5v-5h-5");
+  svg.setAttribute("aria-hidden", "true");
+  svg.append(path);
+  return svg;
+}

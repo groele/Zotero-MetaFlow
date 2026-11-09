@@ -181,6 +181,17 @@ export function applyItemFields(
     let newFieldValue = "";
     const oldFieldValue = item.getField(field);
 
+    if (field === "extra" && String(value || "").startsWith("Editorial Notice:")) {
+      const existingExtra = String(oldFieldValue || "").trim();
+      const noticeLine = String(value).trim();
+      if (!existingExtra.split(/\r?\n/).includes(noticeLine)) {
+        const mergedExtra = existingExtra ? `${existingExtra}\n${noticeLine}` : noticeLine;
+        item.setField("extra", mergedExtra);
+        report({ level: "warning", field: "extra", source: sources.get(field), message: noticeLine });
+      }
+      continue;
+    }
+
     if (options.mode !== "all" && !!String(oldFieldValue || "").trim()
       && !(field === "title" && sanitizeWebTitle(oldFieldValue) !== oldFieldValue && titlesAgree(oldFieldValue, String(value || "")))) {
       continue;

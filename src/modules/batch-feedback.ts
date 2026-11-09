@@ -6,6 +6,7 @@ import { preferenceListeners } from "../utils/preference-listeners";
 import { getPref } from "../utils/prefs";
 import { RUNTIME_HISTORY_BYTES, runtimeHistoryDays, runtimeHistoryLimit } from "../utils/runtime-data-policy";
 import { flushRuntimeData, readRuntimeData, runtimeDataPath } from "../utils/runtime-data-storage";
+import { canUndoLastBatch, undoLastBatch } from "./batch-undo";
 import { configureCompletionNotice } from "./completion-notice";
 import { createReporter, ProgressUI } from "./reporter";
 
@@ -44,6 +45,9 @@ function renderBatchFeedback(result?: BatchResult) {
     const details = result && reportDetails(result);
     button.disabled = Boolean(active) || !details || (!details.records.length && !details.changes.length);
   }
+  const undoButton = doc?.getElementById("metaref-last-batch-undo") as HTMLButtonElement | null;
+  if (undoButton)
+    undoButton.disabled = Boolean(active) || !canUndoLastBatch(result);
   updateCoreFeedback();
 }
 
@@ -165,6 +169,27 @@ export function setupBatchFeedback(pane: Element) {
       const details = result && reportDetails(result);
       if (details && (details.records.length || details.changes.length))
         void createReporter(details.records, details.changes).catch(error => logger.error(error));
+    });
+  }
+  const undoButton = pane.querySelector<HTMLButtonElement>("#metaref-last-batch-undo");
+  if (undoButton) {
+    preferenceListeners(pane)(undoButton, "command", async () => {
+      if (undoButton.disabled)
+        return;
+      undoButton.disabled = true;
+      try {
+        const outcome = await undoLastBatch(addon.runner.lastResult);
+        const status = pane.querySelector("#metaref-last-batch-status");
+        if (status && pane.isConnected)
+          status.textContent = getString("batch-feedback-undone", { args: outcome });
+      }
+      catch (error) {
+        logger.error("Cannot undo last batch", error);
+      }
+      finally {
+        if (pane.isConnected)
+          undoButton.disabled = Boolean(addon.data.activeCoreWorkflow) || !canUndoLastBatch(addon.runner.lastResult);
+      }
     });
   }
 }

@@ -25,6 +25,51 @@ export interface CrossrefWork {
   "published-online"?: { "date-parts"?: number[][] };
   "publisher"?: string;
   "abstract"?: string;
+  "update-to"?: {
+    type?: string;
+    label?: string;
+    DOI?: string;
+  }[];
+  "relation"?: Record<string, {
+    "id"?: string;
+    "id-type"?: string;
+  }[]>;
+}
+
+export function extractCrossrefEditorialNotice(work: CrossrefWork): { kind: "retracted" | "concern" | "correction"; label: string; doi?: string } | undefined {
+  if (!work || typeof work !== "object")
+    return undefined;
+  const retractedBy = Array.isArray(work.relation?.["is-retracted-by"]) ? work.relation!["is-retracted-by"] : [];
+  if (retractedBy.length > 0) {
+    const doi = normalizeDOI(retractedBy[0]?.id) || undefined;
+    return { kind: "retracted", label: "Retracted", doi };
+  }
+  const updates = Array.isArray(work["update-to"]) ? work["update-to"] : [];
+  for (const entry of updates) {
+    const text = `${entry?.type || ""} ${entry?.label || ""}`.trim();
+    if (!text)
+      continue;
+    const doi = normalizeDOI(entry?.DOI) || undefined;
+    if (/retract|withdrawal|removal/i.test(text))
+      return { kind: "retracted", label: "Retracted", doi };
+    if (/expression[\s_-]*of[\s_-]*concern/i.test(text))
+      return { kind: "concern", label: "Expression of Concern", doi };
+    if (/erratum|corrigendum|correction/i.test(text))
+      return { kind: "correction", label: "Correction", doi };
+  }
+  return undefined;
+}
+
+export function extractCrossrefPublishedDOI(work: CrossrefWork): string | undefined {
+  const relation = work?.relation?.["is-preprint-of"];
+  if (!Array.isArray(relation))
+    return undefined;
+  for (const entry of relation) {
+    const doi = normalizeDOI(entry?.id);
+    if (doi && !/^10\.(?:48550\/arxiv\.|1101\/)/i.test(doi))
+      return doi;
+  }
+  return undefined;
 }
 
 export interface CrossrefResponse {
@@ -151,6 +196,10 @@ export function transformCrossrefWork(work: CrossrefWork): TransformedData {
     if (cleanAbstract)
       result.abstractNote = cleanAbstract;
   }
+
+  const notice = extractCrossrefEditorialNotice(work);
+  if (notice)
+    result.extra = `Editorial Notice: ${notice.label}${notice.doi ? ` (${notice.doi})` : ""}`;
 
   result.libraryCatalog = "Crossref";
   return result;

@@ -9,6 +9,7 @@ import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
 import {
   isUnconvertedArxivPreprint,
+  isUnconvertedBiorxivPreprint,
   isUnrevivedSnapshot,
   supportsRankings,
   supportsSection,
@@ -16,7 +17,7 @@ import {
 import { renderPreprintCard, renderSnapshotCard } from "./quick-actions";
 import { isJournalPaneItemCurrent } from "./section-context";
 
-import { setupShareButton } from "./share-button";
+import { setupRefreshButton, setupShareButton } from "./share-button";
 import { ensureJournalPaneStyles } from "./styles";
 
 export type { CardContext, CardRenderOptions } from "./types";
@@ -37,8 +38,8 @@ export async function renderJournalPaneCard(
 
   const cardCtx: CardContext = { item, body, doc };
 
-  // 1. 若为未转正的 arXiv 预印本，渲染专属快捷转正卡片
-  if (isUnconvertedArxivPreprint(item)) {
+  // 1. 若为未转正的 arXiv / bioRxiv / medRxiv 预印本，渲染专属快捷转正卡片
+  if (isUnconvertedArxivPreprint(item) || isUnconvertedBiorxivPreprint(item)) {
     renderPreprintCard(cardCtx, options.refreshJournalPane);
     return;
   }
@@ -148,8 +149,47 @@ async function renderInsightsCard(
     issn,
   });
 
-  headerRow.append(journalTitle, shareBtn);
+  const actionGroup = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  actionGroup.setAttribute("style", "display:inline-flex;align-items:center;gap:6px;flex-shrink:0;");
+  if (supportsRankings(item) && typeof item.isEditable === "function" && item.isEditable()) {
+    actionGroup.append(setupRefreshButton(doc, item));
+  }
+  actionGroup.append(shareBtn);
+
+  headerRow.append(journalTitle, actionGroup);
   container.append(headerRow);
+
+  const noticeMatch = extraText.match(/^Editorial Notice:\s*(Retracted|Expression of Concern|Correction)(?:\s*\(([^)]+)\))?/im);
+  const titleRetracted = /^(?:\[(?:retracted|withdrawn)\]|retracted\s*:)/i.test(itemTitle);
+  if (noticeMatch || titleRetracted) {
+    const rawKind = (noticeMatch?.[1] || "Retracted").toLowerCase();
+    const kind = rawKind.includes("concern") ? "concern" : rawKind.includes("correction") ? "correction" : "retracted";
+    const noticeDOI = noticeMatch?.[2]?.trim();
+    const isRed = kind === "retracted";
+    const color = isRed ? "#c62828" : "#d97706";
+    const banner = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    banner.setAttribute("data-editorial-notice", kind);
+    banner.setAttribute("role", "alert");
+    banner.setAttribute("style", `display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;background:color-mix(in srgb, ${color} 12%, transparent);color:${color};border:1px solid color-mix(in srgb, ${color} 28%, transparent);`);
+    const labelText = kind === "retracted"
+      ? (getString("editorial-notice-retracted" as any) || "⚠️ 学术预警：该文献已被撤稿 (Retracted)")
+      : kind === "concern"
+        ? (getString("editorial-notice-concern" as any) || "⚠️ 学术预警：该文献存在关切声明 (Expression of Concern)")
+        : (getString("editorial-notice-correction" as any) || "ℹ️ 该文献存在官方勘误/更正记录 (Correction)");
+    banner.append(text("span", labelText));
+    if (noticeDOI) {
+      const link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a") as HTMLAnchorElement;
+      link.textContent = noticeDOI;
+      link.href = `https://doi.org/${noticeDOI}`;
+      link.setAttribute("style", `color:${color};text-decoration:underline;font-family:ui-monospace,monospace;font-size:11px;flex-shrink:0;`);
+      link.addEventListener("click", (e) => {
+        e.stopPropagation();
+        Zotero.launchURL(`https://doi.org/${noticeDOI}`);
+      });
+      banner.append(link);
+    }
+    container.append(banner);
+  }
 
   // 评价与指标区 (EasyScholar Rankings)
   if (supportsRankings(item) || hasIndexResults) {

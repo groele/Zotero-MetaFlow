@@ -10,7 +10,7 @@ import { getPref } from "../../utils/prefs";
 import { normalizedConcurrency } from "../../utils/rule-execution";
 import { recordRuntimeResult } from "../../utils/runtime-data-storage";
 import { updateBatchFeedback } from "../batch-feedback";
-import { isUnconvertedArxivPreprint } from "../journal-pane";
+import { isUnconvertedArxivPreprint, isUnconvertedBiorxivPreprint } from "../journal-pane";
 import { defineRule } from "../rules/rule-base";
 import { CompleteMissingISSN } from "../rules/tool-update-metadata/complete-issn";
 import { extractIdentifiers } from "../rules/tool-update-metadata/identifiers";
@@ -63,10 +63,12 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
           const allCandidates = await discoverIdentifiers(item, signal, features.scanPDF !== false, reviveSnapshots);
           if (!version && features.searchTitle !== false && !allCandidates.length && original.title)
             allCandidates.push({ kind: "Title", value: original.title, source: getString("review-source-title") });
-          const isPreprintItem = isUnconvertedArxivPreprint(item);
+          const isPreprintItem = isUnconvertedArxivPreprint(item) || isUnconvertedBiorxivPreprint(item);
           const arxiv = allCandidates.filter(candidate => candidate.kind === "arXiv");
-          const shouldInspectPreprint = version || (integrated && isPreprintItem && arxiv.length > 0);
-          const candidates = shouldInspectPreprint ? arxiv : allCandidates;
+          const biorxiv = allCandidates.filter(candidate => candidate.kind === "DOI" && /^10\.1101\//.test(candidate.value));
+          const preprintCandidates = arxiv.length ? arxiv : biorxiv;
+          const shouldInspectPreprint = version || (integrated && isPreprintItem && preprintCandidates.length > 0);
+          const candidates = shouldInspectPreprint ? preprintCandidates : allCandidates;
           if (!candidates.length)
             throw new Error(getString(version ? "review-no-arxiv" : "review-no-identifier"));
           const identifier = automaticIdentifier(candidates);
@@ -77,7 +79,7 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
             failureCodes.set(item.id, "metadata-auto-evidence");
             return;
           }
-          const preprint = shouldInspectPreprint && identifier.kind === "arXiv";
+          const preprint = shouldInspectPreprint && (identifier.kind === "arXiv" || (identifier.kind === "DOI" && /^10\.1101\//.test(identifier.value)));
           // Title translators receive the complete local item, not just its title.
           const key = `${preprint}:${identifier.kind}:${identifier.value}:${identifier.kind === "Title" ? item.id : ""}`;
           let request = evidence.get(key);

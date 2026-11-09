@@ -94,6 +94,12 @@ export function applyReviewedMetadata(item: Zotero.Item, selection: MetadataDeci
     item.setType(targetID);
   if (extra !== undefined)
     item.setField("extra", extra);
+  if (proposal.candidate.extra?.startsWith("Editorial Notice:")) {
+    const currentExtra = String(item.getField("extra") || "").trim();
+    const noticeLine = proposal.candidate.extra.trim();
+    if (!currentExtra.split(/\r?\n/).includes(noticeLine))
+      item.setField("extra", currentExtra ? `${currentExtra}\n${noticeLine}` : noticeLine);
+  }
   for (const change of proposal.changes) {
     if (!fields.has(change.field) || change.field === "itemType")
       continue;

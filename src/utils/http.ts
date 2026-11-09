@@ -1,7 +1,7 @@
 import { requestTransport } from "./http-transport";
 import { abortableDelay, waitForOperation } from "./rule-execution";
 import { PUBLIC_CACHE_BYTES, PUBLIC_CACHE_LIMIT, PUBLIC_CACHE_TTL, publicationCacheName, SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_MEMORY_LIMIT, SERVICE_MEMORY_BYTES, serviceCacheTTL } from "./service-cache-policy";
-import { clearStoredServiceCache, readServiceCache, storeServiceAliases, storeServiceCache } from "./service-cache-storage";
+import { clearStoredServiceCache, readServiceCache, removeStoredServiceCache, storeServiceAliases, storeServiceCache } from "./service-cache-storage";
 import { withThrottle } from "./throttle";
 
 type RequestOptions = NonNullable<Parameters<typeof Zotero.HTTP.request>[2]>;
@@ -36,6 +36,17 @@ export function clearServiceRequestCache(namespace: string) {
       serviceRequests.delete(key);
     }
   }
+}
+
+export function invalidateServiceRequest(namespace: string, url: string, options: RequestOptions = {}) {
+  const key = serviceKey(namespace, url, options);
+  const entry = serviceRequests.get(key);
+  if (entry) {
+    if (!entry.settled)
+      entry.controller.abort(new Error("Service request invalidated"));
+    serviceRequests.delete(key);
+  }
+  void removeStoredServiceCache(key);
 }
 
 export function requestServiceGET(namespace: string, url: string, options: RequestOptions = {}, signal?: AbortSignal) {

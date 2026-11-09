@@ -22,6 +22,21 @@ export function clearSupplementalJournalCache() {
   cache.clear();
 }
 
+export function invalidateSupplementalJournalTitle(title: string) {
+  const normalizedTitle = publicationCacheName(title);
+  if (!normalizedTitle)
+    return;
+  const prefix = `[${JSON.stringify(normalizedTitle)},`;
+  for (const key of cache.keys()) {
+    if (key.startsWith(prefix))
+      cache.delete(key);
+  }
+  for (const key of inFlight.keys()) {
+    if (key.startsWith(prefix))
+      inFlight.delete(key);
+  }
+}
+
 export async function fetchSupplementalJournalRank(title: string, fields: ReadonlySet<EasyScholarField>, signal?: AbortSignal): Promise<SupplementalResult> {
   const njauQuality = fields.has("njauQuality");
   const normalizedTitle = publicationCacheName(title);

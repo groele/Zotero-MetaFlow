@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transformCrossrefWork } from "./crossref-service";
+import { extractCrossrefEditorialNotice, extractCrossrefPublishedDOI, transformCrossrefWork } from "./crossref-service";
 
 describe("crossrefService transformation", () => {
   it("transforms official Crossref JSON into complete TransformedData", () => {
@@ -63,5 +63,40 @@ describe("crossrefService transformation", () => {
       { name: "ACM SIGKDD Committee", creatorType: "author" },
     ]);
     expect(transformed.date).toBe("2024");
+  });
+
+  it("extracts editorial notices (Retracted, Expression of Concern, Correction) and published preprint DOIs", () => {
+    const retractedWork = {
+      "DOI": "10.1038/s41586-020-00000-x",
+      "type": "journal-article",
+      "title": ["Retracted Study"],
+      "update-to": [{ type: "retraction", label: "Retraction", DOI: "10.1038/s41586-024-99999-z" }],
+    };
+    expect(extractCrossrefEditorialNotice(retractedWork as any)).toEqual({
+      kind: "retracted",
+      label: "Retracted",
+      doi: "10.1038/s41586-024-99999-z",
+    });
+    expect(transformCrossrefWork(retractedWork as any).extra).toBe("Editorial Notice: Retracted (10.1038/s41586-024-99999-z)");
+
+    const concernWork = {
+      "DOI": "10.1016/j.cell.2023.01.001",
+      "update-to": [{ type: "expression_of_concern", label: "Expression of Concern" }],
+    };
+    expect(extractCrossrefEditorialNotice(concernWork as any)?.kind).toBe("concern");
+
+    const correctionWork = {
+      "DOI": "10.1016/j.cell.2023.01.002",
+      "update-to": [{ type: "erratum", label: "Corrigendum" }],
+    };
+    expect(extractCrossrefEditorialNotice(correctionWork as any)?.kind).toBe("correction");
+
+    const biorxivWork = {
+      DOI: "10.1101/2024.01.01.573822",
+      relation: {
+        "is-preprint-of": [{ "id-type": "doi", "id": "10.1038/s41586-024-07555-1" }],
+      },
+    };
+    expect(extractCrossrefPublishedDOI(biorxivWork as any)).toBe("10.1038/s41586-024-07555-1");
   });
 });

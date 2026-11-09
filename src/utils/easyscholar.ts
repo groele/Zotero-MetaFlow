@@ -1,6 +1,6 @@
 import type { EasyScholarRank } from "./easyscholar-fields";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "./easyscholar-fields";
-import { clearServiceRequestCache, requestGET, requestServiceGET } from "./http";
+import { clearServiceRequestCache, invalidateServiceRequest, requestGET, requestServiceGET } from "./http";
 import { getPref } from "./prefs";
 
 import { PUBLIC_CACHE_TTL, publicationCacheName, SERVICE_CACHE_TTL } from "./service-cache-policy";
@@ -245,6 +245,16 @@ function remember(key: string, result: EasyScholarResult, expires: number): Easy
     cache.delete(cache.keys().next().value!);
   cache.set(key, { expires: Math.min(expires, Date.now() + (result.status === "not-found" ? PUBLIC_CACHE_TTL : CACHE_TTL)), result });
   return result;
+}
+
+export function invalidateEasyScholarTitle(title: string) {
+  const normalizedTitle = title.trim();
+  if (!normalizedTitle)
+    return;
+  cache.delete(rankCacheKey(normalizedTitle));
+  const secretKey = (getPref("easyscholar.secretKey") || "").trim();
+  if (secretKey)
+    invalidateServiceRequest("easyscholar", createRequestURL(secretKey, normalizedTitle), { timeout: 15_000 });
 }
 
 export function clearEasyScholarCache() {

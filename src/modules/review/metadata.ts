@@ -11,7 +11,7 @@ import { resolveMissingISSN } from "../rules/tool-update-metadata/issn-resolver"
 import { mergeMetadata, metadataIdentity, normalizeDOI } from "../rules/tool-update-metadata/policy";
 import { services } from "../rules/tool-update-metadata/services";
 import { defineService } from "../rules/tool-update-metadata/services/base-service";
-import { CrossrefService } from "../rules/tool-update-metadata/services/crossref-service";
+import { CrossrefService, extractCrossrefPublishedDOI } from "../rules/tool-update-metadata/services/crossref-service";
 import { IdentifiersTranslateService } from "../rules/tool-update-metadata/services/translate-service";
 import { identifiersFromText, identityConflicts, isbnEquivalent, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
 import { discoverSnapshotIdentifiers, isSnapshotItem, reviveProposal } from "./snapshot-reviver";
@@ -291,16 +291,36 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
 }
 
 export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierCandidate, original: TransformedData, signal?: AbortSignal, allowUnpublished = false): Promise<ReviewProposal> {
-  const record = await arxivRecord(item, identifier.value, true, signal);
-  if ((!record.doi || /10\.48550\/arxiv\./i.test(record.doi)) && allowUnpublished) {
-    return { itemID: item.id, original, candidate: record.data, identifier, source: `arXiv ${record.id}`, conflicts: identityConflicts(original, record.data, true), blocked: false, changes: reviewChanges(original, record.data) };
+  let publishedDOI = "";
+  let preprintLabel = "";
+  let preprintURL = "";
+  let unpublishedData: TransformedData | undefined;
+  if (identifier.kind === "DOI" && /^10\.1101\//.test(identifier.value)) {
+    const preprintDOI = normalizeDOI(identifier.value);
+    const preRes = await CrossrefService.fetch!({ item, identifiers: { DOI: preprintDOI }, isPreprint: true, debug: () => {}, signal });
+    publishedDOI = (preRes?.message && extractCrossrefPublishedDOI(preRes.message)) || "";
+    preprintLabel = `bioRxiv ${preprintDOI}`;
+    preprintURL = `https://doi.org/${preprintDOI}`;
+    unpublishedData = normalizeMetadata(preRes && CrossrefService.transform!(preRes)) || undefined;
+    if (!publishedDOI && allowUnpublished && unpublishedData?.title)
+      return { itemID: item.id, original, candidate: unpublishedData, identifier, source: preprintLabel, conflicts: identityConflicts(original, unpublishedData, true), blocked: false, changes: reviewChanges(original, unpublishedData) };
+    if (!publishedDOI)
+      throw new Error(getString("review-preprint-unpublished", { args: { version: preprintDOI } }));
   }
-  if (!record.doi || /10\.48550\/arxiv\./i.test(record.doi))
-    throw new Error(getString("review-preprint-unpublished", { args: { version: record.id } }));
+  else {
+    const record = await arxivRecord(item, identifier.value, true, signal);
+    if ((!record.doi || /10\.48550\/arxiv\./i.test(record.doi)) && allowUnpublished)
+      return { itemID: item.id, original, candidate: record.data, identifier, source: `arXiv ${record.id}`, conflicts: identityConflicts(original, record.data, true), blocked: false, changes: reviewChanges(original, record.data) };
+    if (!record.doi || /10\.48550\/arxiv\./i.test(record.doi))
+      throw new Error(getString("review-preprint-unpublished", { args: { version: record.id } }));
+    publishedDOI = record.doi;
+    preprintLabel = `arXiv ${record.id}`;
+    preprintURL = `https://arxiv.org/abs/${normalizeArxiv(identifier.value)}`;
+  }
   let candidate: TransformedData | undefined;
   let candidateSource = "";
   try {
-    const response = await CrossrefService.fetch!({ item, identifiers: { DOI: record.doi }, isPreprint: false, debug: () => {}, signal });
+    const response = await CrossrefService.fetch!({ item, identifiers: { DOI: publishedDOI }, isPreprint: false, debug: () => {}, signal });
     const transformed = normalizeMetadata(response && CrossrefService.transform!(response));
     if (transformed?.title) {
       candidate = transformed;
@@ -311,10 +331,10 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
     signal?.throwIfAborted();
   }
   if (!candidate?.title) {
-    candidate = await translateIdentifier(item, { DOI: record.doi }, signal);
+    candidate = await translateIdentifier(item, { DOI: publishedDOI }, signal);
     candidateSource = candidate.libraryCatalog || getString("review-source-translator");
   }
-  const blocked = normalizeDOI(candidate.DOI) !== record.doi || !["journalArticle", "conferencePaper"].includes(candidate.itemType || "");
+  const blocked = normalizeDOI(candidate.DOI) !== publishedDOI || !["journalArticle", "conferencePaper"].includes(candidate.itemType || "");
   const conflicts = identityConflicts(original, candidate, true);
   if (blocked)
     conflicts.unshift("DOI / itemType");
@@ -323,10 +343,10 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
     original,
     candidate,
     identifier,
-    source: `arXiv ${record.id} → ${candidateSource}`,
+    source: `${preprintLabel} → ${candidateSource}`,
     conflicts,
     blocked,
     changes: reviewChanges(original, candidate, true),
-    preprintURL: `https://arxiv.org/abs/${normalizeArxiv(identifier.value)}`,
+    preprintURL,
   };
 }

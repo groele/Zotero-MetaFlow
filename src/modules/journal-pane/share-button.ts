@@ -1,7 +1,37 @@
 import { shareJournalCard } from "../../utils/journal-card-share";
 import { getString } from "../../utils/locale";
 
-import { createCheckSvgIcon, createShareSvgIcon } from "./icons";
+import { createCheckSvgIcon, createRefreshSvgIcon, createShareSvgIcon } from "./icons";
+
+export function setupRefreshButton(doc: Document, item: Zotero.Item): HTMLButtonElement {
+  const refreshBtn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button") as HTMLButtonElement;
+  refreshBtn.setAttribute("data-journal-refresh", "true");
+  refreshBtn.type = "button";
+  refreshBtn.title = getString("journal-refresh-rankings" as any) || "强制刷新当前期刊指标（绕过缓存）";
+  refreshBtn.setAttribute("aria-label", refreshBtn.title);
+  refreshBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;margin:0;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:8px;background:color-mix(in srgb,currentColor 2%,transparent);color:var(--fill-secondary);cursor:pointer;flex-shrink:0;";
+  refreshBtn.append(createRefreshSvgIcon(doc));
+
+  refreshBtn.addEventListener("click", async (e: Event) => {
+    e.stopPropagation();
+    if (refreshBtn.disabled)
+      return;
+    refreshBtn.disabled = true;
+    refreshBtn.setAttribute("aria-busy", "true");
+    try {
+      await (addon.hooks as any).onRefreshJournal(item, true);
+      if (refreshBtn.isConnected)
+        refreshBtn.replaceChildren(createCheckSvgIcon(doc));
+    }
+    finally {
+      if (refreshBtn.isConnected) {
+        refreshBtn.disabled = false;
+        refreshBtn.removeAttribute("aria-busy");
+      }
+    }
+  });
+  return refreshBtn;
+}
 
 export function setupShareButton(
   doc: Document,

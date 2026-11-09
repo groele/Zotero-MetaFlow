@@ -176,6 +176,17 @@ export async function storeServiceAliases(key: string, aliases: string[], value:
   if (changed)
     schedule();
 }
+export async function removeStoredServiceCache(key: string) {
+  generation++;
+  await load();
+  if (readOnly)
+    return;
+  const hash = digest(key);
+  if (entries.has(hash)) {
+    remove(hash);
+    schedule();
+  }
+}
 export async function clearStoredServiceCache(namespace?: string, requireWrite = false) {
   generation++;
   await load();
