@@ -247,14 +247,14 @@ function remember(key: string, result: EasyScholarResult, expires: number): Easy
   return result;
 }
 
-export function invalidateEasyScholarTitle(title: string) {
+export async function invalidateEasyScholarTitle(title: string) {
   const normalizedTitle = title.trim();
   if (!normalizedTitle)
     return;
   cache.delete(rankCacheKey(normalizedTitle));
   const secretKey = (getPref("easyscholar.secretKey") || "").trim();
   if (secretKey)
-    invalidateServiceRequest("easyscholar", createRequestURL(secretKey, normalizedTitle), { timeout: 15_000 });
+    await invalidateServiceRequest("easyscholar", createRequestURL(secretKey, normalizedTitle), { timeout: 15_000 });
 }
 
 export function clearEasyScholarCache() {

@@ -1,4 +1,6 @@
-import { shareJournalCard } from "../../utils/journal-card-share";
+import type { BatchResult } from "../runner";
+import { shareJournalCard, showNativeNotice } from "../../utils/journal-card-share";
+import { hasEnabledJournalMetrics } from "../../utils/journal-permissions";
 import { getString } from "../../utils/locale";
 
 import { createCheckSvgIcon, createRefreshSvgIcon, createShareSvgIcon } from "./icons";
@@ -7,7 +9,7 @@ export function setupRefreshButton(doc: Document, item: Zotero.Item): HTMLButton
   const refreshBtn = doc.createElementNS("http://www.w3.org/1999/xhtml", "button") as HTMLButtonElement;
   refreshBtn.setAttribute("data-journal-refresh", "true");
   refreshBtn.type = "button";
-  refreshBtn.title = getString("journal-refresh-rankings" as any) || "强制刷新当前期刊指标（绕过缓存）";
+  refreshBtn.title = getString("journal-refresh-rankings");
   refreshBtn.setAttribute("aria-label", refreshBtn.title);
   refreshBtn.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;min-width:30px;padding:0;margin:0;border:1px solid color-mix(in srgb,currentColor 18%,transparent);border-radius:8px;background:color-mix(in srgb,currentColor 2%,transparent);color:var(--fill-secondary);cursor:pointer;flex-shrink:0;";
   refreshBtn.append(createRefreshSvgIcon(doc));
@@ -16,14 +18,57 @@ export function setupRefreshButton(doc: Document, item: Zotero.Item): HTMLButton
     e.stopPropagation();
     if (refreshBtn.disabled)
       return;
+    const hostBody = (refreshBtn.closest("[data-type='body']") || refreshBtn.closest(".metaref-journal-pane-wrap")?.parentElement || refreshBtn.parentElement) as HTMLElement | null;
     refreshBtn.disabled = true;
     refreshBtn.setAttribute("aria-busy", "true");
+    refreshBtn.removeAttribute("data-refresh-success");
+    refreshBtn.replaceChildren(createRefreshSvgIcon(doc));
+    refreshBtn.title = getString("journal-refresh-busy");
+    refreshBtn.setAttribute("aria-label", refreshBtn.title);
+    const reduced = doc.defaultView?.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const spinAnimation = !reduced
+      ? refreshBtn.firstElementChild?.animate?.([
+          { transform: "rotate(0deg)", opacity: 0.95 },
+          { transform: "rotate(360deg)", opacity: 0.55 },
+        ], { duration: 700, iterations: Infinity })
+      : undefined;
     try {
-      await (addon.hooks as any).onRefreshJournal(item, true);
-      if (refreshBtn.isConnected)
-        refreshBtn.replaceChildren(createCheckSvgIcon(doc));
+      const result = await (addon.hooks as any).onRefreshJournal?.(item, true) as BatchResult | undefined;
+      const pubTitle = String(item.getField("publicationTitle") || item.getField("conferenceName") || item.getField("proceedingsTitle") || item.getField("title") || getString("journal-insights-unnamed")).trim();
+      const warningOrError = result?.records?.find(r => r.itemID === item.id && (r.level === "error" || r.level === "warning"));
+      const noticeMessage = warningOrError?.message
+        || getString(hasEnabledJournalMetrics() ? "journal-refresh-done" : "journal-refresh-local-only", { args: { title: pubTitle } });
+      showNativeNotice(noticeMessage);
+
+      const targetBtn = (refreshBtn.isConnected
+        ? refreshBtn
+        : hostBody?.querySelector<HTMLButtonElement>("button[data-journal-refresh='true']")) || undefined;
+      if (targetBtn && targetBtn.isConnected) {
+        targetBtn.title = noticeMessage;
+        targetBtn.setAttribute("aria-label", noticeMessage);
+        if (!warningOrError) {
+          targetBtn.setAttribute("data-refresh-success", "true");
+          targetBtn.replaceChildren(createCheckSvgIcon(doc));
+          if (!reduced) {
+            targetBtn.firstElementChild?.animate?.(
+              [{ transform: "scale(.8)", opacity: 0.4 }, { transform: "scale(1)", opacity: 1 }],
+              { duration: 180, easing: "ease-out" },
+            );
+          }
+          const resetTimer = doc.defaultView?.setTimeout(() => {
+            if (!targetBtn.isConnected)
+              return;
+            targetBtn.removeAttribute("data-refresh-success");
+            targetBtn.replaceChildren(createRefreshSvgIcon(doc));
+            targetBtn.title = getString("journal-refresh-rankings");
+            targetBtn.setAttribute("aria-label", targetBtn.title);
+          }, 1600);
+          doc.defaultView?.addEventListener("unload", () => doc.defaultView?.clearTimeout(resetTimer), { once: true });
+        }
+      }
     }
     finally {
+      spinAnimation?.cancel();
       if (refreshBtn.isConnected) {
         refreshBtn.disabled = false;
         refreshBtn.removeAttribute("aria-busy");

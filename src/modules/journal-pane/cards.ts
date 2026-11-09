@@ -14,6 +14,11 @@ import {
   supportsRankings,
   supportsSection,
 } from "./actions";
+import {
+  computeJournalCardCacheKey,
+  getCachedJournalCardClone,
+  storeCachedJournalCardTemplate,
+} from "./fragment-cache";
 import { renderPreprintCard, renderSnapshotCard } from "./quick-actions";
 import { isJournalPaneItemCurrent } from "./section-context";
 
@@ -83,12 +88,8 @@ async function renderInsightsCard(
   if (!addon.data.alive || options.renders.get(body) !== token || !isJournalPaneItemCurrent(body, item))
     return;
 
-  body.replaceChildren();
   body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
   ensureJournalPaneStyles(doc || body.ownerDocument);
-
-  const container = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  container.className = "metaref-journal-pane-wrap";
 
   const issn = String(item.getField("ISSN") || "").trim();
   const rows = item.itemType === "journalArticle"
@@ -100,15 +101,9 @@ async function renderInsightsCard(
       }).filter((_row, index) => isJournalIndexEnabled(index === 0 ? "esi" : "nature"))
     : [];
 
-  const text = (tag: string, value: string, style = "") => {
-    const node = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
-    node.textContent = value;
-    node.setAttribute("style", style);
-    return node;
-  };
-
   const publication = String(item.getField(item.itemType === "conferencePaper" ? "proceedingsTitle" : "publicationTitle") || "").trim();
-  const rankings = journalRankingRows(String(item.getField("extra") || ""), item);
+  const extraText = String(item.getField("extra") || "");
+  const rankings = journalRankingRows(extraText, item);
   const savedESI = rankings.find(row => row.key === "esi");
   if (isJournalIndexEnabled("esi") && rows.length && savedESI && !result.categories.length) {
     rows[0] = { ...rows[0], value: savedESI.value, matched: true, basis: "", source: getString("journal-insights-saved-source") };
@@ -118,30 +113,36 @@ async function renderInsightsCard(
   const hasIndexResults = rows.length > 0 || Boolean(sciRanking);
   const displayedRankings = rankings.filter(row => row.key !== "sci" && isEasyScholarFieldEnabled(row.key) && (item.itemType !== "journalArticle" || row.key !== "esi"));
 
-  // 头部标题与分享按钮
-  const headerRow = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  headerRow.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:8px;");
   const itemTitle = String(item.getField("title") || "").trim();
   const headingText = publication || itemTitle || getString("journal-insights-unnamed");
-  const journalTitle = text("h2", headingText, "font-size:14px;font-weight:600;margin:0;line-height:1.5;white-space:pre-wrap;flex:1;min-width:0;");
-  journalTitle.setAttribute("data-journal-title", "true");
+  const badgeKind = extraText.includes("MetaFlow preprint")
+    ? "preprint"
+    : extraText.includes("MetaFlow revived from")
+      ? "revived"
+      : "";
+  const noticeMatch = extraText.match(/^Editorial Notice:\s*(Retracted|Expression of Concern|Correction)(?:\s*\(([^)]+)\))?/im);
+  const titleRetracted = /^(?:\[(?:retracted|withdrawn)\]|retracted\s*:)/i.test(itemTitle);
+  const noticeKind = (noticeMatch || titleRetracted)
+    ? ((noticeMatch?.[1] || "Retracted").toLowerCase().includes("concern")
+        ? "concern"
+        : (noticeMatch?.[1] || "Retracted").toLowerCase().includes("correction")
+            ? "correction"
+            : "retracted")
+    : "";
+  const noticeDOI = noticeMatch?.[2]?.trim() || "";
+  const editable = Boolean(supportsRankings(item) && typeof item.isEditable === "function" && item.isEditable());
+  const messages = options.queryMessages.get(item.id)?.filter(message => message.message !== getString("journal-rankings-query-complete")) || [];
 
-  const extraText = String(item.getField("extra") || "");
-  if (extraText.includes("MetaFlow preprint")) {
-    const convertedBadge = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-    convertedBadge.textContent = getString("preprint-converted-badge") || "已由 arXiv 转正";
-    convertedBadge.setAttribute("style", "display:inline-flex;align-items:center;margin-left:8px;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:color-mix(in srgb, #2e7d32 15%, transparent);color:#2e7d32;border:1px solid color-mix(in srgb, #2e7d32 30%, transparent);vertical-align:middle;");
-    journalTitle.append(convertedBadge);
-  }
-  else if (extraText.includes("MetaFlow revived from")) {
-    const revivedBadge = doc.createElementNS("http://www.w3.org/1999/xhtml", "span");
-    revivedBadge.textContent = getString("snapshot-revived-badge") || "已由网页快照复活";
-    revivedBadge.setAttribute("style", "display:inline-flex;align-items:center;margin-left:8px;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:color-mix(in srgb, var(--accent-blue, #0284c7) 15%, transparent);color:var(--accent-blue, #0284c7);border:1px solid color-mix(in srgb, var(--accent-blue, #0284c7) 30%, transparent);vertical-align:middle;");
-    journalTitle.append(revivedBadge);
-  }
-
-  const shareBtn = setupShareButton(doc, {
-    publication,
+  const cardCacheKey = computeJournalCardCacheKey({
+    locale: String(Zotero.locale || ""),
+    itemType: item.itemType,
+    headingText,
+    badgeKind,
+    noticeKind,
+    noticeDOI,
+    supportsRankings: supportsRankings(item),
+    editable,
+    messages,
     displayedRankings,
     sciRanking,
     rows,
@@ -149,56 +150,117 @@ async function renderInsightsCard(
     issn,
   });
 
-  const actionGroup = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-  actionGroup.setAttribute("style", "display:inline-flex;align-items:center;gap:6px;flex-shrink:0;");
-  if (supportsRankings(item) && typeof item.isEditable === "function" && item.isEditable()) {
-    actionGroup.append(setupRefreshButton(doc, item));
+  // 微秒级内存卡片缓存 (Fragment Cache)：同刊或未变条目切换直接克隆 DOM 模板，仅挂载当前条目交互句柄
+  let container = getCachedJournalCardClone(doc, cardCacheKey);
+  if (!container) {
+    container = buildJournalCardTemplate(doc, {
+      item,
+      headingText,
+      badgeKind,
+      noticeKind,
+      noticeDOI,
+      hasIndexResults,
+      messages,
+      displayedRankings,
+      sciRanking,
+      rows,
+      matchBases,
+      issn,
+    });
+    storeCachedJournalCardTemplate(doc, cardCacheKey, container);
   }
-  actionGroup.append(shareBtn);
 
+  const actionGroup = container.querySelector<HTMLElement>("[data-journal-actions='true']");
+  if (actionGroup) {
+    actionGroup.replaceChildren();
+    if (editable)
+      actionGroup.append(setupRefreshButton(doc, item));
+    actionGroup.append(setupShareButton(doc, { publication, displayedRankings, sciRanking, rows, matchBases, issn }));
+  }
+  const noticeLink = container.querySelector<HTMLAnchorElement>("[data-editorial-notice-link='true']");
+  if (noticeLink && noticeDOI) {
+    noticeLink.addEventListener("click", (e) => {
+      e.stopPropagation();
+      Zotero.launchURL(`https://doi.org/${noticeDOI}`);
+    });
+  }
+  container.setAttribute("data-card-cache-key", cardCacheKey);
+  container.setAttribute("data-card-item-id", String(item.id));
+  body.replaceChildren(container);
+}
+
+function buildJournalCardTemplate(
+  doc: Document,
+  data: {
+    item: Zotero.Item;
+    headingText: string;
+    badgeKind: string;
+    noticeKind: string;
+    noticeDOI: string;
+    hasIndexResults: boolean;
+    messages: { level?: string; message: string }[];
+    displayedRankings: { key: string; labelID: string; value: string }[];
+    sciRanking?: { key: string; labelID: string; value: string };
+    rows: { label: string; value: string; matched?: boolean; basis?: string; source: string; warning?: string }[];
+    matchBases: string[];
+    issn: string;
+  },
+): HTMLElement {
+  const { item, headingText, badgeKind, noticeKind, noticeDOI, hasIndexResults, messages, displayedRankings, sciRanking, rows, matchBases, issn } = data;
+  const text = (tag: string, value: string, style = "") => {
+    const node = doc.createElementNS("http://www.w3.org/1999/xhtml", tag);
+    node.textContent = value;
+    node.setAttribute("style", style);
+    return node;
+  };
+  const container = doc.createElementNS("http://www.w3.org/1999/xhtml", "div") as HTMLElement;
+  container.className = "metaref-journal-pane-wrap";
+
+  const headerRow = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  headerRow.setAttribute("style", "display:flex;align-items:center;justify-content:space-between;margin:0 0 12px;gap:8px;");
+  const journalTitle = text("h2", headingText, "font-size:14px;font-weight:600;margin:0;line-height:1.5;white-space:pre-wrap;flex:1;min-width:0;");
+  journalTitle.setAttribute("data-journal-title", "true");
+
+  if (badgeKind === "preprint") {
+    const badge = text("span", getString("preprint-converted-badge") || "已由 arXiv 转正", "display:inline-flex;align-items:center;margin-left:8px;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:color-mix(in srgb, #2e7d32 15%, transparent);color:#2e7d32;border:1px solid color-mix(in srgb, #2e7d32 30%, transparent);vertical-align:middle;");
+    journalTitle.append(badge);
+  }
+  else if (badgeKind === "revived") {
+    const badge = text("span", getString("snapshot-revived-badge") || "已由网页快照复活", "display:inline-flex;align-items:center;margin-left:8px;font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:color-mix(in srgb, var(--accent-blue, #0284c7) 15%, transparent);color:var(--accent-blue, #0284c7);border:1px solid color-mix(in srgb, var(--accent-blue, #0284c7) 30%, transparent);vertical-align:middle;");
+    journalTitle.append(badge);
+  }
+
+  const actionGroup = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+  actionGroup.setAttribute("data-journal-actions", "true");
+  actionGroup.setAttribute("style", "display:inline-flex;align-items:center;gap:6px;flex-shrink:0;");
   headerRow.append(journalTitle, actionGroup);
   container.append(headerRow);
 
-  const noticeMatch = extraText.match(/^Editorial Notice:\s*(Retracted|Expression of Concern|Correction)(?:\s*\(([^)]+)\))?/im);
-  const titleRetracted = /^(?:\[(?:retracted|withdrawn)\]|retracted\s*:)/i.test(itemTitle);
-  if (noticeMatch || titleRetracted) {
-    const rawKind = (noticeMatch?.[1] || "Retracted").toLowerCase();
-    const kind = rawKind.includes("concern") ? "concern" : rawKind.includes("correction") ? "correction" : "retracted";
-    const noticeDOI = noticeMatch?.[2]?.trim();
-    const isRed = kind === "retracted";
-    const color = isRed ? "#c62828" : "#d97706";
+  if (noticeKind) {
+    const color = noticeKind === "retracted" ? "#c62828" : "#d97706";
     const banner = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
-    banner.setAttribute("data-editorial-notice", kind);
+    banner.setAttribute("data-editorial-notice", noticeKind);
     banner.setAttribute("role", "alert");
     banner.setAttribute("style", `display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 12px;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600;background:color-mix(in srgb, ${color} 12%, transparent);color:${color};border:1px solid color-mix(in srgb, ${color} 28%, transparent);`);
-    const labelText = kind === "retracted"
-      ? (getString("editorial-notice-retracted" as any) || "⚠️ 学术预警：该文献已被撤稿 (Retracted)")
-      : kind === "concern"
-        ? (getString("editorial-notice-concern" as any) || "⚠️ 学术预警：该文献存在关切声明 (Expression of Concern)")
-        : (getString("editorial-notice-correction" as any) || "ℹ️ 该文献存在官方勘误/更正记录 (Correction)");
-    banner.append(text("span", labelText));
+    const labelID = noticeKind === "retracted" ? "editorial-notice-retracted" : noticeKind === "concern" ? "editorial-notice-concern" : "editorial-notice-correction";
+    banner.append(text("span", getString(labelID)));
     if (noticeDOI) {
       const link = doc.createElementNS("http://www.w3.org/1999/xhtml", "a") as HTMLAnchorElement;
+      link.setAttribute("data-editorial-notice-link", "true");
       link.textContent = noticeDOI;
       link.href = `https://doi.org/${noticeDOI}`;
       link.setAttribute("style", `color:${color};text-decoration:underline;font-family:ui-monospace,monospace;font-size:11px;flex-shrink:0;`);
-      link.addEventListener("click", (e) => {
-        e.stopPropagation();
-        Zotero.launchURL(`https://doi.org/${noticeDOI}`);
-      });
       banner.append(link);
     }
     container.append(banner);
   }
 
-  // 评价与指标区 (EasyScholar Rankings)
   if (supportsRankings(item) || hasIndexResults) {
     const rankingSection = text("section", "", "margin:0;");
     rankingSection.setAttribute("title", getString("journal-rankings-saved-note"));
     rankingSection.setAttribute("data-journal-rankings", "true");
     rankingSection.append(text("h3", getString("journal-rankings-heading"), "font-size:14px;margin:0 0 12px;font-weight:600;"));
-    const messages = options.queryMessages.get(item.id)?.filter(message => message.message !== getString("journal-rankings-query-complete"));
-    if (messages?.length) {
+    if (messages.length) {
       const status = text("div", "", "font-size:12px;margin-bottom:10px;");
       status.setAttribute("data-journal-update-status", "true");
       status.setAttribute("role", "status");
@@ -222,7 +284,6 @@ async function renderInsightsCard(
     container.append(rankingSection);
   }
 
-  // 学科索引区 (ESI / Nature Index)
   const indexSection = text("section", "", "margin-top:16px;padding-top:12px;border-top:1px solid var(--fill-quinary);");
   indexSection.setAttribute("data-journal-indexes", "true");
   if (hasIndexResults)
@@ -277,5 +338,5 @@ async function renderInsightsCard(
     indexSection.append(sources);
   if (hasIndexResults)
     container.append(indexSection);
-  body.append(container);
+  return container;
 }

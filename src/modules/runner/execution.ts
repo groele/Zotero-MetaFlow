@@ -1,6 +1,13 @@
 import type { ApplyContext, PrepareContext, Rule } from "../rules/rule-base";
 import { ItemMutationJournal } from "../../utils/item-mutation-journal";
 import { isWritableItem } from "../../utils/item-write-policy";
+import {
+  computeItemLintSignature,
+  hasCleanLintFingerprint,
+  invalidateItemLintFingerprint,
+  isEligibleForLintFingerprint,
+  recordCleanLintFingerprint,
+} from "../../utils/lint-fingerprint-cache";
 import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
 import { executeRule, waitForOperation } from "../../utils/rule-execution";
@@ -128,10 +135,24 @@ export class RuleExecution extends RunnerState {
   ) {
     logger.debug(`Linting item ${item.id}`);
     if (this.unsafeItems.has(item)) {
+      invalidateItemLintFingerprint(item.id);
       await item.reload(["primaryData", "itemData", "creators", "tags", "collections", "relations"], true);
       this.unsafeItems.delete(item);
     }
+    const eligibleForCache = isEligibleForLintFingerprint(rules, optionsMap);
+    const preSignature = eligibleForCache ? computeItemLintSignature(item, rules, optionsMap) : "";
+    if (preSignature && hasCleanLintFingerprint(preSignature)) {
+      for (const rule of rules) {
+        if (optionsMap.has(rule.id) && optionsMap.get(rule.id) !== false && shouldApplyRule(rule, item)) {
+          this.applicableIDs.add(item.id);
+          break;
+        }
+      }
+      logger.debug(`Skip clean item ${item.id} via fingerprint cache`);
+      return;
+    }
     const errors: any[] = [];
+    const recordsBefore = this.stats.records.length;
     const baseline = item.toJSON() as Record<string, unknown>;
 
     for (const rule of rules) {
@@ -181,9 +202,22 @@ export class RuleExecution extends RunnerState {
       });
     }
 
-    if (!this.unsafeItems.has(item) && item.hasChanged() && JSON.stringify(item.toJSON()) !== JSON.stringify(baseline)) {
+    const mutated = !this.unsafeItems.has(item) && item.hasChanged() && JSON.stringify(item.toJSON()) !== JSON.stringify(baseline);
+    if (mutated) {
       this.modifiedItems.add(item);
       this.itemBaselines.set(item, baseline);
+    }
+    else if (
+      eligibleForCache
+      && preSignature
+      && errors.length === 0
+      && !this.cancelled
+      && !this.unsafeItems.has(item)
+      && this.stats.records.length === recordsBefore
+    ) {
+      const postSignature = computeItemLintSignature(item, rules, optionsMap);
+      if (postSignature === preSignature)
+        recordCleanLintFingerprint(preSignature);
     }
 
     // If there are errors, throw a error so queue can catch

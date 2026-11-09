@@ -29,7 +29,7 @@ import { migrateGreenFrogPreferences } from "./utils/greenfrog-migration";
 import { clearRequestCache } from "./utils/http";
 import { redrawItemValues } from "./utils/item-value-refresh";
 import { closeJournalShareDialogs } from "./utils/journal-card-share";
-import { getJournalInsights, loadJournalInsights } from "./utils/journal-insights";
+import { clearJournalInsights, getJournalInsights, loadJournalInsights } from "./utils/journal-insights";
 import { hasEnabledJournalMetrics } from "./utils/journal-permissions";
 import { flushJournalRankingIndex, loadJournalRankingIndex } from "./utils/journal-ranking-index";
 import { initLocale, registerMainWindowLocale, unloadLocale, unregisterMainWindowLocale } from "./utils/locale";
@@ -307,21 +307,26 @@ async function onPrefsEvent(type: string, data: { [key: string]: never }) {
  */
 
 function onRefreshJournal(item: Zotero.Item, force = false) {
-  if (!hasEnabledJournalMetrics() || !item || item.deleted || !item.isEditable() || !["journalArticle", "conferencePaper"].includes(item.itemType))
+  if (!item || item.deleted || !["journalArticle", "conferencePaper"].includes(item.itemType))
+    return Promise.resolve();
+  if (!force && (!hasEnabledJournalMetrics() || !item.isEditable()))
     return Promise.resolve();
   const existing = journalRefreshes.get(item.id);
   if (existing)
     return existing;
   const task = (async () => {
     if (force) {
+      clearJournalInsights();
       const title = String(item.getField("publicationTitle") || item.getField("conferenceName") || item.getField("proceedingsTitle") || "").trim();
       if (title) {
-        invalidateEasyScholarTitle(title);
+        await invalidateEasyScholarTitle(title);
         invalidateSupplementalJournalTitle(title);
       }
     }
     const mode = force ? "all" as const : getPref("rule.tool-update-metadata.option.mode") === "all" ? "all" as const : "blank" as const;
-    const result = await addon.runner.add({ items: [item], rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }], silent: true });
+    const result = (hasEnabledJournalMetrics() && item.isEditable())
+      ? await addon.runner.add({ items: [item], rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }], silent: true })
+      : undefined;
     if (addon.data.alive && !result?.cancelled) {
       await getJournalInsights(item, { queryAPI: true });
       await redrawItemValues([item.id]);

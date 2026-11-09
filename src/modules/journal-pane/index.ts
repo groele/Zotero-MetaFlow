@@ -16,6 +16,7 @@ import {
   supportsSection,
 } from "./actions";
 import { renderJournalPaneCard } from "./cards";
+import { clearJournalPaneFragmentCache } from "./fragment-cache";
 import { journalPaneItem } from "./section-context";
 import { ensureJournalPaneStyles } from "./styles";
 
@@ -28,6 +29,7 @@ export {
   supportsRankings,
   supportsSection,
 } from "./actions";
+export { clearJournalPaneFragmentCache, getJournalPaneFragmentCacheStats } from "./fragment-cache";
 export { createCheckSvgIcon, createShareSvgIcon } from "./icons";
 export { ensureJournalPaneStyles } from "./styles";
 
@@ -200,6 +202,7 @@ async function completeFromNavigation(item: Zotero.Item) {
 
 function refreshData() {
   settingsRevision++;
+  clearJournalPaneFragmentCache();
   if (settingsRefreshPending)
     return;
   settingsRefreshPending = true;
@@ -223,6 +226,7 @@ function refreshData() {
 
 export async function refreshJournalInsights() {
   navigationQueries.clear();
+  clearJournalPaneFragmentCache();
   clearJournalInsights();
   await loadJournalInsights();
   if (!addon.data.alive)
@@ -259,6 +263,7 @@ export function unregisterJournalPane() {
   sectionID = undefined;
   refreshers.clear();
   queryMessages.clear();
+  clearJournalPaneFragmentCache();
   for (const [doc, listener] of navigationListeners)
     doc.removeEventListener("click", listener);
   navigationListeners.clear();

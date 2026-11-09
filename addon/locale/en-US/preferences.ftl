@@ -639,7 +639,3 @@ cache-max-entries = API cache index limit (entries)
 batch-feedback-undo =
     .label = Undo Last Changes
 batch-feedback-undone = Restored batch changes on { $restored } items ({ $skipped } skipped).
-journal-refresh-rankings = Force refresh current journal metrics (bypass cache)
-editorial-notice-retracted = ⚠️ Academic Alert: This publication has been Retracted
-editorial-notice-concern = ⚠️ Academic Alert: Expression of Concern issued for this publication
-editorial-notice-correction = ℹ️ Official Correction / Erratum recorded for this publication

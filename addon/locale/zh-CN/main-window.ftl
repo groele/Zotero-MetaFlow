@@ -108,3 +108,11 @@ journal-share-close = 关闭分享预览
 
 journal-share-preview-ready = 预览已生成，请选择复制或保存
 journal-share-save-failed = 图片保存失败，请检查保存位置后重试
+
+journal-refresh-rankings = 强制刷新当前期刊指标（忽略缓存重新获取）
+journal-refresh-busy = 正在强制刷新期刊指标…
+journal-refresh-done = 已强制刷新「{ $title }」的期刊指标
+journal-refresh-local-only = 已刷新「{ $title }」的本地期刊索引
+editorial-notice-retracted = ⚠️ 学术预警：该文献已被撤稿 (Retracted)
+editorial-notice-concern = ⚠️ 学术预警：该文献存在关切声明 (Expression of Concern)
+editorial-notice-correction = ℹ️ 该文献存在官方勘误/更正记录 (Correction)

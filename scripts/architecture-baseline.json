@@ -1,7 +1,7 @@
 {
   "debtCleared": true,
   "maxSourceLines": 360,
-  "lastReleasedVersion": "16.1.0",
+  "lastReleasedVersion": "16.1.1",
   "vendorAssets": {
     "src/vendor/abbrev-iso.js": "02828994b177c259bcc6405eba492519c96bf88cfcb1f36ce71da12ced440a7c"
   }

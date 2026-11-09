@@ -38,7 +38,7 @@ export function clearServiceRequestCache(namespace: string) {
   }
 }
 
-export function invalidateServiceRequest(namespace: string, url: string, options: RequestOptions = {}) {
+export async function invalidateServiceRequest(namespace: string, url: string, options: RequestOptions = {}) {
   const key = serviceKey(namespace, url, options);
   const entry = serviceRequests.get(key);
   if (entry) {
@@ -46,7 +46,7 @@ export function invalidateServiceRequest(namespace: string, url: string, options
       entry.controller.abort(new Error("Service request invalidated"));
     serviceRequests.delete(key);
   }
-  void removeStoredServiceCache(key);
+  await removeStoredServiceCache(key);
 }
 
 export function requestServiceGET(namespace: string, url: string, options: RequestOptions = {}, signal?: AbortSignal) {

@@ -108,3 +108,11 @@ journal-share-close = Close share preview
 
 journal-share-preview-ready = Preview ready. Choose Copy or Save.
 journal-share-save-failed = Image could not be saved. Check the location and retry.
+
+journal-refresh-rankings = Force refresh journal metrics (bypass cache)
+journal-refresh-busy = Refreshing journal metrics…
+journal-refresh-done = Refreshed journal metrics for “{ $title }”
+journal-refresh-local-only = Refreshed local journal indexing for “{ $title }”
+editorial-notice-retracted = ⚠️ Academic Alert: This paper has been Retracted
+editorial-notice-concern = ⚠️ Academic Alert: Expression of Concern issued
+editorial-notice-correction = ℹ️ Official Correction / Erratum on record
