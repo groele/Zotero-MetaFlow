@@ -302,4 +302,15 @@ describe("authenticated service response cache", () => {
     await fetch();
     expect(request).toHaveBeenCalledTimes(2);
   });
+
+  it("persists and reloads crossref service cache entries across session resets", async () => {
+    request.mockResolvedValue(response({ status: "ok", message: { DOI: "10.1038/nature12345", ISSN: ["0028-0836"] } } as any));
+    const queryCrossref = () => requestServiceGET("crossref", "https://api.crossref.org/works/10.1038%2Fnature12345");
+    await queryCrossref();
+    await flushServiceCache();
+    clearRequestCache();
+    resetServiceCacheSession();
+    await queryCrossref();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
 });

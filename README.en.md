@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-16.0.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.3)
+[![Version](https://img.shields.io/badge/version-16.0.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v16.0.4)
 
-16.0.3 redesigns the "Data, cache and runtime feedback" preferences layout, adding customizable cache and operation-record directory path controls (displaying the default `zotero-metaflow-cache` path inside the Zotero profile with one-click reset) and 6 user-configurable cache retention and capacity parameters (EasyScholar hours, Semantic Scholar hours, history retention days, history count cap, API cache MiB cap, and API cache entry cap). See the [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+16.0.4 optimizes cross-source API cache sharing and normalization: restores durable `crossref` service cache entries across Zotero restarts, shares Crossref DOI work lookups between ISSN resolution and `CrossrefService`, normalizes journal title casing/whitespace across OpenAlex, Crossref, and supplemental Chinese journal (NJAU) lookups with concurrent request coalescing, and routes arXiv preprint queries through the shared public request cache. See the [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-763%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

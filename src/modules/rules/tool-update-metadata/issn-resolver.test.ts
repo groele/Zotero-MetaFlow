@@ -70,8 +70,8 @@ describe("issn-resolver", () => {
       expect(issn).toBe("0028-0836");
     });
 
-    it("fetches ISSN from Crossref via DOI", async () => {
-      vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({
+    it("fetches ISSN from Crossref via DOI using shared crossref service cache", async () => {
+      vi.spyOn(http, "requestServiceGET").mockResolvedValueOnce({
         status: 200,
         response: JSON.stringify({
           message: {
@@ -86,13 +86,13 @@ describe("issn-resolver", () => {
     });
 
     it("prefers Crossref DOI evidence and uses a valid singleton URL", async () => {
-      const request = vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: "10.1038/nature12345", ISSN: ["0028-0836"] } }) } as any);
+      const request = vi.spyOn(http, "requestServiceGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: "10.1038/nature12345", ISSN: ["0028-0836"] } }) } as any);
       expect(await resolveMissingISSN({ doi: "10.1038/nature12345" })).toEqual({ issn: "0028-0836", source: "Crossref" });
-      expect(request).toHaveBeenLastCalledWith(expect.not.stringContaining("?select"), expect.anything(), undefined);
+      expect(request).toHaveBeenLastCalledWith("crossref", expect.not.stringContaining("?select"), expect.anything(), undefined);
     });
 
     it.each([undefined, "10.1234/unrelated"])("rejects Crossref ISSN without matching DOI evidence: %s", async (doi) => {
-      vi.spyOn(http, "requestCachedGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: doi, ISSN: ["0028-0836"] } }) } as any);
+      vi.spyOn(http, "requestServiceGET").mockResolvedValueOnce({ status: 200, response: JSON.stringify({ message: { DOI: doi, ISSN: ["0028-0836"] } }) } as any);
       expect(await fetchISSNFromCrossref({ doi: "10.1038/test" })).toBeUndefined();
     });
 
@@ -116,11 +116,35 @@ describe("issn-resolver", () => {
 
     it("propagates cancellation rather than falling back", async () => {
       const controller = new AbortController();
-      vi.spyOn(http, "requestCachedGET").mockImplementationOnce(async () => {
+      vi.spyOn(http, "requestServiceGET").mockImplementationOnce(async () => {
         controller.abort();
         throw new Error("cancelled");
       });
       await expect(resolveMissingISSN({ doi: "10.1038/test", signal: controller.signal })).rejects.toThrow();
+    });
+
+    it("normalizes publicationTitle casing and whitespace when querying OpenAlex and Crossref", async () => {
+      const spy = vi.spyOn(http, "requestCachedGET").mockResolvedValue({
+        status: 200,
+        response: JSON.stringify({
+          results: [{ display_name: "Nature Communications", issn_l: "2041-1723" }],
+          message: { items: [{ "container-title": ["Nature Communications"], "ISSN": ["2041-1723"] }] },
+        }),
+      } as any);
+
+      expect(await fetchISSNFromOpenAlex({ publicationTitle: "  Nature   Communications  " })).toBe("2041-1723");
+      expect(spy).toHaveBeenLastCalledWith(
+        "https://api.openalex.org/sources?search=nature%20communications&per-page=5&select=display_name,issn_l,issn",
+        expect.anything(),
+        undefined,
+      );
+
+      expect(await fetchISSNFromCrossref({ publicationTitle: "  NATURE   COMMUNICATIONS  " })).toBe("2041-1723");
+      expect(spy).toHaveBeenLastCalledWith(
+        "https://api.crossref.org/works?query.container-title=nature%20communications&filter=type:journal-article&rows=5&select=container-title,ISSN,issn-type",
+        expect.anything(),
+        undefined,
+      );
     });
   });
 });

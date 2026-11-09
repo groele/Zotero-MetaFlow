@@ -17,6 +17,22 @@ describe("supplemental journal sources", () => {
     expect((await fetchSupplementalJournalRank("Cache reset fixture", fields)).data.njauQuality).toBe("fresh");
     expect(request).toHaveBeenCalledTimes(2);
   });
+  it("coalesces concurrent lookups and normalizes title casing/whitespace", async () => {
+    let release!: (value: { responseText: string }) => void;
+    const request = vi.fn().mockImplementationOnce(() => new Promise(resolve => release = resolve));
+    vi.stubGlobal("Zotero", { HTTP: { request } });
+    const fields = new Set(["njauQuality"] as const);
+    const first = fetchSupplementalJournalRank("  Journal   of  Testing ", fields);
+    const second = fetchSupplementalJournalRank("journal of testing", fields);
+    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
+    release({ responseText: JSON.stringify({ classname: "A 类" }) });
+    const [r1, r2] = await Promise.all([first, second]);
+    expect(r1.data.njauQuality).toBe("A 类");
+    expect(r2.data.njauQuality).toBe("A 类");
+    expect(request).toHaveBeenCalledTimes(1);
+    expect((await fetchSupplementalJournalRank("JOURNAL OF TESTING", fields)).data.njauQuality).toBe("A 类");
+    expect(request).toHaveBeenCalledTimes(1);
+  });
   it("does not repopulate a cleared cache when an earlier request completes", async () => {
     let release!: (value: { responseText: string }) => void;
     const request = vi.fn().mockImplementationOnce(() => new Promise(resolve => release = resolve)).mockResolvedValue({ responseText: JSON.stringify({ classname: "fresh" }) });

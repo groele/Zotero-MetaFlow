@@ -1,5 +1,6 @@
 import { homepage } from "../../package.json";
 import { clearEasyScholarCache } from "../utils/easyscholar";
+import { clearRequestCache } from "../utils/http";
 import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { preferenceListeners, releasePreferenceListeners } from "../utils/preference-listeners";
@@ -134,6 +135,7 @@ export function registerPrefsScripts(_window: Window) {
       (cacheButton as HTMLButtonElement).disabled = true;
       status.textContent = getString("api-cache-clearing");
       try {
+        clearRequestCache();
         clearEasyScholarCache();
         clearSemanticScholarCache();
         clearSupplementalJournalCache();

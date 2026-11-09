@@ -19,7 +19,7 @@ let dirty = false;
 let queuedRevision = -1;
 let readOnly = false;
 let writeFailed = false;
-const validKey = /^(?:easyscholar|semantic-scholar):[a-f0-9]{32}$/;
+const validKey = /^(?:easyscholar|semantic-scholar|crossref):[a-f0-9]{32}$/;
 function path() {
   return typeof IOUtils !== "undefined" && (Zotero as any).Profile?.dir
     ? PathUtils.join(metaflowCacheDirectory(), API_CACHE_FILE)

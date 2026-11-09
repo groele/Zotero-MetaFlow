@@ -1,4 +1,4 @@
-import { requestGET } from "../../../../utils/http";
+import { requestCachedGET } from "../../../../utils/http";
 import { defineService } from "./base-service";
 
 export const ArxivService = defineService({
@@ -9,13 +9,14 @@ export const ArxivService = defineService({
     return !!identifiers.arXiv;
   },
   async updateIdentifiers({ identifiers, debug, signal }) {
-    if (!identifiers.arXiv) {
+    const arxivId = identifiers.arXiv?.trim().toLowerCase();
+    if (!arxivId) {
       return false;
     }
 
-    const url = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(identifiers.arXiv)}`;
+    const url = `https://export.arxiv.org/api/query?id_list=${encodeURIComponent(arxivId)}`;
 
-    const res = await requestGET(url, {}, signal);
+    const res = await requestCachedGET(url, {}, signal);
     const result = res.response as string;
     if (!result) {
       debug("Failed to get DOI from arXiv");

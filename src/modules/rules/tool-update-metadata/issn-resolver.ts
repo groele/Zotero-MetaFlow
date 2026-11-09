@@ -1,5 +1,14 @@
-import { requestCachedGET } from "../../../utils/http";
+import { requestCachedGET, requestServiceGET } from "../../../utils/http";
+import { publicationCacheName } from "../../../utils/service-cache-policy";
 import { normalizeDOI } from "./policy";
+
+const CROSSREF_WORK_OPTIONS = {
+  timeout: 15_000,
+  headers: {
+    "User-Agent": "Zotero MetaFlow (https://github.com/groele/Zotero-MetaFlow; mailto:gro_ele@163.com)",
+    "Accept": "application/json",
+  },
+};
 
 function safeParseJSON(res: any): any {
   if (typeof res?.response === "object" && res.response !== null)
@@ -67,9 +76,10 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
   }
 
   // 2. Query by publicationTitle
-  if (publicationTitle?.trim()) {
+  const normalizedTitle = publicationCacheName(publicationTitle || "");
+  if (normalizedTitle) {
     try {
-      const url = `https://api.openalex.org/sources?search=${encodeURIComponent(publicationTitle.trim())}&per-page=5&select=display_name,issn_l,issn`;
+      const url = `https://api.openalex.org/sources?search=${encodeURIComponent(normalizedTitle)}&per-page=5&select=display_name,issn_l,issn`;
       debug?.(`[OpenAlex] Searching source by publicationTitle: ${publicationTitle}`);
       const res = await requestCachedGET(url, {
         timeout: 10_000,
@@ -106,9 +116,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
     try {
       const url = `https://api.crossref.org/works/${encodeURIComponent(cleanDOI)}`;
       debug?.(`[Crossref] Fetching work by DOI: ${cleanDOI}`);
-      const res = await requestCachedGET(url, {
-        timeout: 10_000,
-      }, signal);
+      const res = await requestServiceGET("crossref", url, CROSSREF_WORK_OPTIONS, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
         const body = safeParseJSON(res);
         const message = normalizeDOI(body.message?.DOI) === cleanDOI ? body.message : undefined;
@@ -127,9 +135,10 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
   }
 
   // 2. Query by publicationTitle
-  if (publicationTitle?.trim()) {
+  const normalizedTitle = publicationCacheName(publicationTitle || "");
+  if (normalizedTitle) {
     try {
-      const url = `https://api.crossref.org/works?query.container-title=${encodeURIComponent(publicationTitle.trim())}&filter=type:journal-article&rows=5&select=container-title,ISSN,issn-type`;
+      const url = `https://api.crossref.org/works?query.container-title=${encodeURIComponent(normalizedTitle)}&filter=type:journal-article&rows=5&select=container-title,ISSN,issn-type`;
       debug?.(`[Crossref] Searching journal by title: ${publicationTitle}`);
       const res = await requestCachedGET(url, {
         timeout: 10_000,
