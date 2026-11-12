@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { inspectItemDefects } from "./item-diagnostics";
+
+vi.mock("../utils/locale", () => ({
+  getString: (id: string, options?: { args?: Record<string, string | number> }) => {
+    if (!options?.args)
+      return id;
+    return `${id}:${JSON.stringify(options.args)}`;
+  },
+}));
 
 describe("inspectItemDefects", () => {
   it("detects missing DOI, placeholder creators, and contaminated title on journal articles", () => {
@@ -76,5 +84,36 @@ describe("inspectItemDefects", () => {
 
     const defects = inspectItemDefects(mockItem);
     expect(defects).toHaveLength(0);
+  });
+
+  it("uses Fluent localization keys instead of hardcoded defect messages", () => {
+    const fields: Record<string, string> = {
+      title: "Trailing dot title.",
+      DOI: "https://doi.org/10.1000/test",
+    };
+
+    const mockItem = {
+      isRegularItem: () => true,
+      deleted: false,
+      itemType: "journalArticle",
+      getField: (f: string) => fields[f] || "",
+      getCreators: () => [],
+    } as unknown as Zotero.Item;
+
+    const defects = inspectItemDefects(mockItem);
+    const byCode = Object.fromEntries(defects.map(defect => [defect.code, defect.message]));
+    expect(byCode["non-standard-doi"]).toBe("diag-non-standard-doi");
+    expect(byCode["missing-creators"]).toBe("diag-missing-creators");
+    expect(byCode["trailing-dot-title"]).toBe("diag-trailing-dot-title");
+    expect(byCode["missing-publication"]).toBe("diag-missing-publication");
+    expect(byCode["missing-date"]).toBe("diag-missing-date");
+    expect(byCode["missing-pagination"]).toContain("diag-missing-pagination");
+    expect(byCode["missing-pagination"]).toContain("diag-field-volume");
+    expect(byCode["missing-pagination"]).toContain("diag-field-issue");
+    expect(byCode["missing-pagination"]).toContain("diag-field-pages");
+    expect(byCode["missing-abstract"]).toBe("diag-missing-abstract");
+    for (const defect of defects) {
+      expect(defect.message).not.toMatch(/[\u4E00-\u9FFF]/);
+    }
   });
 });

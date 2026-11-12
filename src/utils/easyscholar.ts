@@ -1,8 +1,8 @@
 import type { EasyScholarRank } from "./easyscholar-fields";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "./easyscholar-fields";
 import { clearServiceRequestCache, invalidateServiceRequest, requestGET, requestServiceGET } from "./http";
+import { extractResponseJournalIdentity, matchesJournalIdentity } from "./journal-identity";
 import { getPref } from "./prefs";
-
 import { PUBLIC_CACHE_TTL, publicationCacheName, SERVICE_CACHE_TTL } from "./service-cache-policy";
 
 export * from "./easyscholar-fields";
@@ -22,7 +22,7 @@ export type EasyScholarResult
     | { status: "unconfigured" }
     | { status: "error"; message: string };
 
-const cache = new Map<string, { expires: number; result: EasyScholarResult }>();
+const cache = new Map<string, { expires: number; result: EasyScholarResult; issns?: string[] }>();
 const CACHE_TTL = SERVICE_CACHE_TTL;
 const MAX_CACHE_SIZE = 256;
 
@@ -157,7 +157,7 @@ function rankCacheKey(title: string) {
   return `${(getPref("easyscholar.secretKey") || "").trim()}\n${publicationCacheName(title)}\n${getPref("insights.natureDatasetUUID" as any, "")}`;
 }
 
-export function peekEasyScholarRank(title: string): EasyScholarResult | undefined {
+export function peekEasyScholarRank(title: string, expectedISSNs?: readonly string[]): EasyScholarResult | undefined {
   const key = rankCacheKey(title);
   const entry = cache.get(key);
   if (!entry || entry.expires <= Date.now()) {
@@ -166,6 +166,8 @@ export function peekEasyScholarRank(title: string): EasyScholarResult | undefine
   }
   cache.delete(key);
   cache.set(key, entry);
+  if (entry.result.status === "success" && !matchesJournalIdentity(title, expectedISSNs, entry.issns?.length ? [{ issn: entry.issns.join(" ") }] : []))
+    return { status: "not-found" };
   return entry.result;
 }
 
@@ -198,7 +200,7 @@ export async function testEasyScholarConnection(secretKey: string, signal?: Abor
   }
 }
 
-export async function fetchEasyScholarRank(title: string, signal?: AbortSignal): Promise<EasyScholarResult> {
+export async function fetchEasyScholarRank(title: string, signal?: AbortSignal, expectedISSNs?: readonly string[]): Promise<EasyScholarResult> {
   const secretKey = (getPref("easyscholar.secretKey") || "").trim();
   if (!secretKey)
     return { status: "unconfigured" };
@@ -212,6 +214,8 @@ export async function fetchEasyScholarRank(title: string, signal?: AbortSignal):
   if (cached && cached.expires > Date.now()) {
     cache.delete(cacheKey);
     cache.set(cacheKey, cached);
+    if (cached.result.status === "success" && !matchesJournalIdentity(normalizedTitle, expectedISSNs, cached.issns?.length ? [{ issn: cached.issns.join(" ") }] : []))
+      return { status: "not-found" };
     return cached.result;
   }
 
@@ -223,11 +227,18 @@ export async function fetchEasyScholarRank(title: string, signal?: AbortSignal):
     const rawCustomRank = response.data?.customRank;
     if ((!rawRank || typeof rawRank !== "object") && (!rawCustomRank || typeof rawCustomRank !== "object"))
       return remember(cacheKey, { status: "not-found" }, response._metaflowCacheExpires);
+    const identityRecords = [response.data, rawRank];
+    const returnedIdentity = extractResponseJournalIdentity(identityRecords);
+    if (!matchesJournalIdentity(normalizedTitle, expectedISSNs, identityRecords)) {
+      if (!returnedIdentity.issns.length)
+        return remember(cacheKey, { status: "not-found" }, response._metaflowCacheExpires);
+      return { status: "not-found" };
+    }
     const data = parseEasyScholarRank(rawRank, rawCustomRank, natureDatasetUUID);
     if (!Object.values(data).some(value => value?.trim()))
       return remember(cacheKey, { status: "not-found" }, response._metaflowCacheExpires);
     const result: EasyScholarResult = { status: "success", data };
-    return remember(cacheKey, result, response._metaflowCacheExpires);
+    return remember(cacheKey, result, response._metaflowCacheExpires, returnedIdentity.issns);
   }
   catch (error) {
     signal?.throwIfAborted();
@@ -235,7 +246,7 @@ export async function fetchEasyScholarRank(title: string, signal?: AbortSignal):
   }
 }
 
-function remember(key: string, result: EasyScholarResult, expires: number): EasyScholarResult {
+function remember(key: string, result: EasyScholarResult, expires: number, issns?: string[]): EasyScholarResult {
   cache.delete(key);
   for (const [old, entry] of cache) {
     if (entry.expires <= Date.now())
@@ -243,7 +254,7 @@ function remember(key: string, result: EasyScholarResult, expires: number): Easy
   }
   if (cache.size >= MAX_CACHE_SIZE)
     cache.delete(cache.keys().next().value!);
-  cache.set(key, { expires: Math.min(expires, Date.now() + (result.status === "not-found" ? PUBLIC_CACHE_TTL : CACHE_TTL)), result });
+  cache.set(key, { expires: Math.min(expires, Date.now() + (result.status === "not-found" ? PUBLIC_CACHE_TTL : CACHE_TTL)), result, ...issns?.length && { issns } });
   return result;
 }
 

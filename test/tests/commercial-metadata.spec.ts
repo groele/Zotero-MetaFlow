@@ -135,8 +135,11 @@ describe("commercial metadata evidence and import consistency", function () {
   it("does not share a context-dependent title rejection with another year's item", async function () {
     const earlier = await create("");
     const matching = await create("");
+    const creators = [{ creatorType: "author" as const, firstName: "Jane", lastName: "Doe" }];
     earlier.setField("date", "2025");
+    earlier.setCreators(creators);
     matching.setField("date", "2026");
+    matching.setCreators(creators);
     await earlier.saveTx();
     await matching.saveTx();
     pref("workflow.searchTitle", true);

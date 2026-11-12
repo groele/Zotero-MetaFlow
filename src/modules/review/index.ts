@@ -74,7 +74,7 @@ function reviewRule(version: boolean, prepared?: (options: ReviewOptions) => voi
           const identifier = automaticIdentifier(candidates);
           if (!identifier)
             throw new Error(getString("review-auto-ambiguous"));
-          if ((identifier.kind === "Title" || identifier.excerpt) && !hasLocalCorroboration(original)) {
+          if ((identifier.kind === "Title" || identifier.excerpt) && !hasLocalCorroboration(original, identifier.kind)) {
             failures.set(item.id, getString("review-auto-evidence"));
             failureCodes.set(item.id, "metadata-auto-evidence");
             return;

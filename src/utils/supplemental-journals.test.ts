@@ -83,6 +83,19 @@ describe("supplemental journal sources", () => {
     await expect(fetchSupplementalJournalRank("Cancelled", new Set(["njauQuality"]), controller.signal)).rejects.toThrow("cancelled");
     expect(request).not.toHaveBeenCalled();
   });
+  it("rejects NJAU results whose returned journal title or ISSN conflicts with the queried journal", async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce({ responseText: JSON.stringify({ journalName: "Other Journal", classname: "A 类" }) })
+      .mockResolvedValueOnce({ responseText: JSON.stringify({ journalName: "Target Journal", issn: "1234-5678", classname: "B 类" }) })
+      .mockResolvedValueOnce({ responseText: JSON.stringify({ journalName: "Target Journal", issn: "1234-5678", classname: "B 类" }) });
+    vi.stubGlobal("Zotero", { HTTP: { request } });
+    const fields = new Set(["njauQuality"] as const);
+    expect((await fetchSupplementalJournalRank("Mismatched Title Journal", fields, undefined, ["12345678"])).data.njauQuality).toBeUndefined();
+    expect((await fetchSupplementalJournalRank("Target Journal", fields, undefined, ["87654321"])).data.njauQuality).toBeUndefined();
+    clearSupplementalJournalCache();
+    expect((await fetchSupplementalJournalRank("Target Journal", fields, undefined, ["12345678"])).data.njauQuality).toBe("B 类");
+  });
+
   it("times out the remaining supplemental source and clears its timer", async () => {
     vi.useFakeTimers();
     try {

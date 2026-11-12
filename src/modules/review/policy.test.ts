@@ -88,9 +88,10 @@ describe("review identity policy", () => {
     expect(firstCreator({ creators: [{ creatorType: "author", lastName: "张", firstName: "三" }] })).toBe("zhang");
   });
 
-  it("matches CJK titles and subtitle variations in titlesAgree", () => {
+  it("matches CJK titles and subtitle variations in titlesAgree without conflating distinct works", () => {
     expect(titlesAgree("基于深度学习的图像去噪算法研究", "基于深度学习的图像去噪算法研究")).toBe(true);
     expect(titlesAgree("基于深度学习的图像去噪算法研究", "基于深度学习的图像去噪算法研究——以医学图像为例")).toBe(true);
+    expect(titlesAgree("基于深度学习的图像识别方法研究", "基于深度学习的语音识别方法研究")).toBe(false);
     expect(titlesAgree("Quantum Computing: Principles and Applications", "Quantum Computing")).toBe(true);
   });
 });

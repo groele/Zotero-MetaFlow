@@ -557,6 +557,7 @@ runtime-data-policy = 本地操作记录保留 { $days } 天，最多 { $count }
 core-feedback-errors = 本次组合流程遇到错误，已保留前序保存和各阶段结果；请查看详情。
 core-feedback-empty = 本次命令未执行任何阶段，请在核心功能设置中启用所需步骤。
 core-task-running = { $command } · { $index }/{ $total }：{ $stage }
+core-task-staged-commit = 各阶段独立保存；中途停止或后续出错不会自动回滚已完成阶段。
 core-task-stopping = 正在停止；已保存的更改会保留，后续阶段将跳过。
 core-task-check = 检查并修复元数据
 core-task-update = 更新元数据

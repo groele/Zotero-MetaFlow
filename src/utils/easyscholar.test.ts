@@ -171,6 +171,27 @@ describe("easyScholar data integration", () => {
     expect(request.mock.calls[0][1]).toContain("secretKey=test-key");
   });
 
+  it("rejects EasyScholar responses whose returned journal name or ISSN conflicts with the queried journal", async () => {
+    const get = vi.fn().mockReturnValue("test-key");
+    const request = vi.fn()
+      .mockResolvedValueOnce({
+        status: 200,
+        responseText: JSON.stringify({ code: 200, data: { publicationName: "Nature Physics", officialRank: { all: { sciif: "19.0" } } } }),
+      })
+      .mockResolvedValueOnce({
+        status: 200,
+        responseText: JSON.stringify({ code: 200, data: { publicationName: "Shared Journal", issn: "1234-5678", officialRank: { all: { sciif: "34.9" } } } }),
+      });
+    vi.stubGlobal("Zotero", { Prefs: { get }, HTTP: { request } });
+
+    expect(await fetchEasyScholarRank("Nature")).toEqual({ status: "not-found" });
+    expect(await fetchEasyScholarRank("Shared Journal", undefined, ["87654321"])).toEqual({ status: "not-found" });
+    expect(await fetchEasyScholarRank("Shared Journal", undefined, ["12345678"])).toEqual({
+      status: "success",
+      data: expect.objectContaining({ impactFactor: "34.9" }),
+    });
+  });
+
   it("tests the API key without caching or changing a Zotero item", async () => {
     const request = vi.fn().mockResolvedValue({
       status: 200,

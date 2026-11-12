@@ -1,6 +1,7 @@
 import type { EasyScholarField, EasyScholarRank } from "../../utils/easyscholar";
 import { EASYSCHOLAR_EXTRA_ALIASES, EASYSCHOLAR_FIELD_DEFINITIONS, EASYSCHOLAR_OUTPUT_FIELDS, fetchEasyScholarRank, isEasyScholarFieldEnabled } from "../../utils/easyscholar";
 import { watchItemFields } from "../../utils/field-conflicts";
+import { extractValidISSNs } from "../../utils/journal-identity";
 import { readJournalRankingIndex, saveJournalRankingIndex } from "../../utils/journal-ranking-index";
 import { readJournalRankingValues } from "../../utils/journal-ranking-rows";
 import { runJournalSource } from "../../utils/journal-source";
@@ -150,13 +151,14 @@ export const ToolUpdateEasyScholar = defineRule<{ mode?: "blank" | "all" }>({
       report({ level: "info", message: getString("rule-tool-update-easyscholar-disabled") });
       return;
     }
+    const expectedISSNs = extractValidISSNs(item.getField("ISSN"));
     const needsEasyScholar = EASYSCHOLAR_FIELD_DEFINITIONS.some(field => field.source !== "supplemental" && enabledFields.has(field.key));
     const [result, supplemental] = await Promise.all([
       needsEasyScholar
-        ? runJournalSource(sourceSignal => fetchEasyScholarRank(title, sourceSignal), signal)
+        ? runJournalSource(sourceSignal => fetchEasyScholarRank(title, sourceSignal, expectedISSNs), signal)
             .catch(() => ({ status: "error" as const, message: getString("rule-tool-update-easyscholar-source-deadline") }))
         : Promise.resolve({ status: "skipped" as const }),
-      fetchSupplementalJournalRank(title, enabledFields, signal),
+      fetchSupplementalJournalRank(title, enabledFields, signal, expectedISSNs),
     ]);
     signal?.throwIfAborted();
     if (!unchanged())

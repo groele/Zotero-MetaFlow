@@ -22,7 +22,7 @@ export class ProgressUI {
     this.running = false;
   }
 
-  public async init(slient?: boolean, coreStatus?: string): Promise<void> {
+  public async init(slient?: boolean, coreStatus?: string, coreSubtext?: string): Promise<void> {
     this.close();
 
     if (slient || !getPref("lint.notify"))
@@ -41,7 +41,7 @@ export class ProgressUI {
       })
       .createLine({
         type: "default",
-        text: coreStatus ? "" : getString("info-batch-pending-save"),
+        text: coreStatus ? (coreSubtext || "") : getString("info-batch-pending-save"),
         progress: 0,
         idx: 1,
       })
@@ -84,6 +84,7 @@ export class ProgressUI {
       return false;
     this.running = false;
     helper.changeLine({ type: failed ? "fail" : "default", text, progress: 100, idx: 0 });
+    helper.changeLine({ text: "", progress: 100, idx: 1 });
     const lines = (helper as unknown as { lines: { _hbox?: Element }[] }).lines;
     lines[2]?._hbox?.removeEventListener("click", this.handleStopRequest as EventListener);
     lines[0]?._hbox?.ownerDocument?.documentElement?.removeAttribute("data-metaref-core-progress");

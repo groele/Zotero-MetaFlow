@@ -39,7 +39,8 @@ it("persists selected values by ISSN and title and reloads them for another item
   const reloaded = await import("./journal-ranking-index");
   await reloaded.loadJournalRankingIndex();
   expect(reloaded.readJournalRankingIndex(item())).toEqual(new Map([["jcr", "Q1"], ["impactFactor", "34.9"]]));
-  expect(reloaded.readJournalRankingIndex(item("Journal QA", "8765-4321")).get("impactFactor")).toBe("34.9");
+  expect(reloaded.readJournalRankingIndex(item("Journal QA", "")).get("impactFactor")).toBe("34.9");
+  expect(reloaded.readJournalRankingIndex(item("Journal QA", "8765-4321"))).toEqual(new Map());
 });
 
 it("preserves existing index values in blank mode and removes negative membership markers", async () => {
@@ -225,6 +226,8 @@ it("does not link two distinct ISSN groups through their shared title", async ()
   const other = item("Shared Title", "1111-2222; 3333-4444");
   await index.saveJournalRankingIndex(first, { jcr: "Q1" }, new Set(["jcr"]));
   await index.saveJournalRankingIndex(other, { jcr: "Q4" }, new Set(["jcr"]));
+  expect(index.readJournalRankingIndex(item("Shared Title", "")).get("jcr")).toBe("Q1");
+  expect(index.readJournalRankingIndex(item("Shared Title", "9999-0000")).size).toBe(0);
   await index.saveJournalRankingIndex(item("Corrected Title", "1234-5678"), { jcr: "Q2" }, new Set(["jcr"]));
   expect(index.readJournalRankingIndex(item("Shared Title", "8765-4321")).get("jcr")).toBe("Q2");
   expect(index.readJournalRankingIndex(item("Shared Title", "3333-4444")).get("jcr")).toBe("Q4");

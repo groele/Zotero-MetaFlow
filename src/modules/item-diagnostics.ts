@@ -1,3 +1,4 @@
+import { getString } from "../utils/locale";
 import { isFieldValidForItemType } from "../utils/zotero";
 import { isPlaceholderCreator } from "./review/policy";
 import { extractDOIFromUrl } from "./rules/tool-update-metadata/identifiers";
@@ -49,7 +50,9 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-doi",
       level: "warning",
       field: "DOI",
-      message: urlDOI ? `DOI 字段为空（可从网址自动提取：${urlDOI}）` : "缺少官方学术 DOI 标识符",
+      message: urlDOI
+        ? getString("diag-missing-doi-url", { args: { doi: urlDOI } })
+        : getString("diag-missing-doi"),
       fixable: true,
       fixAction: "update",
     });
@@ -61,7 +64,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "non-standard-doi",
       level: "suggestion",
       field: "DOI",
-      message: "DOI 字段包含多余 URL 前缀或前置字符",
+      message: getString("diag-non-standard-doi"),
       fixable: true,
       fixAction: "format",
     });
@@ -73,7 +76,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-creators",
       level: "error",
       field: "creators",
-      message: "作者字段为空，缺少创作者信息",
+      message: getString("diag-missing-creators"),
       fixable: true,
       fixAction: "update",
     });
@@ -83,7 +86,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "placeholder-creators",
       level: "error",
       field: "creators",
-      message: "作者字段仅含未解析的占位符（如 (姓), (名)）",
+      message: getString("diag-placeholder-creators"),
       fixable: true,
       fixAction: "update",
     });
@@ -97,7 +100,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
         code: "contaminated-title",
         level: "warning",
         field: "title",
-        message: "标题包含网页/出版商抓取残留后缀（如 Wiley / ScienceDirect 等）",
+        message: getString("diag-contaminated-title"),
         fixable: true,
         fixAction: "update",
       });
@@ -107,7 +110,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
         code: "trailing-dot-title",
         level: "suggestion",
         field: "title",
-        message: "标题末尾包含多余标点句号",
+        message: getString("diag-trailing-dot-title"),
         fixable: true,
         fixAction: "format",
       });
@@ -120,7 +123,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-publication",
       level: "error",
       field: "publicationTitle",
-      message: "缺少期刊出版物名称 (Publication Title)",
+      message: getString("diag-missing-publication"),
       fixable: true,
       fixAction: "update",
     });
@@ -132,7 +135,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-date",
       level: "warning",
       field: "date",
-      message: "缺少出版日期/年份 (Date)",
+      message: getString("diag-missing-date"),
       fixable: true,
       fixAction: "update",
     });
@@ -140,12 +143,18 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
 
   // 7. Missing Volume / Issue / Pages
   if (itemType === "journalArticle" && (!volume || !issue || !pages)) {
-    const missingParts = [!volume && "卷号", !issue && "期号", !pages && "页码"].filter(Boolean).join(" / ");
+    const missingParts = [
+      !volume && getString("diag-field-volume"),
+      !issue && getString("diag-field-issue"),
+      !pages && getString("diag-field-pages"),
+    ]
+      .filter(Boolean)
+      .join(" / ");
     defects.push({
       code: "missing-pagination",
       level: "suggestion",
       field: "pages",
-      message: `缺少文献定位信息 (${missingParts})`,
+      message: getString("diag-missing-pagination", { args: { parts: missingParts } }),
       fixable: true,
       fixAction: "update",
     });
@@ -157,7 +166,7 @@ export function inspectItemDefects(item: Zotero.Item): ItemDefect[] {
       code: "missing-abstract",
       level: "suggestion",
       field: "abstractNote",
-      message: "缺少论文摘要 (Abstract)",
+      message: getString("diag-missing-abstract"),
       fixable: true,
       fixAction: "update",
     });

@@ -5,8 +5,12 @@ import { extractDOIFromUrl } from "../rules/tool-update-metadata/identifiers";
 import { normalizeDOI, sanitizeWebTitle, titlesAgree } from "../rules/tool-update-metadata/policy";
 import { creatorsAgree, firstCreator, isbnEquivalent, isPlaceholderCreator, normalizeArxiv } from "./policy";
 
-export function hasLocalCorroboration(original: TransformedData): boolean {
-  return Boolean(original.title?.trim() && (original.date?.match(/\b\d{4}\b/) || firstCreator(original)));
+export function hasLocalCorroboration(original: TransformedData, kind?: IdentifierCandidate["kind"]): boolean {
+  if (!original.title?.trim())
+    return false;
+  if (kind === "Title")
+    return Boolean(firstCreator(original));
+  return Boolean(original.date?.match(/\b\d{4}\b/) || firstCreator(original));
 }
 
 /** PDF references and multiple editions are not resolved by candidate order. */
@@ -57,20 +61,21 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
   const titleMismatch = proposal.conflicts.includes("title") && !titleContaminated;
   if (proposal.conflicts.length && !(verifiedDOI && (allowableConflicts || (!titleMismatch && !overwrite))))
     return { reason: "conflict" };
-  // A title search or PDF excerpt needs independent agreement with existing metadata.
+  // A title search needs first-author corroboration; a PDF excerpt needs year or author agreement.
   if (proposal.identifier.kind === "Title" || proposal.identifier.excerpt) {
     const beforeYear = proposal.original.date?.match(/\b\d{4}\b/)?.[0];
     const afterYear = proposal.candidate.date?.match(/\b\d{4}\b/)?.[0];
     const author = firstCreator(proposal.original);
     const candidateAuthor = firstCreator(proposal.candidate);
+    const firstAuthorMatch = Boolean(author && candidateAuthor && author === candidateAuthor);
     const hasAuthors = Boolean((proposal.original.creators || []).some(c => c && !isPlaceholderCreator(c))
       && (proposal.candidate.creators || []).some(c => c && !isPlaceholderCreator(c)));
-    const authorsMatch = hasAuthors && Boolean((author && candidateAuthor && author === candidateAuthor) || creatorsAgree(proposal.original, proposal.candidate));
+    const authorsMatch = hasAuthors && Boolean(firstAuthorMatch || creatorsAgree(proposal.original, proposal.candidate));
     const yearsMatch = Boolean(beforeYear && afterYear && beforeYear === afterYear);
-    if (!proposal.original.title || !proposal.candidate.title || !titlesAgree(proposal.original.title, proposal.candidate.title)
-      || (!yearsMatch && !authorsMatch)) {
+    if (!proposal.original.title || !proposal.candidate.title || !titlesAgree(proposal.original.title, proposal.candidate.title))
       return { reason: "evidence" };
-    }
+    if (proposal.identifier.kind === "Title" ? !firstAuthorMatch : (!yearsMatch && !authorsMatch))
+      return { reason: "evidence" };
   }
   const related = !!proposal.preprintURL;
   // A revived snapshot's local title/date are capture artefacts: adopt the verified record.

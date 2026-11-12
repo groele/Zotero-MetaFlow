@@ -1,6 +1,6 @@
 import type { EasyScholarField, EasyScholarRank } from "./easyscholar";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "./easyscholar";
-import { extractISSNs } from "./esi";
+import { extractValidISSNs, normalizeJournalTitle } from "./journal-identity";
 import { createLogger } from "./logger";
 
 interface Entry { updatedAt: number; values: Partial<Record<EasyScholarField, string>>; issns?: string[]; removed?: EasyScholarField[] }
@@ -24,17 +24,14 @@ function filePath() {
     : undefined;
 }
 
-function normalize(value: unknown) {
-  return String(value || "").normalize("NFKC").trim().toLocaleLowerCase().replace(/[\s\p{P}\p{S}]+/gu, "");
-}
-
 function keys(item: Zotero.Item) {
   const type = item.itemType === "conferencePaper" ? "conference" : "journal";
   const title = item.itemType === "conferencePaper"
     ? item.getField("proceedingsTitle") || item.getField("conferenceName")
     : item.getField("publicationTitle");
-  const issns = extractISSNs(String(item.getField("ISSN") || "")).filter(value => /^\d{7}[\dX]$/.test(value));
-  return [...issns.map(value => `${type}:issn:${value}`), ...(normalize(title) ? [`${type}:title:${normalize(title)}`] : [])];
+  const issns = extractValidISSNs(item.getField("ISSN"));
+  const normalized = normalizeJournalTitle(title);
+  return [...issns.map(value => `${type}:issn:${value}`), ...(normalized ? [`${type}:title:${normalized}`] : [])];
 }
 
 async function load() {
@@ -102,7 +99,7 @@ export async function loadJournalRankingIndex() {
   await load();
 }
 
-function matchingSnapshot(item: Zotero.Item, forWrite = false) {
+function matchingSnapshot(item: Zotero.Item) {
   const itemKeys = keys(item);
   const issns = itemKeys.filter(key => key.includes(":issn:")).map(key => key.split(":issn:")[1]);
   const knownISSN = itemKeys.some(key => key.includes(":issn:") && entries.has(key));
@@ -114,7 +111,7 @@ function matchingSnapshot(item: Zotero.Item, forWrite = false) {
     if (!entry)
       continue;
     const conflicting = issns.length && entry.issns?.length && !entry.issns.some(value => issns.includes(value));
-    if (conflicting && (forWrite || knownISSN))
+    if (conflicting)
       continue;
     // Legacy title rows have no identity evidence. Keep an explicit ISSN's
     // established precedence until a verified update supplies that evidence.
@@ -142,7 +139,7 @@ export function readJournalRankingIndex(item: Zotero.Item, fallback?: ReadonlyMa
 
 export async function saveJournalRankingIndex(item: Zotero.Item, values: Partial<EasyScholarRank>, selected: ReadonlySet<EasyScholarField>, mode: "blank" | "all" = "all") {
   await load();
-  const { latest, itemKeys, issns } = matchingSnapshot(item, true);
+  const { latest, itemKeys, issns } = matchingSnapshot(item);
   if (!itemKeys.length || !selected.size)
     return;
   const existing = new Map(Object.entries(latest?.values || {}) as [EasyScholarField, string][]);
@@ -170,7 +167,13 @@ export async function saveJournalRankingIndex(item: Zotero.Item, values: Partial
   }
   const identity = [...new Set([...latest?.issns || [], ...issns])];
   const type = item.itemType === "conferencePaper" ? "conference" : "journal";
-  const writeKeys = new Set([...itemKeys, ...identity.map(issn => `${type}:issn:${issn}`)]);
+  const safeKeys = itemKeys.filter((key) => {
+    if (!key.includes(":title:") || !issns.length)
+      return true;
+    const existingTitle = entries.get(key);
+    return !existingTitle?.issns?.length || existingTitle.issns.some(value => issns.includes(value));
+  });
+  const writeKeys = new Set([...safeKeys, ...identity.map(issn => `${type}:issn:${issn}`)]);
   const existingAliases = [...writeKeys].map(key => entries.get(key));
   const aliasChanged = existingAliases.some(entry => entry
     ? Object.keys(entry.values).length !== next.size || [...next].some(([field, value]) => entry.values[field] !== value)

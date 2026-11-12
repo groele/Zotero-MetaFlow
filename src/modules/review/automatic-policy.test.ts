@@ -11,7 +11,9 @@ describe("automatic metadata decisions", () => {
     expect(hasLocalCorroboration({ date: "2026" })).toBe(false);
     expect(hasLocalCorroboration({ title: " ", date: "2026" })).toBe(false);
     expect(hasLocalCorroboration({ title: "Generic title", date: "2026-10" })).toBe(true);
+    expect(hasLocalCorroboration({ title: "Generic title", date: "2026-10" }, "Title")).toBe(false);
     expect(hasLocalCorroboration({ title: "Generic title", creators: [{ creatorType: "author", lastName: "Doe", firstName: "Jane" }] })).toBe(true);
+    expect(hasLocalCorroboration({ title: "Generic title", creators: [{ creatorType: "author", lastName: "Doe", firstName: "Jane" }] }, "Title")).toBe(true);
   });
   it("prefers an explicit identifier and never picks an ambiguous DOI by array order", () => {
     expect(automaticIdentifier([identifier("10.1234/b", "DOI", "References"), identifier("10.1234/a")])?.value).toBe("10.1234/a");
@@ -53,12 +55,26 @@ describe("automatic metadata decisions", () => {
       expect(automaticSelection({ ...value, ...extra }, true).reason).toBe("conflict");
     }
   });
-  it("requires independent corroboration for a PDF or title lookup", () => {
-    for (const candidate of [identifier("10.1234/test", "DOI", "PDF header"), identifier("Optical response of layered materials", "Title")]) {
-      expect(automaticSelection(proposal({ identifier: candidate })).selection).toBeDefined();
-      expect(automaticSelection(proposal({ identifier: candidate, original: { title: "Optical response of layered materials" } })).reason).toBe("evidence");
-      expect(automaticSelection(proposal({ identifier: candidate, original: { title: "A different article", date: "2026" } })).reason).toBe("evidence");
-    }
+  it("requires independent corroboration for a PDF or title lookup, including first-author agreement for title search", () => {
+    const pdf = identifier("10.1234/test", "DOI", "PDF header");
+    expect(automaticSelection(proposal({ identifier: pdf })).selection).toBeDefined();
+    expect(automaticSelection(proposal({ identifier: pdf, original: { title: "Optical response of layered materials" } })).reason).toBe("evidence");
+    expect(automaticSelection(proposal({ identifier: pdf, original: { title: "A different article", date: "2026" } })).reason).toBe("evidence");
+
+    const titleId = identifier("Optical response of layered materials", "Title");
+    const jane = [{ creatorType: "author" as const, firstName: "Jane", lastName: "Doe" }];
+    const smith = [{ creatorType: "author" as const, firstName: "John", lastName: "Smith" }];
+    expect(automaticSelection(proposal({ identifier: titleId })).reason).toBe("evidence");
+    expect(automaticSelection(proposal({
+      identifier: titleId,
+      original: { title: "Optical response of layered materials", date: "2026", creators: [...smith, ...jane] },
+      candidate: { itemType: "journalArticle", title: "Optical response of layered materials", DOI: "10.1234/test", date: "2026", publicationTitle: "Journal", creators: [...jane, ...smith] },
+    })).reason).toBe("evidence");
+    expect(automaticSelection(proposal({
+      identifier: titleId,
+      original: { itemType: "journalArticle", title: "Optical response of layered materials", date: "2026", creators: jane },
+      candidate: { itemType: "journalArticle", title: "Optical response of layered materials", DOI: "10.1234/test", date: "2026", publicationTitle: "Journal", creators: jane },
+    })).selection).toBeDefined();
   });
   it("accepts matching authors as corroboration when the year is absent", () => {
     const creators = [{ creatorType: "author" as const, firstName: "Jane", lastName: "Doe" }];

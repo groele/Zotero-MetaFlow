@@ -56,6 +56,11 @@ function coreProgressText() {
   return getString(state.cancelled ? "core-task-stopping" : "core-task-running", { args: { command: getString(`core-task-${state.command}`), stage: getString(`core-task-${state.stage || "preparing"}`), index: state.index, total: state.total } });
 }
 
+function coreProgressSubtext() {
+  const state = addon.data.activeCoreWorkflow;
+  return state && state.total > 1 ? getString("core-task-staged-commit") : undefined;
+}
+
 function coreResultText(result: BatchResult) {
   const stages = addon.data.lastCoreWorkflow?.stages.length || 0;
   return `${getString(result.cancelled ? "core-feedback-cancelled" : result.preparationFailed || result.failed ? "core-feedback-errors" : stages ? "core-feedback-completed" : "core-feedback-empty", { args: { stages } })} ${getString("batch-feedback-summary", { args: { total: result.total, saved: result.saved, failed: result.failed, warnings: result.warnings } })}`;
@@ -119,7 +124,7 @@ function updateCoreFeedback() {
       state.cancel();
       updateBatchFeedback();
     } });
-    void progress.init(false, coreProgressText()).then(() => {
+    void progress.init(false, coreProgressText(), coreProgressSubtext()).then(() => {
       if (coreProgress === progress && addon.data.activeCoreWorkflow === state)
         progress.updateCoreProgress(coreProgressText());
     }).catch((error) => {

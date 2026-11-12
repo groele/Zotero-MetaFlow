@@ -18,6 +18,8 @@ describe("metadata identity and completion", () => {
   it("requires a strong title match and compatible year for metadata search", () => {
     expect(titlesAgree("Spin dynamics in MoS2", "SPIN dynamics in MoS2.")).toBe(true);
     expect(titlesAgree("Spin dynamics in MoS2", "Spin dynamics in WS2")).toBe(false);
+    expect(titlesAgree("基于深度学习的图像识别方法研究", "基于深度学习的语音识别方法研究")).toBe(false);
+    expect(titlesAgree("基于深度学习的图像去噪算法研究", "基于深度学习的图像去噪算法研究——以医学图像为例")).toBe(true);
     expect(titlesAgree("Ferroelectricity in ReS2 - Chen - 2024 - Advanced Materials - Wiley Online Library", "Ferroelectricity in ReS2")).toBe(true);
     expect(titlesAgree("Graphene Oxide Membranes - ScienceDirect", "Graphene Oxide Membranes")).toBe(true);
     expect(metadataIdentity({ title: "Same title", date: "2020" }, {}, { title: "Same title", date: "2025" })).toBe(false);

@@ -489,6 +489,7 @@ describe("core command execution and optional costs", function () {
   it("allows a title lookup only after its fallback option is enabled", async function () {
     const item = await create("Core workflow fixture.", "");
     item.setField("date", "2026");
+    item.setCreators([{ creatorType: "author", firstName: "Jane", lastName: "Doe" }]);
     await item.saveTx();
     pref("workflow.searchTitle", true);
     pref("workflow.formatAfterUpdate", false);

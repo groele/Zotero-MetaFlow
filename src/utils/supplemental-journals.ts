@@ -1,6 +1,7 @@
 import type { EasyScholarField, EasyScholarRank } from "./easyscholar";
 import njauCoreData from "../../data/njau-core-2010.json";
 import { requestHTTP } from "./http";
+import { matchesJournalIdentity } from "./journal-identity";
 import { runJournalSource } from "./journal-source";
 import { publicationCacheName } from "./service-cache-policy";
 
@@ -37,10 +38,11 @@ export function invalidateSupplementalJournalTitle(title: string) {
   }
 }
 
-export async function fetchSupplementalJournalRank(title: string, fields: ReadonlySet<EasyScholarField>, signal?: AbortSignal): Promise<SupplementalResult> {
+export async function fetchSupplementalJournalRank(title: string, fields: ReadonlySet<EasyScholarField>, signal?: AbortSignal, expectedISSNs?: readonly string[]): Promise<SupplementalResult> {
   const njauQuality = fields.has("njauQuality");
   const normalizedTitle = publicationCacheName(title);
-  const key = JSON.stringify([normalizedTitle, njauQuality, fields.has("njauCore")]);
+  const issnKey = expectedISSNs?.length ? [...expectedISSNs].sort().join(",") : "";
+  const key = JSON.stringify([normalizedTitle, njauQuality, fields.has("njauCore"), issnKey]);
   signal?.throwIfAborted();
   const cached = cache.get(key);
   if (cached && cached.expires > Date.now())
@@ -54,7 +56,9 @@ export async function fetchSupplementalJournalRank(title: string, fields: Readon
       if (njauQuality) {
         tasks.push({ source: "NJAU 2024", async run(sourceSignal) {
           const response = await requestHTTP("POST", "http://phq.njau.edu.cn/admin_getJournal2024.action", { timeout: 7000, body: new URLSearchParams({ keyword: title.trim() }).toString(), headers: { "Content-Type": "application/x-www-form-urlencoded" } }, sourceSignal);
-          const data = JSON.parse(response.responseText || "{}") as { classname?: unknown };
+          const data = JSON.parse(response.responseText || "{}") as Record<string, unknown>;
+          if (!matchesJournalIdentity(title, expectedISSNs, [data]))
+            return { njauQuality: undefined };
           return { njauQuality: typeof data.classname === "string" && data.classname.trim() ? data.classname.trim() : undefined };
         } });
       }

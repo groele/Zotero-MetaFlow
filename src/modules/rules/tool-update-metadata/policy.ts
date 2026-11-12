@@ -70,18 +70,13 @@ export function titlesAgree(original: string, candidate: string): boolean {
       return true;
   }
 
-  // CJK character sequence and overlap matching
+  // CJK character sequence and subtitle prefix matching
   const cjkA = a.replace(/[^\u4E00-\u9FA5]/gu, "");
   const cjkB = b.replace(/[^\u4E00-\u9FA5]/gu, "");
   if (cjkA.length >= 6 && cjkB.length >= 6) {
     if (cjkA === cjkB)
       return true;
     if ((cjkA.startsWith(cjkB) || cjkB.startsWith(cjkA)) && (Math.min(cjkA.length, cjkB.length) >= 10 || Math.min(cjkA.length, cjkB.length) / Math.max(cjkA.length, cjkB.length) >= 0.6))
-      return true;
-    const charsA = new Set([...cjkA]);
-    const charsB = new Set([...cjkB]);
-    const commonChars = [...charsA].filter(c => charsB.has(c)).length;
-    if (commonChars / Math.max(charsA.size, charsB.size) >= 0.8)
       return true;
   }
 

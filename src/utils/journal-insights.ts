@@ -5,6 +5,7 @@ import { DataLoader } from "./data-loader";
 import { fetchEasyScholarRank, peekEasyScholarRank } from "./easyscholar";
 import { ESI_CATEGORIES, formatESICategories, matchESICategories } from "./esi";
 import { journalDatabaseErrorMessage } from "./journal-database-error";
+import { extractValidISSNs } from "./journal-identity";
 import { isJournalIndexEnabled } from "./journal-permissions";
 import { readJournalRankingIndex } from "./journal-ranking-index";
 import { isNatureIndexJournal } from "./nature-index";
@@ -118,6 +119,7 @@ export async function getJournalInsights(item: Zotero.Item, options: { queryAPI?
   const data = await loadJournalInsights();
   const local = calculateLocal(item, data);
   const title = String(item.getField("publicationTitle") || "").trim();
+  const expectedISSNs = extractValidISSNs(item.getField("ISSN"));
   const wantsAPI = ["esi", "nature"].some((kind) => {
     if (!isJournalIndexEnabled(kind as "esi" | "nature"))
       return false;
@@ -125,12 +127,13 @@ export async function getJournalInsights(item: Zotero.Item, options: { queryAPI?
     return policy === "api-first" || policy === "api-only" || (policy === "local-first" && (kind === "esi" ? !local.categories.length : !local.natureIndex));
   });
   const response = options.queryAPI && item.itemType === "journalArticle" && title && wantsAPI
-    ? await fetchEasyScholarRank(title, options.signal)
-    : peekEasyScholarRank(title);
+    ? await fetchEasyScholarRank(title, options.signal, expectedISSNs)
+    : peekEasyScholarRank(title, expectedISSNs);
   return resolveJournalSources(local, response);
 }
 function calculate(item: Zotero.Item, data: IndexData): JournalInsights {
-  return resolveJournalSources(calculateLocal(item, data), peekEasyScholarRank(String(item.getField("publicationTitle") || "")));
+  const expectedISSNs = extractValidISSNs(item.getField("ISSN"));
+  return resolveJournalSources(calculateLocal(item, data), peekEasyScholarRank(String(item.getField("publicationTitle") || ""), expectedISSNs));
 }
 
 function calculateLocal(item: Zotero.Item, data: IndexData): JournalInsights {

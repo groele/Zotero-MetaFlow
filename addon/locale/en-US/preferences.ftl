@@ -558,6 +558,7 @@ runtime-data-policy = Local operation records are kept for { $days } days, up to
 core-feedback-errors = The workflow encountered errors. Earlier saves and stage results are retained; open the details.
 core-feedback-empty = No stages ran. Enable the desired steps in the core command settings.
 core-task-running = { $command } · { $index }/{ $total }: { $stage }
+core-task-staged-commit = Each stage saves independently; earlier saves are not auto-reverted if stopped.
 core-task-stopping = Stopping. Saved changes are retained and later stages will be skipped.
 core-task-check = Check and Repair Metadata
 core-task-update = Update Metadata
