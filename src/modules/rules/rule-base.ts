@@ -104,9 +104,7 @@ interface RuleBase<Option = object> {
   prepare?: (ctx: PrepareContext) => Awaitable<Option | false>;
 
   /**
-   * Item menus
-   *
-   * @todo not implemented
+   * Item context menu customization (`l10nID` and `mutiltipleItems` are wired in `menu.ts`).
    */
   getItemMenu?: () => {
     /**
