@@ -25,6 +25,7 @@
 
 .metaref-pref-description {
   font-size: 13px;
+  line-height: 1.6;
 }
 
 .metaref-pref-collapsible {
@@ -38,6 +39,10 @@
   padding: 11px 13px;
   cursor: pointer;
   border-radius: 3px;
+}
+
+.metaref-pref-collapsible > summary:hover {
+  background-color: color-mix(in srgb, currentColor 4%, transparent);
 }
 
 .metaref-pref-collapsible > summary:focus-visible {
