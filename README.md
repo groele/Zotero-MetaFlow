@@ -521,6 +521,8 @@ MetaFlow 是基于 northword 的 **Linter for Zotero / zotero-format-metadata** 
 - [LICENSE](LICENSE)：项目适用的 AGPL-3.0 许可证正文。
 - [NOTICE](NOTICE)：保留的上游 northword 原始 NOTICE（包括其历史打包依赖声明）。
 - [THIRD_PARTY.md](THIRD_PARTY.md)：MetaFlow 当前直接依赖、已知参考来源与第三方数据、发布前待核查事项。
+
+- [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md)：向上游作者、第三方开源开发者、数据项目和科研基础设施致谢，区分法律归属与技术借鉴。
 - [CHANGES_FROM_UPSTREAM.md](CHANGES_FROM_UPSTREAM.md)：衍生关系、主要修改方向及待完成的文件级溯源清单。
 
 **注意：** 已有来源致谢不等于已完成文件级代码比对，外部 API 授权不等于数据库再分发授权；发布 XPI 前仍须核对最终打包内容、版本匹配的完整对应源代码和所有保留声明。以上文档明确记录已核实与未核实的部分，不构成合规认证。
