@@ -343,3 +343,6 @@ Zotero MetaFlow is part of the **Zotero Flow Series** academic productivity suit
 
 - **License**: Distributed under the **[AGPL-3.0-or-later](LICENSE)** license.
 - **Disclaimer**: Zotero is a trademark of the Corporation for Digital Scholarship. This project is independently developed and maintained.
+
+
+**Acknowledgements and third-party rights:** See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for upstream authorship and community credits, and [THIRD_PARTY.md](THIRD_PARTY.md) for license provenance and release verification. Credits do not replace the original license, copyright statements or distribution obligations.
