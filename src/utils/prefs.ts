@@ -129,7 +129,7 @@ export const DEFAULT_PREFS: Partial<PluginPrefsMap> = {
   "rule.correct-title-sentence-case": true,
   "rule.correct-title-sentence-case.custom-term-path": "",
   "rule.correct-title-sentence-case.disabled-languages": "zh,de",
-  "rule.correct-title-chemical-formula": false,
+  "rule.correct-title-chemical-formula": true,
   "rule.correct-title-chemical-formula.normalize-spaces": true,
   "rule.correct-title-punctuation": true,
   "rule.correct-title-punctuation.quotes": false,

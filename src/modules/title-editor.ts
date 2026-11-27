@@ -1,5 +1,16 @@
 export const TOOLBAR_CLASS = "metaref-richtext-toolbar";
-export const HEADER_TITLE_SELECTOR = "item-pane-header .title editable-text";
+export const HEADER_TITLE_SELECTOR = [
+  "item-pane-header .title editable-text",
+  "editable-text[data-field='title']",
+  "editable-text[data-field='shortTitle']",
+  "editable-text[data-field='bookTitle']",
+  "editable-text[data-field='proceedingsTitle']",
+  "[data-field='title'] editable-text",
+  "[data-field='shortTitle'] editable-text",
+  "[data-field='bookTitle'] editable-text",
+  "[data-field='proceedingsTitle'] editable-text",
+].join(", ");
+
 export const activeTitleEditors = new WeakMap<Window, HTMLTextAreaElement>();
 export const savedTitleSelections = new WeakMap<Window, { editor: HTMLTextAreaElement; start: number; end: number; direction: "forward" | "backward" | "none" }>();
 export const selectionCaptureAttached = new WeakSet<HTMLTextAreaElement>();
@@ -41,49 +52,66 @@ export function getTitleEditor(win: Window): HTMLTextAreaElement | null {
   return null;
 }
 
-function isSingleOuterTag(source: string, tag: string, expectedOpenTag: string): boolean {
-  if (!source.startsWith(expectedOpenTag) || !source.endsWith(`</${tag}>`))
-    return false;
-  const token = /<\/?([a-z]+)\b[^>]*>/gi;
-  let depth = 0;
-  for (let match = token.exec(source); match; match = token.exec(source)) {
-    if (match[1].toLowerCase() !== tag)
-      continue;
-    if (match[0].startsWith("</")) {
-      depth--;
-      if (depth === 0)
-        return token.lastIndex === source.length;
-    }
-    else if (!match[0].endsWith("/>")) {
-      depth++;
-    }
-  }
-  return false;
+interface TagSpan {
+  openStart: number;
+  openEnd: number;
+  closeStart: number;
+  closeEnd: number;
 }
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function findEnclosingTagAtCursor(
-  text: string,
-  cursor: number,
-  tag: string,
-  openPattern: RegExp,
-): { start: number; end: number; content: string } | null {
-  const pairRegex = new RegExp(`(${openPattern.source})([\\s\\S]*?)<\\/${tag}>`, "gi");
-  for (let match = pairRegex.exec(text); match; match = pairRegex.exec(text)) {
-    const matchStart = match.index;
-    const matchEnd = matchStart + match[0].length;
-    if (cursor >= matchStart && cursor <= matchEnd) {
-      return {
-        start: matchStart,
-        end: matchEnd,
-        content: match[2],
-      };
+function findBalancedTagSpans(text: string, tag: string, openTagRegex: RegExp): TagSpan[] {
+  const tokenRegex = /<\/?([a-z][\w-]*)\b[^>]*>/gi;
+  const stack: Array<{ openStart: number; openEnd: number; matches: boolean }> = [];
+  const spans: TagSpan[] = [];
+  for (let match = tokenRegex.exec(text); match; match = tokenRegex.exec(text)) {
+    if (match[1].toLowerCase() !== tag)
+      continue;
+    const raw = match[0];
+    if (raw.startsWith("</")) {
+      const top = stack.pop();
+      if (top?.matches) {
+        spans.push({
+          openStart: top.openStart,
+          openEnd: top.openEnd,
+          closeStart: match.index,
+          closeEnd: match.index + raw.length,
+        });
+      }
+    }
+    else if (!raw.endsWith("/>")) {
+      stack.push({
+        openStart: match.index,
+        openEnd: match.index + raw.length,
+        matches: openTagRegex.test(raw),
+      });
     }
   }
-  return null;
+  return spans;
+}
+
+function snapAwayFromSlicedMarkup(text: string, start: number, end: number): [number, number] {
+  const markupRegex = /<\/?[a-z][\w-]*\b[^>]*>/gi;
+  let nextStart = start;
+  let nextEnd = end;
+  for (let match = markupRegex.exec(text); match; match = markupRegex.exec(text)) {
+    const tagStart = match.index;
+    const tagEnd = tagStart + match[0].length;
+    if (nextStart > tagStart && nextStart < tagEnd)
+      nextStart = tagStart;
+    if (nextEnd > tagStart && nextEnd < tagEnd)
+      nextEnd = tagEnd;
+  }
+  return [nextStart, nextEnd];
+}
+
+function isSingleOuterTag(source: string, tag: string, openTagRegex: RegExp): { innerStart: number; innerEnd: number } | null {
+  const spans = findBalancedTagSpans(source, tag, openTagRegex);
+  const outer = spans.find(span => span.openStart === 0 && span.closeEnd === source.length);
+  return outer ? { innerStart: outer.openEnd, innerEnd: outer.closeStart } : null;
 }
 
 /**
@@ -104,37 +132,86 @@ export function setHtmlTag(tag: string, attribute?: string, value?: string, win:
   const openTag = `<${tag}${attributeText}>`;
   const closeTag = `</${tag}>`;
   const openTagRegex = attribute && value
-    ? new RegExp(`<${tag}\\b[^>]*\\b${escapeRegExp(attribute)}\\s*=\\s*["']${escapeRegExp(value)}["'][^>]*>`, "i")
-    : new RegExp(`<${tag}\\b[^>]*>`, "i");
-  const innerTagPairRegex = new RegExp(`${openTagRegex.source}([\\s\\S]*?)<\\/${tag}>`, "gi");
+    ? new RegExp(`^<${tag}\\b[^>]*\\b${escapeRegExp(attribute)}\\s*=\\s*["']${escapeRegExp(value)}["'][^>]*>$`, "i")
+    : attribute
+      ? new RegExp(`^<${tag}\\b[^>]*\\b${escapeRegExp(attribute)}\\b[^>]*>$`, "i")
+      : new RegExp(`^<${tag}>$`, "i");
+  const innerTagPairRegex = attribute && value
+    ? new RegExp(`<${tag}\\b[^>]*\\b${escapeRegExp(attribute)}\\s*=\\s*["']${escapeRegExp(value)}["'][^>]*>([\\s\\S]*?)<\\/${tag}>`, "gi")
+    : new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`, "gi");
 
-  let selectedText = text.slice(start, end);
+  const spans = findBalancedTagSpans(text, tag, openTagRegex);
+  let replacement = "";
+  let selectOffsetStart = 0;
+  let selectOffsetEnd: number | undefined;
   let isActiveAfter = false;
 
   if (start === end) {
-    const enclosing = findEnclosingTagAtCursor(text, start, tag, openTagRegex);
+    const enclosing = spans.find(span => start >= span.openStart && start <= span.closeEnd);
     if (!enclosing)
       return;
-    start = enclosing.start;
-    end = enclosing.end;
-    selectedText = enclosing.content;
-    isActiveAfter = false;
-  }
-  else if (isSingleOuterTag(selectedText, tag, openTag)) {
-    selectedText = selectedText.slice(openTag.length, -closeTag.length);
-    isActiveAfter = false;
-  }
-  else if (innerTagPairRegex.test(selectedText)) {
-    innerTagPairRegex.lastIndex = 0;
-    selectedText = selectedText.replace(innerTagPairRegex, "$1");
+    start = enclosing.openStart;
+    end = enclosing.closeEnd;
+    replacement = text.slice(enclosing.openEnd, enclosing.closeStart);
     isActiveAfter = false;
   }
   else {
-    selectedText = `${openTag}${selectedText}${closeTag}`;
-    isActiveAfter = true;
+    [start, end] = snapAwayFromSlicedMarkup(text, start, end);
+    const strictlyInside = spans.find(span => start >= span.openEnd && end <= span.closeStart);
+    if (strictlyInside) {
+      const left = text.slice(strictlyInside.openEnd, start);
+      const middle = text.slice(start, end);
+      const right = text.slice(end, strictlyInside.closeStart);
+      start = strictlyInside.openStart;
+      end = strictlyInside.closeEnd;
+      const leftWrapped = left ? `${openTag}${left}${closeTag}` : "";
+      const rightWrapped = right ? `${openTag}${right}${closeTag}` : "";
+      replacement = `${leftWrapped}${middle}${rightWrapped}`;
+      selectOffsetStart = leftWrapped.length;
+      selectOffsetEnd = leftWrapped.length + middle.length;
+      isActiveAfter = false;
+    }
+    else {
+      for (const span of spans) {
+        const overlaps = start < span.closeEnd && end > span.openStart;
+        const fullyContains = start <= span.openStart && end >= span.closeEnd;
+        if (overlaps && !fullyContains) {
+          start = Math.min(start, span.openStart);
+          end = Math.max(end, span.closeEnd);
+        }
+      }
+      const selectedText = text.slice(start, end);
+      const outer = isSingleOuterTag(selectedText, tag, openTagRegex);
+      if (outer) {
+        replacement = selectedText.slice(outer.innerStart, outer.innerEnd);
+        isActiveAfter = false;
+      }
+      else if (innerTagPairRegex.test(selectedText)) {
+        innerTagPairRegex.lastIndex = 0;
+        replacement = selectedText.replace(innerTagPairRegex, "$1");
+        isActiveAfter = false;
+      }
+      else {
+        let mergedContent = selectedText;
+        const leftSpan = spans.find(span => span.closeEnd === start);
+        if (leftSpan) {
+          mergedContent = text.slice(leftSpan.openEnd, leftSpan.closeStart) + mergedContent;
+          start = leftSpan.openStart;
+        }
+        const rightSpan = spans.find(span => span.openStart === end);
+        if (rightSpan) {
+          mergedContent = mergedContent + text.slice(rightSpan.openEnd, rightSpan.closeStart);
+          end = rightSpan.closeEnd;
+        }
+        replacement = `${openTag}${mergedContent}${closeTag}`;
+        isActiveAfter = true;
+      }
+    }
   }
 
-  textarea.setRangeText(selectedText, start, end, "select");
+  textarea.setRangeText(replacement, start, end, "select");
+  if (selectOffsetEnd !== undefined)
+    textarea.setSelectionRange(start + selectOffsetStart, start + selectOffsetEnd);
 
   textarea.style.height = "auto";
   if (textarea.scrollHeight > 0)

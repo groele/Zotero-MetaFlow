@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.1.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.1)
+[![Version](https://img.shields.io/badge/version-17.1.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.2)
 
-17.1.1 surfaces the active file paths of built-in ESI and Nature Index journal databases directly in Settings (with full-path tooltips and validation source paths), building on 17.1.0's keyless/API adaptive bibliographic completion, chemical formula sub/superscript normalization, BridgeFlow-style horizontal tabbed settings panel, and $O(1)$ virtual table scroll caching. See the [v17.1.1 release notes](docs/releases/metaflow-v17.1.1.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md)。
+17.1.2 hardens the chemical formula sub/superscript engine (direct Unicode mixed script & isotope translation, cross-disciplinary zero-false-positive guard, D/T isotopes, MXenes, electrocatalysis & single-atom coordination sites, ALL-CAPS title synergy, and stack-safe rich-text selection editing), building on 17.1.1's built-in journal database path display and 17.1.0's keyless/API adaptive metadata completion. See the [v17.1.2 release notes](docs/releases/metaflow-v17.1.2.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

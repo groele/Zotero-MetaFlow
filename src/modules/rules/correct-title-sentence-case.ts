@@ -1,8 +1,10 @@
 import type { CompiledTitleTerm } from "../../utils/title-terms";
+import { COORDINATION_METALS, restoreAllCapsChemicalCandidate } from "../../utils/chemical-formula-lexicon";
 import contryJson from "../../utils/country-by-capital-city.json";
 import { getPref } from "../../utils/prefs";
 import { escapeRegex, functionWords } from "../../utils/str";
 import { applyTitleTerms, compileTitleTerms, loadTitleTerms } from "../../utils/title-terms";
+import { formatPart } from "./correct-title-chemical-formula";
 import { defineRule } from "./rule-base";
 
 /** =============================  Special Words Begin  ============================= */
@@ -141,9 +143,21 @@ const scientificTerms = new Map(["COVID", "CRISPR", "LLM", "DNA", "RNA", "MRI", 
  * @see https://github.com/zotero/utilities/pull/26
  * @see https://github.com/zotero/utilities/pull/27
  */
+function restoreAllCapsFormulaWord(word: string): string | null {
+  const unmasked = word.replace(/\uFFFD/g, "");
+  const restored = restoreAllCapsChemicalCandidate(unmasked);
+  if (!restored || restored.length !== unmasked.length || formatPart(restored) === restored)
+    return null;
+  if (!word.includes("\uFFFD"))
+    return restored;
+  let pos = 0;
+  return [...word].map(ch => ch === "\uFFFD" ? ch : restored[pos++]).join("");
+}
+
 export function toSentenceCase(text: string, locale: string = "en-US") {
   const preserve = [] as any[]; // northword: add for tsc
-  const allcaps = text === text.toLocaleUpperCase(locale);
+  const plainForCase = text.replace(/<[^>]+>/g, "");
+  const allcaps = /\p{Lu}/u.test(plainForCase) && plainForCase === plainForCase.toLocaleUpperCase(locale);
 
   // sub-sentence start
   text.replace(/([.?!]\s+)(<[^>]+>)?(\p{Lu})/gu, (match, end, markup, char, i) => {
@@ -194,8 +208,12 @@ export function toSentenceCase(text: string, locale: string = "en-US") {
     .replace(/([\u{FFFD}\p{L}\p{N}]+([\u{FFFD}\p{L}\p{N}\p{Pc}]*))|(\s(\p{Lu}+\.){2,})?/gu, (word) => {
       if (!word)
         return word;
-      if (allcaps)
-        return scientificTerms.get(word.toLowerCase()) ?? word.toLocaleLowerCase(locale);
+      if (allcaps) {
+        const unmaskedAllCaps = word.replace(/\uFFFD/g, "");
+        return scientificTerms.get(unmaskedAllCaps.toLowerCase())
+          ?? restoreAllCapsFormulaWord(word)
+          ?? word.toLocaleLowerCase(locale);
+      }
 
       const unmasked = word.replace(/\uFFFD/g, "");
 
@@ -231,6 +249,15 @@ export function toSentenceCase(text: string, locale: string = "en-US") {
         );
       },
     );
+
+  if (allcaps) {
+    masked = masked
+      .replace(/\b([123][tThHrR])-(?=[A-Z][a-z]?\d|[A-Z][a-z]?[A-Z])/g, (_, phase: string) => `${phase.toUpperCase()}-`)
+      .replace(/\b([a-z]{1,2})-([noscpb])([2-6])\b/gi, (match, metal: string, lig: string, count: string) => {
+        const sym = metal[0].toUpperCase() + metal.slice(1).toLowerCase();
+        return sym !== "In" && COORDINATION_METALS.has(sym) ? `${sym}-${lig.toUpperCase()}${count}` : match;
+      });
+  }
 
   masked = masked.replace(standaloneNamePattern, word => standaloneNameMap.get(word.toLowerCase()) ?? word);
 

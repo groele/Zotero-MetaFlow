@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.1.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.1)
+[![Version](https://img.shields.io/badge/version-17.1.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.2)
 
-17.1.1 在设置面板中直观落地并展示 ESI 与 Nature Index 内置数据库的完整文件路径（含悬浮提示与校验来源路径），继承 17.1.0 无密钥 / API 双模自适应书目补全、化学式角标深度修复、BridgeFlow 风格高可读性横向标签设置面板及虚拟列表 $O(1)$ 滚动缓存。详见 [v17.1.1 发布说明](docs/releases/metaflow-v17.1.1.md) 与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.1.2 深度加固化学式角标改写引擎（Unicode 复合角标与同位素直译、跨学科零误伤防护、重水/MXene/电催化/单原子位点覆盖、全大写标题回溯协同及富文本栈式选区边界），继承 17.1.1 内置期刊库完整路径展示与 17.1.0 无密钥 / API 双模自适应书目补全。详见 [v17.1.2 发布说明](docs/releases/metaflow-v17.1.2.md) 与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

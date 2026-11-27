@@ -162,4 +162,10 @@ describe("audit regressions", () => {
   it("does not capitalize ambiguous ordinary words unconditionally", () => {
     expect(toSentenceCase("Patients May Eat Turkey")).toBe("Patients may eat turkey");
   });
+  it("preserves canonical casing of chemical formulas in ALL-CAPS titles, distinguishing CO2/CaCO3 from Co3O4/LiCoO2", () => {
+    expect(toSentenceCase("CO2 CONVERSION OVER CACO3, LICOO2 AND CO3O4 IN H2O"))
+      .toBe("CO2 conversion over CaCO3, LiCoO2 and Co3O4 in H2O");
+    expect(toSentenceCase("CATALYTIC DECOMPOSITION OF N<sub>2</sub>O OVER TIO2"))
+      .toBe("Catalytic decomposition of N<sub>2</sub>O over TiO2");
+  });
 });
