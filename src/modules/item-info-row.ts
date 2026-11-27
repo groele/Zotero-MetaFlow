@@ -1,3 +1,4 @@
+import { observeHostPrefs } from "../kernel/pref-service";
 import { cleanupResourcesSync } from "../utils/cleanup";
 import { DocumentObservers } from "../utils/document-observers";
 import { isTrashedItem } from "../utils/item-write-policy";
@@ -5,7 +6,6 @@ import { getLocaleID, getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
 import { findExtraRow, getAllItemDocuments, getExtraFieldValue } from "./item-info-dom";
-import { refreshJournalPane } from "./journal-pane";
 import {
   extractTLDRFromExtra,
   extractTLDRFromItem,
@@ -17,7 +17,7 @@ import { migrateLegacyTLDR } from "./tldr-migration";
 const logger = createLogger("item-info-row");
 
 let registeredRowID: string | false | undefined;
-const prefObserverIDs: symbol[] = [];
+let stopPrefObserver: (() => void) | undefined;
 const documentObservers = new DocumentObservers();
 const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 const migratingItemIDs = new Set<number>();
@@ -78,8 +78,11 @@ export function registerInfoRows() {
           return;
         void saveTLDRToItem(item, value)
           .then((saved) => {
-            if (saved && item.id)
-              void refreshJournalPane([item.id]);
+            if (saved && item.id) {
+              const kernel = (globalThis as any).addon?.kernel;
+              if (kernel?.bus)
+                kernel.bus.emit("tldr:updated", { itemIDs: [item.id] });
+            }
           })
           .catch(err => logger.error("Failed to save edited TLDR:", err));
       },
@@ -142,18 +145,11 @@ export function registerInfoRows() {
       },
     });
 
-    if (prefObserverIDs.length === 0 && typeof Zotero.Prefs?.registerObserver === "function") {
-      for (const pref of ["workflow.tldrShowInInfoPane", "workflow.tldrEnabled"]) {
-        const id = Zotero.Prefs.registerObserver(
-          `${addon.data.config.prefsPrefix}.${pref}`,
-          () => {
-            refreshTLDRInfoRow();
-          },
-          true,
-        );
-        if (id)
-          prefObserverIDs.push(id);
-      }
+    if (!stopPrefObserver) {
+      stopPrefObserver = observeHostPrefs(
+        ["workflow.tldrShowInInfoPane", "workflow.tldrEnabled"],
+        () => refreshTLDRInfoRow(),
+      );
     }
 
     refreshTLDRInfoRow();
@@ -302,10 +298,9 @@ export function placeTLDRBeforeExtra(doc?: Document) {
   }
   finally {
     isPlacingTLDR = false;
-    if (typeof queueMicrotask === "function")
-      queueMicrotask(() => { isObserverMuted = false; });
-    else
+    void Promise.resolve().then(() => {
       isObserverMuted = false;
+    });
   }
 }
 
@@ -333,13 +328,8 @@ export function unregisterInfoRows() {
     },
     () => documentObservers.clear(),
     () => {
-      if (typeof Zotero.Prefs?.unregisterObserver === "function") {
-        while (prefObserverIDs.length) {
-          const obsId = prefObserverIDs.pop();
-          if (obsId)
-            Zotero.Prefs.unregisterObserver(obsId);
-        }
-      }
+      stopPrefObserver?.();
+      stopPrefObserver = undefined;
     },
     () => {
       if (id && typeof Zotero !== "undefined") {

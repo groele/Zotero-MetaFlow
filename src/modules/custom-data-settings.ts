@@ -1,3 +1,4 @@
+import { observeHostPrefs } from "../kernel/pref-service";
 import { builtinAbbreviationPath, writeBuiltinAbbreviationFile } from "../utils/builtin-abbreviation-file";
 import { DataLoader } from "../utils/data-loader";
 import { getString } from "../utils/locale";
@@ -73,9 +74,8 @@ export function setupCustomDataFiles(pane: Element) {
       void refreshBuiltin(false);
     }
     listen(pane, "metaref-preferences-synced", syncPath);
-    const observer = Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${key}`, syncPath, true);
     const signal = preferenceLifetime(pane);
-    signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
+    observeHostPrefs([key], syncPath, signal);
     let busy = false;
     listen(button, "command", async () => {
       if (busy)

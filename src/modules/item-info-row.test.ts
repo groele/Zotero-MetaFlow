@@ -4,7 +4,7 @@ import { refreshTLDRInfoRow, registerInfoRows, unregisterInfoRows } from "./item
 
 const mocks = vi.hoisted(() => ({
   preferences: new Map<string, unknown>(),
-  refreshJournalPane: vi.fn(),
+  emitBus: vi.fn(),
   infoRows: new Map<string, any>(),
   prefsObservers: new Map<symbol, { pref: string; callback: () => void }>(),
 }));
@@ -23,14 +23,10 @@ vi.mock("../utils/logger", () => ({
   createLogger: () => ({ error: vi.fn(), warn: vi.fn(), debug: vi.fn() }),
 }));
 
-vi.mock("./journal-pane", () => ({
-  refreshJournalPane: mocks.refreshJournalPane,
-}));
-
 describe("item-info-row module", () => {
   beforeEach(() => {
     mocks.preferences.clear();
-    mocks.refreshJournalPane.mockReset();
+    mocks.emitBus.mockReset();
     mocks.infoRows.clear();
     mocks.prefsObservers.clear();
 
@@ -38,6 +34,11 @@ describe("item-info-row module", () => {
       data: {
         alive: true,
         config: { addonID: "metaflow@groele", prefsPrefix: "extensions.zotero.metaref" },
+      },
+      kernel: {
+        bus: {
+          emit: mocks.emitBus,
+        },
       },
     });
 
@@ -79,6 +80,7 @@ describe("item-info-row module", () => {
         refreshColumns: vi.fn(),
       },
       Prefs: {
+        get: vi.fn(),
         registerObserver: (pref: string, callback: () => void) => {
           const id = Symbol(pref);
           mocks.prefsObservers.set(id, { pref, callback });
@@ -217,6 +219,7 @@ describe("item-info-row module", () => {
       setEditable,
     });
     expect(enabled).toBe(false);
+    expect(editable).toBe(true);
 
     // Regular item with preference disabled and NO TLDR
     row.onItemChange({
@@ -253,7 +256,7 @@ describe("item-info-row module", () => {
     row.onSetData({ item, value: "用户手动编辑的撷论总结" });
 
     // Wait for async save to resolve
-    await vi.waitFor(() => expect(mocks.refreshJournalPane).toHaveBeenCalledWith([1234]));
+    await vi.waitFor(() => expect(mocks.emitBus).toHaveBeenCalledWith("tldr:updated", { itemIDs: [1234] }));
     expect(saveTxMock).toHaveBeenCalled();
     // 默认 note 模式下，保存时不污染 Extra 字段，杜绝重复填充
     expect(extraValue).not.toContain("remark:");

@@ -1,0 +1,132 @@
+import type { PluginKernel } from "../../kernel/plugin-kernel";
+import type { Disposable, DomainModule } from "../../kernel/types";
+import type { BatchResult } from "../../modules/runner";
+import { registerExtraColumns, unregisterExtraColumns } from "../../modules/item-tree";
+import {
+  refreshJournalInsights,
+  refreshJournalPane,
+  registerJournalPane,
+  setJournalUpdateResult,
+  unregisterJournalPane,
+} from "../../modules/journal-pane";
+import { ToolUpdateEasyScholar } from "../../modules/rules/tool-update-easyscholar";
+import { cleanupResourcesSync } from "../../utils/cleanup";
+import { invalidateEasyScholarTitle } from "../../utils/easyscholar";
+import { redrawItemValues } from "../../utils/item-value-refresh";
+import { clearJournalInsights, getJournalInsights, loadJournalInsights } from "../../utils/journal-insights";
+import { hasEnabledJournalMetrics } from "../../utils/journal-permissions";
+import { loadJournalRankingIndex } from "../../utils/journal-ranking-index";
+import { logger } from "../../utils/logger";
+import { getPref } from "../../utils/prefs";
+import { invalidateSupplementalJournalTitle } from "../../utils/supplemental-journals";
+
+function isAddonAlive(): boolean {
+  return typeof addon === "undefined" || !addon?.data || addon.data.alive;
+}
+
+export class JournalInsightsDomainModule implements DomainModule {
+  public readonly id = "journal-insights" as const;
+
+  private active = false;
+  private readonly journalRefreshes = new Map<number, Promise<unknown>>();
+  private readonly disposers: Disposable[] = [];
+
+  constructor(private readonly kernel: PluginKernel) {}
+
+  public isActive(): boolean {
+    return this.active;
+  }
+
+  public async preload(): Promise<void> {
+    await Promise.all([loadJournalInsights(), loadJournalRankingIndex()]);
+  }
+
+  public start(): void {
+    if (this.active)
+      return;
+    this.active = true;
+    registerExtraColumns();
+    registerJournalPane();
+    this.disposers.push(
+      this.kernel.ports.register("journal-insights", {
+        refreshPane: itemIDs => refreshJournalPane(itemIDs),
+        refreshInsights: () => refreshJournalInsights(),
+        refreshItemJournal: (item, force = false) => this.refreshItemJournal(item, force),
+        setUpdateResult: (itemIDs, result) => setJournalUpdateResult(itemIDs, result as BatchResult | undefined),
+        syncExtraColumns: () => registerExtraColumns(),
+      }),
+      this.kernel.bus.on("journal:refresh-requested", ({ itemIDs, reloadInsights }) => {
+        const task = reloadInsights
+          ? refreshJournalInsights()
+          : refreshJournalPane(itemIDs ? [...itemIDs] : undefined);
+        void task.catch(error => logger.error("Failed to handle journal refresh request:", error));
+      }),
+      this.kernel.commands.register({
+        id: "journal:refresh",
+        owner: this.id,
+        title: "Refresh journal insights",
+        action: (item?: Zotero.Item, force = false) => (
+          item ? this.refreshItemJournal(item, force) : refreshJournalInsights()
+        ),
+      }),
+    );
+  }
+
+  public refreshItemJournal(item: Zotero.Item, force = false): Promise<unknown> {
+    if (!item || item.deleted || !["journalArticle", "conferencePaper"].includes(item.itemType))
+      return Promise.resolve();
+    if (!force && (!hasEnabledJournalMetrics() || !item.isEditable()))
+      return Promise.resolve();
+    const existing = this.journalRefreshes.get(item.id);
+    if (existing)
+      return existing;
+    const task = (async () => {
+      if (force) {
+        clearJournalInsights();
+        const title = String(
+          item.getField("publicationTitle")
+          || item.getField("conferenceName")
+          || item.getField("proceedingsTitle")
+          || "",
+        ).trim();
+        if (title) {
+          await invalidateEasyScholarTitle(title);
+          invalidateSupplementalJournalTitle(title);
+        }
+      }
+      const mode = force
+        ? ("all" as const)
+        : getPref("rule.tool-update-metadata.option.mode") === "all"
+          ? ("all" as const)
+          : ("blank" as const);
+      const runner = (globalThis as { addon?: typeof addon }).addon?.runner;
+      const result = (hasEnabledJournalMetrics() && item.isEditable() && runner?.add)
+        ? await runner.add({
+            items: [item],
+            rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }],
+            silent: true,
+          })
+        : undefined;
+      if (this.active && isAddonAlive() && !result?.cancelled) {
+        await getJournalInsights(item, { queryAPI: true });
+        await redrawItemValues([item.id]);
+        setJournalUpdateResult([item.id], result);
+        await refreshJournalPane([item.id]);
+      }
+      return result;
+    })().finally(() => this.journalRefreshes.delete(item.id));
+    this.journalRefreshes.set(item.id, task);
+    return task;
+  }
+
+  public stop(): void {
+    this.active = false;
+    this.journalRefreshes.clear();
+    while (this.disposers.length > 0)
+      this.disposers.pop()?.();
+    cleanupResourcesSync([
+      unregisterExtraColumns,
+      unregisterJournalPane,
+    ], error => logger.error("Journal insights cleanup failed:", error));
+  }
+}

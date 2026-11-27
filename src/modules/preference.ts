@@ -1,4 +1,5 @@
 import { homepage } from "../../package.json";
+import { dedupeAndRegisterPreferencePane, unregisterPluginPreferencePanes } from "../services/host";
 import { clearEasyScholarCache } from "../utils/easyscholar";
 import { clearRequestCache } from "../utils/http";
 import { getString } from "../utils/locale";
@@ -32,30 +33,19 @@ export async function registerPrefs() {
   if (preferenceRegistration)
     return preferenceRegistration;
   const src = `${rootURI}content/preferences.xhtml`;
-  const existing = (Zotero.PreferencePanes as any).pluginPanes.filter((pane: any) => pane.pluginID === addon.data.config.addonID);
-  const current = existing.find((pane: any) => pane.src === src);
-  for (const pane of existing) {
-    if (pane !== current)
-      Zotero.PreferencePanes.unregister(pane.id);
-  }
-  if (current)
-    return current.id as string;
-  preferenceRegistration = Zotero.PreferencePanes.register({
+  preferenceRegistration = dedupeAndRegisterPreferencePane({
     id: "metaref-settings",
     pluginID: addon.data.config.addonID,
     src,
     scripts: [`${rootURI}content/scripts/preferences.js`],
-    defaultXUL: true,
     label: getString("prefs-title"),
     image: `${rootURI}/content/icons/metaref-96.png`,
     stylesheets: [`${rootURI}/content/preferences.css`],
     helpURL: homepage,
+    isAlive: () => Boolean(addon?.data?.alive),
   });
   try {
-    const id = await preferenceRegistration;
-    if (!addon.data.alive)
-      Zotero.PreferencePanes.unregister(id);
-    return id;
+    return await preferenceRegistration;
   }
   catch (error) {
     preferenceRegistration = undefined;
@@ -84,8 +74,7 @@ export function unregisterPrefsWindows() {
     cleanup();
   releasePreferenceListeners();
   preferenceRegistration = undefined;
-  for (const pane of (Zotero.PreferencePanes as any).pluginPanes.filter((pane: any) => pane.pluginID === addon.data.config.addonID))
-    Zotero.PreferencePanes.unregister(pane.id);
+  unregisterPluginPreferencePanes(addon.data.config.addonID);
 }
 
 export function registerPrefsScripts(_window: Window) {
@@ -135,11 +124,20 @@ export function registerPrefsScripts(_window: Window) {
       (cacheButton as HTMLButtonElement).disabled = true;
       status.textContent = getString("api-cache-clearing");
       try {
-        clearRequestCache();
-        clearEasyScholarCache();
-        clearSemanticScholarCache();
-        clearSupplementalJournalCache();
-        await clearStoredServiceCache(undefined, true);
+        const cacheService = (globalThis as any).addon?.services?.cache;
+        const kernelBus = (globalThis as any).addon?.kernel?.bus;
+        if (cacheService) {
+          await cacheService.clearApiCaches();
+          if (kernelBus?.emit)
+            kernelBus.emit("cache:clear-requested", { target: "memory" });
+        }
+        else {
+          clearRequestCache();
+          clearEasyScholarCache();
+          clearSemanticScholarCache();
+          clearSupplementalJournalCache();
+          await clearStoredServiceCache(undefined, true);
+        }
         await refreshCacheUsage(pane);
         if (pane.isConnected && addon.data.alive)
           status.textContent = getString("api-cache-cleared");

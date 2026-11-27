@@ -1,4 +1,5 @@
 import type { ProgressWindowHelper } from "zotero-plugin-toolkit";
+import { tileProgressWindow } from "../services/host";
 import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { waitUtilAsync } from "../utils/wait";
@@ -52,7 +53,7 @@ export async function configureCompletionNotice(helper: ProgressWindowHelper, op
     // Native sizeToContent can settle asynchronously under Linux window managers.
     const tile = () => {
       if (!closed && !win.closed)
-        (Zotero.ProgressWindowSet as typeof Zotero.ProgressWindowSet & { tile: (window: Window) => void }).tile(win);
+        tileProgressWindow(win);
     };
     win.addEventListener("resize", tile);
     parent.addEventListener("resize", tile);

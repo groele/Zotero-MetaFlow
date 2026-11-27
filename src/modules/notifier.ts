@@ -1,37 +1,35 @@
+import { TypedEventBus } from "../kernel/event-bus";
+import { UnifiedNotifierHub } from "../kernel/notifier-hub";
 import { logger } from "../utils/logger";
 
-let notifierID: string | undefined;
+let fallbackHub: UnifiedNotifierHub | undefined;
+let fallbackDispose: (() => void) | undefined;
 
 export function registerNotifier() {
   unregisterNotifier();
-  // Register the callback in Zotero as an item observer
-  notifierID = Zotero.Notifier.registerObserver(
-    {
-      notify: (
-        event: string,
-        type: string,
-        ids: number[] | string[],
-        extraData: { [key: string]: unknown },
-      ) => {
-        if (!addon?.data.alive) {
-          unregisterNotifier();
-          return;
-        }
-        // Zotero awaits each observer; background formatting must not delay imports.
-        void addon.hooks.onNotify(event, type, ids, extraData).catch(error => logger.error("Automatic metadata processing failed:", error));
-      },
-    },
-    ["item"],
-    "metaref",
-    // We expect the MetaRef to run after all plugins so that we can
-    // clear up any unexpected data performed by other plugins.
-    666,
-  );
+  const kernelNotifier = (globalThis as any).addon?.kernel?.notifier;
+  if (kernelNotifier) {
+    kernelNotifier.start();
+    return;
+  }
+  fallbackHub ??= new UnifiedNotifierHub(new TypedEventBus(), {
+    observerID: "metaref",
+    priority: 666,
+    isAlive: () => Boolean(addon?.data?.alive),
+    onError: error => logger.error("Automatic metadata processing failed:", error),
+  });
+  fallbackDispose = fallbackHub.subscribe(["item"], ev =>
+    addon.hooks.onNotify(ev.event, ev.type, [...ev.ids], ev.extraData ?? {}));
+  fallbackHub.start();
 }
 
 export function unregisterNotifier() {
-  if (!notifierID)
+  const kernelNotifier = (globalThis as any).addon?.kernel?.notifier;
+  if (kernelNotifier) {
+    kernelNotifier.stop();
     return;
-  Zotero.Notifier.unregisterObserver(notifierID);
-  notifierID = undefined;
+  }
+  fallbackDispose?.();
+  fallbackDispose = undefined;
+  fallbackHub?.stop();
 }

@@ -14,6 +14,8 @@ const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   locale: vi.fn(),
   stopCore: vi.fn(),
+  windowLocale: vi.fn(),
+  toolbarInit: vi.fn(),
 }));
 vi.mock("./modules/core-workflow", () => ({ stopCoreWorkflows: mocks.stopCore, localDOICheck: vi.fn(), runCoreWorkflow: vi.fn() }));
 vi.mock("./utils/persistence-shutdown", () => ({ registerPersistenceShutdown: vi.fn(() => vi.fn()) }));
@@ -23,12 +25,18 @@ vi.mock("./modules/journal-pane", () => ({ registerJournalPane: mocks.register, 
 vi.mock("./modules/menu", () => ({ registerMenu: mocks.register, unregisterMenu: mocks.unregister }));
 vi.mock("./modules/notifier", () => ({ registerNotifier: mocks.register, unregisterNotifier: mocks.unregister }));
 vi.mock("./modules/preference", () => ({ registerPrefs: mocks.register, registerPrefsScripts: vi.fn(), registerPrefsWindow: vi.fn(), unregisterPrefsWindows: mocks.unregister }));
-vi.mock("./modules/rich-text", () => ({ RichTextToolBar: vi.fn(), setHtmlTag: vi.fn() }));
+vi.mock("./modules/rich-text", () => ({
+  RichTextToolBar: class {
+    init = mocks.toolbarInit;
+    clean = vi.fn();
+  },
+  setHtmlTag: vi.fn(),
+}));
 vi.mock("./modules/rules", () => ({ Rules: {} }));
 vi.mock("./modules/shortcuts", () => ({ registerShortcuts: vi.fn() }));
 vi.mock("./utils/dialog", () => ({ closeAllDialogs: mocks.unregister }));
 vi.mock("./utils/journal-insights", () => ({ loadJournalInsights: mocks.load }));
-vi.mock("./utils/locale", () => ({ initLocale: mocks.register, registerMainWindowLocale: vi.fn(), unloadLocale: mocks.locale, unregisterMainWindowLocale: vi.fn() }));
+vi.mock("./utils/locale", () => ({ initLocale: mocks.register, registerMainWindowLocale: mocks.windowLocale, unloadLocale: mocks.locale, unregisterMainWindowLocale: vi.fn() }));
 vi.mock("./utils/logger", () => ({ createLogger: () => ({ debug: vi.fn(), error: vi.fn() }), logger: { error: vi.fn(), debug: vi.fn() } }));
 vi.mock("./utils/prefs", () => ({ getPref: vi.fn() }));
 
@@ -115,6 +123,15 @@ describe("startup cancellation and failure cleanup", () => {
     expect(refreshJournalPane).toHaveBeenCalledOnce();
     expect(refreshJournalPane).toHaveBeenCalledWith([42, 43]);
     expect(refreshTLDRInfoRow).toHaveBeenCalledOnce();
+  });
+
+  it("initializes each existing main window only once during startup", async () => {
+    const fakeWin = { closed: false, document: { getElementById: () => null } } as unknown as Window;
+    (Zotero as any).getMainWindows = () => [fakeWin];
+    await hooks.onStartup();
+    expect(mocks.windowLocale).toHaveBeenCalledOnce();
+    expect(mocks.windowLocale).toHaveBeenCalledWith(fakeWin);
+    expect(mocks.toolbarInit).toHaveBeenCalledOnce();
   });
 });
 vi.mock("./utils/greenfrog-migration", () => ({ migrateGreenFrogPreferences: vi.fn() }));

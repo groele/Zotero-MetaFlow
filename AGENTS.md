@@ -28,6 +28,8 @@ pnpm lint:fix            # eslint . --fix && autocorrect --fix
 pnpm test                 # unit (vitest) then e2e (zotero-plugin test)
 pnpm test:unit            # Run vitest unit tests (files matching **/*.test.ts)
 pnpm test:e2e             # Build production XPI, run live Zotero tests, then install and validate the XPI
+pnpm run guard            # Run 20 architecture guard assertions
+pnpm run smoke:host       # Verify real Zotero omni.ja host contracts without launching GUI
 pnpm coverage             # vitest run --coverage (covers src/modules/rules/*.ts)
 
 pnpm update-data          # refresh built-in journal-abbr / related data (git submodule + Python)
@@ -46,6 +48,16 @@ Two test tiers exist because plugin code depends on the Zotero global runtime:
 `pnpm test:e2e` runs the journal-column/pane, native-menu and remaining workflow suites sequentially in fresh isolated profiles. `scripts/testing/native-suites.mjs` checks that every test file belongs to exactly one group; diagnostic hooks are shared and each spec retains its own compiled entry. `METAREF_TEST_ENTRIES` still selects a focused directory, and `METAREF_TEST_MONOLITHIC=1` restores a shared-profile run for cross-suite diagnosis. The test configuration disables automatic devtools and Windows window-occlusion tracking so an occluded window can still paint native popups. These are fixture settings, not production preferences.
 
 ## Architecture
+
+### Five-Layer Microkernel Architecture (Aligned with Zotero BridgeFlow)
+
+MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-BridgeFlow`, guarded by 20 automated checks in `scripts/architecture-guard.mjs`:
+
+1. **Bootstrap & Entry (`addon/bootstrap.js`, `src/index.ts`, `src/addon.ts`, `src/hooks.ts`)**: `Addon` instantiates `PluginKernel`, `ServiceContainer`, 4 `DomainModule`s (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`), and 2 `BridgeModule`s (`item-sync`, `automatic-ingest`). `src/hooks.ts` delegates Zotero lifecycle callbacks (`onStartup`, `onMainWindowLoad`, `onMainWindowUnload`, `onShutdown`, `onNotify`, `onRefreshJournal`) to the kernel and domain ports.
+2. **Microkernel (`src/kernel/`)**: Zero external domain/module dependencies. Houses `PluginKernel`, `DisposableStack` / `AsyncDisposableStack`, `TypedEventBus` (`MetaFlowEventMap`), `DomainPortRegistry`, `CommandRegistry`, `NativeRuntime` (WeakMap-safe prototype patch chains), `UnifiedNotifierHub`, and `UnifiedPrefService` / `observeHostPrefs()`.
+3. **Shared Services & Host Anti-Corruption Layer (`src/services/`, `src/services/host/`)**: Houses `CacheCoordinatorService`, `ServiceContainer`, `host-capabilities.ts` (`probeHostCapabilities`), `collection-tree-adapter.ts`, and `preference-pane-adapter.ts`. All host prototype patches and internal property accesses (`CollectionTreeRow.prototype`, `PreferencePanes.pluginPanes`, `ProgressWindowSet.tile`) are fenced inside `src/services/host/` and verified against real `omni.ja` via `pnpm run smoke:host`.
+4. **Isolated Domains (`src/domains/`)**: Four cohesive domain orchestrators (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`) wrapping `src/modules/` capabilities and registering narrow ports (`WorkspaceUiPort`, `JournalInsightsPort`, `ReviewDuplicatesPort`, `LintEnginePort`). Cross-domain direct imports are forbidden.
+5. **Pure Bridges (`src/bridges/`)**: `ItemSyncBridge` and `AutomaticIngestBridge` depend exclusively on `src/kernel/` and `src/services/`, coordinating cross-domain reactions via `DomainPortRegistry` and `TypedEventBus` with `requires` domain lifecycle coupling.
 
 ### Lifecycle: Bootstrap → sandbox globals → hooks
 

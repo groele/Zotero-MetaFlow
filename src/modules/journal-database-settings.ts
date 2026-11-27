@@ -1,4 +1,5 @@
 import type { JournalDatasetKind } from "../utils/journal-datasets";
+import { observeHostPrefs } from "../kernel/pref-service";
 import { journalDatabaseErrorMessage } from "../utils/journal-database-error";
 import {
   builtinJournalDatabasePath,
@@ -9,7 +10,17 @@ import {
 import { getString } from "../utils/locale";
 import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
 import { getPref, setPref } from "../utils/prefs";
-import { refreshJournalInsights } from "./journal-pane";
+
+async function triggerJournalInsightsRefresh() {
+  const kernel = (globalThis as any).addon?.kernel;
+  const port = kernel?.ports?.get?.("journal-insights");
+  if (port?.refreshInsights) {
+    await port.refreshInsights();
+    return;
+  }
+  if (kernel?.bus?.emit)
+    kernel.bus.emit("journal:refresh-requested", { reloadInsights: true });
+}
 
 export function setupJournalDatabases(pane: Element) {
   const listen = preferenceListeners(pane);
@@ -51,8 +62,7 @@ export function setupJournalDatabases(pane: Element) {
       });
     });
     listen(pane, "metaref-preferences-synced", syncPathInput);
-    const observer = Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${key}`, syncPathInput, true);
-    signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
+    observeHostPrefs([key], syncPathInput, signal);
 
     let busy = false;
     for (const action of ["choose", "validate", "export", "reload", "reset"] as const) {
@@ -73,7 +83,7 @@ export function setupJournalDatabases(pane: Element) {
             await writeBuiltinJournalDatabaseFile(kind);
             setPref(key, "");
             syncPathInput();
-            await refreshJournalInsights();
+            await triggerJournalInsightsRefresh();
             status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: effectiveSourceLabel("") } });
           }
           else if (action === "export") {
@@ -100,14 +110,14 @@ export function setupJournalDatabases(pane: Element) {
               setPref(key, path);
               syncPathInput();
             }
-            await refreshJournalInsights();
+            await triggerJournalInsightsRefresh();
             status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: effectiveSourceLabel(path) } });
           }
         }
         catch (error) {
           status.textContent = getString("journal-database-error", { args: { error: journalDatabaseErrorMessage(error) } });
           if (action !== "choose" && action !== "export")
-            await refreshJournalInsights().catch(refreshError => ztoolkit.log(refreshError));
+            await triggerJournalInsightsRefresh().catch(refreshError => ztoolkit.log(refreshError));
         }
         finally {
           busy = false;

@@ -1,3 +1,4 @@
+import { observeHostPrefs } from "../kernel/pref-service";
 import { builtinAbbreviationPath } from "../utils/builtin-abbreviation-file";
 import { defaultMetaFlowCacheDirectory } from "../utils/cache-paths";
 import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
@@ -114,10 +115,7 @@ export function setupDependencies(pane: Element) {
   listen(pane, "command", update);
   listen(pane, "change", update);
   listen(pane, "syncfrompreference", schedule, true);
-  const keys = new Set(controls.map(key));
-  for (const name of keys) {
-    const observer = Zotero.Prefs.registerObserver(`${prefix}${name}`, syncPreferences, true);
-    signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
-  }
+  const keys = [...new Set(controls.map(key))];
+  observeHostPrefs(keys, syncPreferences, signal);
   update();
 }

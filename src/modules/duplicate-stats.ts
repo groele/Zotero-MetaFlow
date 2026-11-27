@@ -1,3 +1,4 @@
+import { patchCollectionTreeDuplicateStats } from "../services/host";
 import { duplicateSearchRevision } from "../utils/duplicate-search-cache";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
@@ -6,29 +7,29 @@ import { findDuplicates } from "./review/duplicates";
 
 const counts = new Map<number, { groups: number; items: number; revision: number }>();
 const pending = new Map<number, Promise<void>>();
-let restore: (() => void) | undefined;
+let restore: (() => void) | { dispose: () => void } | undefined;
 
 export function registerDuplicateStats() {
   if (restore)
     return;
-  const prototype = (Zotero as any).CollectionTreeRow?.prototype;
-  if (typeof prototype?.getName !== "function")
-    return;
-  const previous = prototype.getName;
-  const wrapped = function (this: Zotero.CollectionTreeRow) {
-    const title = previous.call(this);
-    const stats = counts.get((this.ref as any)?.libraryID);
-    return getPref("duplicates.showStats" as any, true) && this.isDuplicates() && stats?.revision === duplicateSearchRevision() ? `${title} ${stats.groups}/${stats.items}` : title;
-  };
-  prototype.getName = wrapped;
-  restore = () => {
-    if (prototype.getName === wrapped)
-      prototype.getName = previous;
-  };
+  restore = patchCollectionTreeDuplicateStats(
+    (globalThis as any).addon?.kernel?.runtime,
+    (libraryID) => {
+      if (libraryID === undefined)
+        return null;
+      const stats = counts.get(libraryID);
+      return getPref("duplicates.showStats" as any, true) && stats?.revision === duplicateSearchRevision()
+        ? `${stats.groups}/${stats.items}`
+        : null;
+    },
+  );
 }
 
 export function unregisterDuplicateStats() {
-  restore?.();
+  if (typeof restore === "function")
+    restore();
+  else
+    restore?.dispose();
   restore = undefined;
   counts.clear();
 }

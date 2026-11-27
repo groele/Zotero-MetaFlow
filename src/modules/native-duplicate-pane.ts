@@ -1,4 +1,5 @@
 import type { NativeDuplicatePlan, NativeDuplicateResult } from "./review/native-duplicates";
+import { tileProgressWindow } from "../services/host";
 import { getString } from "../utils/locale";
 import { selectedLibraryIDs } from "../utils/selection";
 import { waitUtilAsync } from "../utils/wait";
@@ -101,7 +102,7 @@ export function registerNativeDuplicatePane(win: Window) {
           win.clearTimeout(timer);
         const place = () => {
           if (popup && !popup.closed)
-            (Zotero.ProgressWindowSet as typeof Zotero.ProgressWindowSet & { tile: (window: Window) => void }).tile(popup);
+            tileProgressWindow(popup);
         };
         place();
         // Linux window managers can report the final outer size after resize fires.

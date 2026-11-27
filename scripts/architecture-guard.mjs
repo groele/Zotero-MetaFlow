@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { test } from "node:test";
@@ -10,6 +10,8 @@ const json = file => JSON.parse(read(file));
 const pkg = json("package.json");
 const files = folder => readdirSync(folder, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? files(path.join(folder, entry.name)) : [path.join(folder, entry.name)]);
 const sources = files("src");
+const prodTsFiles = sources.filter(file => file.endsWith(".ts") && !file.endsWith(".test.ts"));
+const relSrc = file => path.relative("src", file).replaceAll("\\", "/");
 const prefs = read("addon/content/preferences.xhtml");
 const feed = file => json(file).addons[pkg.config.addonID].updates[0];
 
@@ -58,7 +60,7 @@ test("readable modern production bundle", () => {
     assert.ok(config.includes(text), text);
 });
 test("retired Gecko APIs", () => {
-  for (const file of sources.filter(file => file.endsWith(".ts") && !file.endsWith(".test.ts")))
+  for (const file of prodTsFiles)
     assert.doesNotMatch(read(file), /Components\.(classes|interfaces|utils)|\.ownerGlobal\b|ChromeUtils\.import\(/, file);
 });
 test("Fluent language parity", () => {
@@ -97,4 +99,100 @@ test("deterministic XPI paths, timestamps and checksums", () => {
   }
   assert.equal(feed("update.json").update_hash, `sha512:${createHash("sha512").update(bytes).digest("hex")}`);
   assert.equal(json("dist/verification.json").sha256, createHash("sha256").update(bytes).digest("hex"));
+});
+function collectRelativeImports(file, text) {
+  const specs = [];
+  for (const match of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) {
+    const spec = match[1];
+    if (spec.startsWith("."))
+      specs.push(path.relative("src", path.resolve(path.dirname(file), spec)).replaceAll("\\", "/"));
+  }
+  return specs;
+}
+
+test("five-layer unidirectional dependency boundaries", () => {
+  const violations = [];
+  for (const file of prodTsFiles) {
+    const rel = relSrc(file);
+    const d1 = rel.match(/^domains\/([^/]+)\//);
+    for (const resolved of collectRelativeImports(file, read(file))) {
+      if (rel.startsWith("kernel/") && /^(?:services|domains|modules|bridges|utils)\//.test(resolved))
+        violations.push(`${rel} -> ${resolved} (kernel cannot import upper layers)`);
+      if (rel.startsWith("services/") && /^(?:domains|modules|bridges)\//.test(resolved))
+        violations.push(`${rel} -> ${resolved} (services cannot import domains/modules/bridges)`);
+      if (rel.startsWith("modules/") && /^(?:domains|bridges)\//.test(resolved))
+        violations.push(`${rel} -> ${resolved} (modules cannot import domains/bridges)`);
+      const d2 = resolved.match(/^domains\/([^/]+)\//);
+      if (d1 && d2 && d1[1] !== d2[1])
+        violations.push(`${rel} -> ${resolved} (cross-domain import forbidden)`);
+      if (d1 && resolved.startsWith("bridges/"))
+        violations.push(`${rel} -> ${resolved} (domains cannot import bridges)`);
+    }
+  }
+  assert.deepEqual(violations, []);
+});
+test("bridge isolation (Port and EventBus only)", () => {
+  const violations = [];
+  for (const file of prodTsFiles.filter(f => relSrc(f).startsWith("bridges/"))) {
+    const rel = relSrc(file);
+    for (const resolved of collectRelativeImports(file, read(file))) {
+      if (/^(?:domains|modules)\//.test(resolved))
+        violations.push(`${rel} -> ${resolved}`);
+    }
+  }
+  assert.deepEqual(violations, []);
+});
+test("host anti-corruption fence", () => {
+  const violations = [];
+  for (const file of prodTsFiles) {
+    const rel = relSrc(file);
+    if (rel === "kernel/native-runtime.ts" || rel.startsWith("services/host/"))
+      continue;
+    const text = read(file);
+    if (/\.prototype\.|\bruntime\.patch\s*\(|\bpluginPanes\b|\bProgressWindowSet\b/.test(text))
+      violations.push(rel);
+  }
+  assert.deepEqual(violations, []);
+});
+test("centralized Prefs and Notifier observers", () => {
+  const violations = [];
+  for (const file of prodTsFiles) {
+    const rel = relSrc(file);
+    if (rel.startsWith("kernel/"))
+      continue;
+    if (/\b(?:Prefs|Notifier)\.registerObserver\s*\(/.test(read(file)))
+      violations.push(rel);
+  }
+  assert.deepEqual(violations, []);
+});
+test("sandbox safety and Zotero 11+ compatibility guard", () => {
+  const violations = [];
+  for (const file of prodTsFiles) {
+    const rel = relSrc(file);
+    const base = path.basename(file);
+    if (/^(?:v\d+|temp[-_])/i.test(base))
+      violations.push(`${rel} (forbidden version/temp filename)`);
+    if (/@ts-ignore|@ts-nocheck|\bqueueMicrotask\s*\(|\bgetSelectedLibraryID\s*\(|\bgetSelectedCollection\s*\(/.test(read(file)))
+      violations.push(`${rel} (forbidden suppression, queueMicrotask, or singular ZoteroPane API)`);
+  }
+  assert.deepEqual(violations, []);
+});
+test("EventBus closure (zero dead or half-open events)", () => {
+  const typesText = read("src/kernel/types.ts");
+  const mapMatch = typesText.match(/export interface MetaFlowEventMap \{([\s\S]*?)\n\}/);
+  assert.ok(mapMatch, "MetaFlowEventMap not found in src/kernel/types.ts");
+  const eventNames = [...mapMatch[1].matchAll(/["']([a-z0-9:-]+)["']\s*:/g)].map(m => m[1]);
+  assert.ok(eventNames.length > 0, "No events declared in MetaFlowEventMap");
+  const corpus = prodTsFiles.filter(f => relSrc(f) !== "kernel/types.ts").map(f => read(f)).join("\n");
+  const broken = eventNames.filter((ev) => {
+    const esc = ev.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const hasEmit = new RegExp(`emit\\(\\s*["']${esc}["']`).test(corpus);
+    const hasOn = new RegExp(`\\.on\\(\\s*["']${esc}["']`).test(corpus);
+    return !hasEmit || !hasOn;
+  });
+  assert.deepEqual(broken, []);
+});
+test("host contract smoke script integrity", () => {
+  assert.ok(existsSync("scripts/smoke-zotero.mjs"), "Missing scripts/smoke-zotero.mjs");
+  assert.equal(pkg.scripts?.["smoke:host"], "node scripts/smoke-zotero.mjs --check-only");
 });

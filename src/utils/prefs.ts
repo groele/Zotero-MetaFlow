@@ -197,6 +197,9 @@ export const DEFAULT_PREFS: Partial<PluginPrefsMap> = {
 
 export function getPref<K extends keyof PluginPrefsMap>(key: K, fallback?: PluginPrefsMap[K]) {
   const effectiveFallback = (fallback !== undefined ? fallback : DEFAULT_PREFS[key]) as PluginPrefsMap[K];
+  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  if (kernelPrefs)
+    return kernelPrefs.get(key, effectiveFallback) as PluginPrefsMap[K];
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {
     return effectiveFallback;
   }
@@ -205,6 +208,9 @@ export function getPref<K extends keyof PluginPrefsMap>(key: K, fallback?: Plugi
 }
 
 export function setPref<K extends keyof PluginPrefsMap>(key: K, value: PluginPrefsMap[K]) {
+  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  if (kernelPrefs)
+    return kernelPrefs.set(key, value);
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {
     return;
   }
@@ -212,6 +218,9 @@ export function setPref<K extends keyof PluginPrefsMap>(key: K, value: PluginPre
 }
 
 export function clearPref(key: string) {
+  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  if (kernelPrefs)
+    return kernelPrefs.clear(key);
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {
     return;
   }

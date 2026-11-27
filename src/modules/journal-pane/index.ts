@@ -1,4 +1,5 @@
 import type { BatchResult } from "../runner";
+import { observeHostPrefs } from "../../kernel/pref-service";
 import { cleanupResourcesSync } from "../../utils/cleanup";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../utils/easyscholar";
 import { redrawItemValues } from "../../utils/item-value-refresh";
@@ -34,7 +35,7 @@ export { createCheckSvgIcon, createShareSvgIcon } from "./icons";
 export { ensureJournalPaneStyles } from "./styles";
 
 let sectionID: string | undefined;
-const observers: symbol[] = [];
+let stopPrefObserver: (() => void) | undefined;
 const refreshers = new Map<HTMLElement, () => Promise<void>>();
 const renders = new WeakMap<HTMLElement, object>();
 const queryMessages = new Map<number, { level?: string; message: string }[]>();
@@ -153,13 +154,26 @@ export function registerJournalPane() {
   });
   if (id)
     sectionID = id;
-  for (const pref of ["insights.showPane", "insights.esiCustomDataPath", "insights.esiFormat", "insights.natureCustomDataPath", "insights.esiSourcePriority", "insights.natureSourcePriority", "insights.natureDatasetUUID", "easyscholar.secretKey", "insights.natureEnabled", ...EASYSCHOLAR_FIELD_DEFINITIONS.map(field => `easyscholar.fields.${field.key}`)]) {
-    observers.push(Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${pref}`, () => {
+  stopPrefObserver?.();
+  stopPrefObserver = observeHostPrefs(
+    [
+      "insights.showPane",
+      "insights.esiCustomDataPath",
+      "insights.esiFormat",
+      "insights.natureCustomDataPath",
+      "insights.esiSourcePriority",
+      "insights.natureSourcePriority",
+      "insights.natureDatasetUUID",
+      "easyscholar.secretKey",
+      "insights.natureEnabled",
+      ...EASYSCHOLAR_FIELD_DEFINITIONS.map(field => `easyscholar.fields.${field.key}`),
+    ],
+    (pref) => {
       if (pref.endsWith("DataPath"))
         clearJournalInsights();
       refreshData();
-    }, true));
-  }
+    },
+  );
 }
 
 async function completeFromNavigation(item: Zotero.Item) {
@@ -272,7 +286,10 @@ export function unregisterJournalPane() {
   updating.clear();
   navigationQueries.clear();
   cleanupResourcesSync([
-    ...observers.splice(0).map(id => () => Zotero.Prefs.unregisterObserver(id)),
+    () => {
+      stopPrefObserver?.();
+      stopPrefObserver = undefined;
+    },
     () => id && Zotero.ItemPaneManager.unregisterSection(id),
     clearJournalInsights,
   ], error => logger.error("Journal pane cleanup failed:", error));

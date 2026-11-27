@@ -1,6 +1,6 @@
 # Zotero MetaFlow
 
-[![Version](https://img.shields.io/badge/version-17.1.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.2)
+[![Version](https://img.shields.io/badge/version-17.2.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.2.0)
 
 [简体中文](README.md) · [English](README.en.md)
 
