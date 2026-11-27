@@ -28,15 +28,16 @@ pnpm lint:fix            # eslint . --fix && autocorrect --fix
 pnpm test                 # unit (vitest) then e2e (zotero-plugin test)
 pnpm test:unit            # Run vitest unit tests (files matching **/*.test.ts)
 pnpm test:e2e             # Build production XPI, run live Zotero tests, then install and validate the XPI
-pnpm run guard            # Run 20 architecture guard assertions
+pnpm run guard            # Run 21 architecture guard assertions
 pnpm run smoke:host       # Verify real Zotero omni.ja host contracts without launching GUI
-pnpm coverage             # vitest run --coverage (covers src/modules/rules/*.ts)
+pnpm run smoke:launch     # Launch isolated headless Zotero (-headless -no-remote) to verify live startup & cleanup
+pnpm coverage             # vitest run --coverage (covers src/domains/ and src/services/)
 
 pnpm update-data          # refresh built-in journal-abbr / related data (git submodule + Python)
 pnpm release              # zotero-plugin release (version bump + GitHub release in CI)
 ```
 
-Run a single unit test: `pnpm exec vitest run src/modules/rules/no-extra-zeros.test.ts` (or `vitest -t "<test name>"`).
+Run a single unit test: `pnpm exec vitest run src/domains/lint-engine/rules/no-extra-zeros.test.ts` (or `vitest -t "<test name>"`).
 
 Before running `pnpm start`, copy `.env.example` to `.env` and set `ZOTERO_PLUGIN_ZOTERO_BIN_PATH` and `ZOTERO_PLUGIN_PROFILE_PATH`. On Windows escape path separators with `\\`.
 
@@ -51,12 +52,17 @@ Two test tiers exist because plugin code depends on the Zotero global runtime:
 
 ### Five-Layer Microkernel Architecture (Aligned with Zotero BridgeFlow)
 
-MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-BridgeFlow`, guarded by 20 automated checks in `scripts/architecture-guard.mjs`:
+MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-BridgeFlow`, guarded by 21 automated checks in `scripts/architecture-guard.mjs`:
 
-1. **Bootstrap & Entry (`addon/bootstrap.js`, `src/index.ts`, `src/addon.ts`, `src/hooks.ts`)**: `Addon` instantiates `PluginKernel`, `ServiceContainer`, 4 `DomainModule`s (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`), and 2 `BridgeModule`s (`item-sync`, `automatic-ingest`). `src/hooks.ts` delegates Zotero lifecycle callbacks (`onStartup`, `onMainWindowLoad`, `onMainWindowUnload`, `onShutdown`, `onNotify`, `onRefreshJournal`) to the kernel and domain ports.
-2. **Microkernel (`src/kernel/`)**: Zero external domain/module dependencies. Houses `PluginKernel`, `DisposableStack` / `AsyncDisposableStack`, `TypedEventBus` (`MetaFlowEventMap`), `DomainPortRegistry`, `CommandRegistry`, `NativeRuntime` (WeakMap-safe prototype patch chains), `UnifiedNotifierHub`, and `UnifiedPrefService` / `observeHostPrefs()`.
-3. **Shared Services & Host Anti-Corruption Layer (`src/services/`, `src/services/host/`)**: Houses `CacheCoordinatorService`, `ServiceContainer`, `host-capabilities.ts` (`probeHostCapabilities`), `collection-tree-adapter.ts`, and `preference-pane-adapter.ts`. All host prototype patches and internal property accesses (`CollectionTreeRow.prototype`, `PreferencePanes.pluginPanes`, `ProgressWindowSet.tile`) are fenced inside `src/services/host/` and verified against real `omni.ja` via `pnpm run smoke:host`.
-4. **Isolated Domains (`src/domains/`)**: Four cohesive domain orchestrators (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`) wrapping `src/modules/` capabilities and registering narrow ports (`WorkspaceUiPort`, `JournalInsightsPort`, `ReviewDuplicatesPort`, `LintEnginePort`). Cross-domain direct imports are forbidden.
+1. **Bootstrap & Entry (`addon/bootstrap.js`, `src/index.ts`, `src/addon.ts`, `src/hooks.ts`, `src/api.ts`)**: `Addon` instantiates `PluginKernel`, `ServiceContainer`, 4 `DomainModule`s (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`), and 2 `BridgeModule`s (`item-sync`, `automatic-ingest`). `src/hooks.ts` delegates Zotero lifecycle callbacks (`onStartup`, `onMainWindowLoad`, `onMainWindowUnload`, `onShutdown`, `onNotify`, `onRefreshJournal`) to the kernel and domain ports.
+2. **Microkernel (`src/kernel/`)**: Zero external domain/service dependencies. Houses `PluginKernel` (with `revive()` and concurrent window load deduplication), `DisposableStack` / `AsyncDisposableStack`, `TypedEventBus` (`MetaFlowEventMap`), `DomainPortRegistry`, `CommandRegistry`, `NativeRuntime` (WeakMap-safe prototype patch chains), `UnifiedNotifierHub`, and `UnifiedPrefService` / `observeHostPrefs()`.
+3. **Shared Services & Host Anti-Corruption Layer (`src/services/`, `src/utils/`)**: Houses `CacheCoordinatorService`, `ServiceContainer`, `notifier.ts`, `src/services/host/` (`host-capabilities.ts`, `collection-tree-adapter.ts`, `preference-pane-adapter.ts`), `src/services/lint/` (`rule-base.ts`, `rule-registry.ts`, `runner.ts` + `runner/*`, `reporter.ts`, `progress-ui.ts`, `completion-notice.ts`, `batch-feedback.ts`, `batch-undo.ts`), `src/services/metadata/` (scholarly metadata providers, preprint/snapshot status, TL;DR, ISSN resolver, review policy/inspector), and `src/services/duplicates/non-duplicates.ts`. All host prototype patches and internal property accesses are fenced inside `src/services/host/` and verified via `pnpm run smoke:host` and `pnpm run smoke:launch`.
+4. **Isolated Domains (`src/domains/`)**: Four cohesive domain packages owning 100% of domain implementations and registering narrow ports (`WorkspaceUiPort`, `JournalInsightsPort`, `ReviewDuplicatesPort`, `LintEnginePort`):
+   - `src/domains/workspace-ui/`: preferences pane controllers (`preference.ts`, `settings-*.ts`, `workflow-settings.ts`, `cache-settings.ts`, `custom-data-settings.ts`, `journal-database-settings.ts`, `tool-center.ts`), `menu.ts`, `shortcuts.ts`, `rich-text.ts`, `title-editor.ts`, `item-info-row.ts`, `tldr-migration.ts`.
+   - `src/domains/journal-insights/`: `journal-pane/*` and `item-tree.ts`.
+   - `src/domains/review-duplicates/`: `review/*`, `duplicate-stats.ts`, `native-duplicate-pane.ts`, and `duplicate-settings.ts`.
+   - `src/domains/lint-engine/`: 35 rule modules in `rules/*`, `batch-dispatch.ts`, `core-workflow.ts`, and `item-diagnostics.ts`.
+     Cross-domain direct imports are strictly forbidden (`0` allowed); `src/modules/` retains only 7 single-line `export *` shims for external E2E specs and build scripts (never imported from `src/`).
 5. **Pure Bridges (`src/bridges/`)**: `ItemSyncBridge` and `AutomaticIngestBridge` depend exclusively on `src/kernel/` and `src/services/`, coordinating cross-domain reactions via `DomainPortRegistry` and `TypedEventBus` with `requires` domain lifecycle coupling.
 
 ### Lifecycle: Bootstrap → sandbox globals → hooks
@@ -65,14 +71,14 @@ MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-Bridg
 2. `src/index.ts` bootstraps globals (`Zotero`, `ztoolkit`, `addon`) and instantiates the `Addon` class (`src/addon.ts`), which holds shared `data` and the singleton `LintRunner`.
 3. `src/hooks.ts` implements Zotero lifecycle hooks (`onStartup`, `onMainWindowLoad`, `onNotify`, `onShortcuts`, `onLintInBatch`, etc.). `onNotify` auto-lints newly added items when pref `lint.onAdded` is set.
 4. `src/addon.ts` holds shared `data` (config, env, ztoolkit, locale, prefs window, dialogs), lifecycle `hooks`, small public `api`, and the `LintRunner`.
-5. UI registration is split across `src/modules/`: `menu.ts` (context menus), `item-tree.ts` (extra columns), `rich-text.ts` (title rich-text toolbar), `preference.ts`, `shortcuts.ts`, `notifier.ts`.
+5. UI registration lives across `src/domains/` and `src/services/`: `domains/workspace-ui/menu.ts` (context menus), `domains/journal-insights/item-tree.ts` (extra columns), `domains/workspace-ui/rich-text.ts` (title rich-text toolbar), `domains/workspace-ui/preference.ts`, `domains/workspace-ui/shortcuts.ts`, `services/notifier.ts`.
 6. Reused browser/Zotero globals (`Zotero`, `ztoolkit`, `rootURI`, `__env__`, `_globalThis`) are ambient — see `typings/`.
 
 Prefer changing behavior through rules/runner/hooks rather than bootstrap.
 
 ### Rule system (the core abstraction)
 
-Everything the plugin does is expressed as a **Rule**. Rules live in `src/modules/rules/` and are defined with `defineRule()` from `rule-base.ts`. A rule declares:
+Everything the plugin does is expressed as a **Rule**. Standard/tool rules live in `src/domains/lint-engine/rules/` (with shared cross-domain metadata rules in `src/services/metadata/`) and are defined with `defineRule()` from `src/services/lint/rule-base.ts`. A rule declares:
 
 - `id` — kebab-case, following `<category>-<target>-<attribute>` (see CONTRIBUTING.md for the naming taxonomy). `category` ∈ `no` | `require` | `correct` | `tool`.
 - `scope` — `"item"` (operates on whole item) or `"field"` (operates on one field; requires `targetItemField`). `"tag"`/`"attachment"` are declared but unimplemented.
@@ -84,13 +90,13 @@ Everything the plugin does is expressed as a **Rule**. Rules live in `src/module
 
 ### Rule registration
 
-`src/modules/rules/index.ts` holds the `register` array — **order in this array is execution order**. The `Rules` class exposes `getAll()`, `getStandard()` (non-tool), `getEnabledStandard()` (filtered by `getPref('rule.${id}')`), `getTool()`, `getByID()`, `getByType()`. To add a rule: copy `_template.ts`, implement it, import + add it to `register` at the correct position, then add prefs in `addon/prefs.js` and l10n in `addon/locale/**/rules.ftl` as needed.
+`src/domains/lint-engine/rules/index.ts` holds the `register` array — **order in this array is execution order** — and registers it into `src/services/lint/rule-registry.ts` (`Rules`). The `Rules` class exposes `getAll()`, `getStandard()` (non-tool), `getEnabledStandard()` (filtered by `getPref('rule.${id}')`), `getTool()`, `getByID()`, `getByType()`. To add a rule: copy `_template.ts`, implement it, import + add it to `register` at the correct position, then add prefs in `addon/prefs.js` and l10n in `addon/locale/**/rules.ftl` as needed.
 
 Rule IDs are the source of truth for the `ID` type: `zotero-plugin.config.ts`'s `build:bundle` hook imports the registered rules and generates `typings/rules.d.ts` (an `ID` union of all rule ids) at build time. New rules won't be in the `ID` type until a build regenerates that file (`defineRule` accepts a `string` id to suppress the type error meanwhile).
 
 ### Runner
 
-`src/modules/runner.ts` (`LintRunner`) owns the serial queue, bounded batch workers, owner cancellation and shutdown. Its domain layers live in `src/modules/runner/`:
+`src/services/lint/runner.ts` (`LintRunner`) owns the serial queue, bounded batch workers, owner cancellation and shutdown. Its layers live in `src/services/lint/runner/`:
 
 - `state.ts` (`RunnerState`): batch state, cancellation signals, progress, result aggregation, history and cache cleanup.
 - `execution.ts` (`RuleExecution`): applicability, preparation, per-item execution and rule-level mutation rollback.
@@ -129,19 +135,19 @@ MetaFlow strictly decouples its core processing into two independent pipelines w
 
 ### Journal pane and item value refresh
 
-`src/modules/journal-pane/` separates lifecycle/refresh orchestration (`index.ts`), index and ranking cards (`cards.ts`), preprint/snapshot actions (`quick-actions.ts`), sharing (`share-button.ts`), and section-local public item resolution (`section-context.ts`). An architecture test guards the 360-line ceiling for these modules. Async card completion checks both its render token and the current connected section's item.
+`src/domains/journal-insights/journal-pane/` separates lifecycle/refresh orchestration (`index.ts`), index and ranking cards (`cards.ts`), sharing (`share-button.ts`), and section-local public item resolution (`section-context.ts`), while shared preprint/snapshot predicates live in `src/services/metadata/preprint-status.ts`. An architecture test guards the 360-line ceiling for these modules. Async card completion checks both its render token and the current connected section's item.
 
 Use `redrawItemValues()` from `src/utils/item-value-refresh.ts` for changed journal/index/TL;DR values: it invalidates the native row cache in every open main window and sends a public `redraw/item` notification. Do not call `ItemTreeManager.refreshColumns()` for value-only changes: Zotero 10 rebuilds columns and can restore a selection captured before a concurrent user selection. Real column additions/removals still use the native column registration API. Native tests that change many column definitions must finish their schema-refresh setup before simulating item selection, without assigning host private fields.
 
 ### Metadata update services
 
-`src/modules/rules/tool-update-metadata/` implements metadata fetching from external APIs (`ArxivService`, `IdentifiersTranslateService`, `CrossrefService`, `ItemTranslateService`, `OpenAlexService`, `SemanticScholarService`, `URLTranslateService`). Each API is a `MetadataService` (`services/base-service.ts`, defined with `defineService`) with `shouldApply` / `updateIdentifiers` / `fetch` / `transform` methods. `getOrderedMetadataServices()` dynamically prioritizes `SemanticScholarService` when an API key is configured, and falls back to native Zotero Translators, Crossref, and OpenAlex for keyless bibliographic completion.
+`src/services/metadata/tool-update-metadata/` implements metadata fetching from external APIs (`ArxivService`, `IdentifiersTranslateService`, `CrossrefService`, `ItemTranslateService`, `OpenAlexService`, `SemanticScholarService`, `URLTranslateService`). Each API is a `MetadataService` (`services/base-service.ts`, defined with `defineService`) with `shouldApply` / `updateIdentifiers` / `fetch` / `transform` methods. `getOrderedMetadataServices()` dynamically prioritizes `SemanticScholarService` when an API key is configured, and falls back to native Zotero Translators, Crossref, and OpenAlex for keyless bibliographic completion.
 
 ### Performance, caching, and resource governance standards
 
 - **Shared Host Primitives**: Always use `createAbortController()` and `runWithDeadline()` from `src/utils/rule-execution.ts`, `parseXMLDocument()` from `src/utils/str.ts`, `parseResponseJSON()` from `src/utils/http.ts`, and `readIntPref()` from `src/utils/prefs.ts` instead of duplicating host lookups or parsers.
 - **Batch Signature & Snapshot Reuse**: `LintRunner` precomputes `batchRuleSig` once per batch and passes `precomputedJSON` (`baseline = item.toJSON()`) to `computeItemLintSignature()`. `ItemMutationJournal` reuses consecutive post-write snapshots within the same synchronous tick. Any external item modification (`modify`/`delete`/`trash` in `onNotify`) or preference update (`onPrefsEvent`) must invalidate item fingerprints (`invalidateItemLintFingerprint`) or bump the revision (`bumpLintPrefsRevision`).
-- **Virtual Table (`ItemTree`) $O(1)$ Scroll Path**: Column `dataProvider` callbacks in `src/modules/item-tree.ts` execute synchronously on every scroll frame. They must rely on `WeakMap<Zotero.Item, ...>` memoizers (`cachedJournalInsights`, merged `rankingCache` keyed by `getJournalRankingIndexRevision()`, and `extractTLDRFromItem` keyed by `extra` and child-note version/length fingerprints) and precompiled module-level lookup tables (`ESI_CATEGORY_LOOKUP`, `SPECIAL_WORDS_MAP`, `COMPOUND_SURNAMES`, `INTER_FORMULA_SPACE_RE`, `COLLATOR`). Never construct `Map`/`Set`/`RegExp`/`Intl.Collator` inside per-item `apply()` or `dataProvider()` calls.
+- **Virtual Table (`ItemTree`) $O(1)$ Scroll Path**: Column `dataProvider` callbacks in `src/domains/journal-insights/item-tree.ts` execute synchronously on every scroll frame. They must rely on `WeakMap<Zotero.Item, ...>` memoizers (`cachedJournalInsights`, merged `rankingCache` keyed by `getJournalRankingIndexRevision()`, and `extractTLDRFromItem` keyed by `extra` and child-note version/length fingerprints) and precompiled module-level lookup tables (`ESI_CATEGORY_LOOKUP`, `SPECIAL_WORDS_MAP`, `COMPOUND_SURNAMES`, `INTER_FORMULA_SPACE_RE`, `COLLATOR`). Never construct `Map`/`Set`/`RegExp`/`Intl.Collator` inside per-item `apply()` or `dataProvider()` calls.
 
 ### Built-in data
 

@@ -1,4 +1,4 @@
-import type { ReportInfo } from "../modules/reporter";
+import type { ReportInfo } from "../services/lint/reporter";
 
 const publicationFields = new Set(["publicationTitle", "journalAbbreviation", "ISSN", "conferenceName", "proceedingsTitle"]);
 

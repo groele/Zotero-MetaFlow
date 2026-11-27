@@ -1,5 +1,8 @@
 import type { Disposable } from "./types";
 
+export const REVIEW_COMMANDS = ["tool-review-metadata", "tool-review-preprint", "tool-review-duplicates"] as const;
+export type ReviewCommand = typeof REVIEW_COMMANDS[number];
+
 export interface LintEnginePort {
   runBatch: (
     ruleIDs: string | readonly string[],
@@ -23,7 +26,7 @@ export interface JournalInsightsPort {
 
 export interface ReviewDuplicatesPort {
   runReview: (
-    command: "tool-review-metadata" | "tool-review-duplicates",
+    command: ReviewCommand,
     items: Zotero.Item[],
     updateVersions?: boolean,
     options?: Record<string, unknown>,
@@ -31,6 +34,7 @@ export interface ReviewDuplicatesPort {
   processImportedDuplicates: (items: Zotero.Item[]) => Promise<void>;
   invalidateStats: () => void;
   refreshStats: (libraryID?: number) => Promise<void>;
+  setupSettingsPane?: (pane: Element) => void;
 }
 
 export interface WorkspaceUiPort {

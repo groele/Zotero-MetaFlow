@@ -1,4 +1,4 @@
-import type { BatchResult } from "../modules/runner";
+import type { BatchResult } from "../services/lint/runner";
 import { expect, it, vi } from "vitest";
 import { createAutomaticWorkflow, runAutomaticWorkflow } from "./automatic-workflow";
 

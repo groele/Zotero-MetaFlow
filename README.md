@@ -8,12 +8,12 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.2.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.2.0)
+[![Version](https://img.shields.io/badge/version-17.3.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.0)
 
-17.2.0 对标 BridgeFlow 完成五层微内核架构演进（`kernel` / `services` + 宿主防腐层 / `domains` / `bridges`），实现首选项与通知观察者集中去重管理、跨领域端口解耦与真实 `omni.ja` 宿主契约冒烟校验（`pnpm run smoke:host`），继承 17.1.2 化学式角标引擎加固与 17.1.0 无密钥 / API 双模自适应书目补全。详见[架构演进方案](docs/architecture-migration-plan.md)、[v17.1.2 发布说明](docs/releases/metaflow-v17.1.2.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.3.0 全面完成对标 BridgeFlow 的五层微内核业务下沉迁移（100% 生产代码收敛至 `kernel` / `services` / `domains` / `bridges` / `utils`，`src/modules/` 仅保留 7 个面向外部 E2E 测试与构建脚本的单行纯重导出兼容垫片），修复生命周期重入与集中观察者回退等 8 项深度审计问题，并新增隔离 Profile 无头 Zotero 进程真实启动与清理冒烟验证（`pnpm run smoke:launch`）。详见[v17.3.0 发布说明](docs/releases/metaflow-v17.3.0.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-840%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [🌐 运行环境](#compatibility) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
 

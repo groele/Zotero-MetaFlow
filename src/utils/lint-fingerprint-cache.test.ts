@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { defineRule } from "../modules/rules/rule-base";
-import { LintRunner } from "../modules/runner";
+import { defineRule } from "../services/lint/rule-base";
+import { LintRunner } from "../services/lint/runner";
 import {
   bumpLintPrefsRevision,
   clearLintFingerprintCache,

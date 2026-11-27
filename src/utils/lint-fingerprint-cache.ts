@@ -1,4 +1,4 @@
-import type { Rule } from "../modules/rules/rule-base";
+import type { Rule } from "../services/lint/rule-base";
 import { getPref } from "./prefs";
 
 const MAX_FINGERPRINTS = 20_000;

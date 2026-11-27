@@ -1,0 +1,130 @@
+import { observeHostPrefs } from "../../kernel/pref-service";
+import { loadCustomAbbreviations } from "../../services/metadata/journal-abbr-rule";
+import { builtinAbbreviationPath, writeBuiltinAbbreviationFile } from "../../utils/builtin-abbreviation-file";
+import { DataLoader } from "../../utils/data-loader";
+import { getString } from "../../utils/locale";
+import { preferenceLifetime, preferenceListeners } from "../../utils/preference-listeners";
+import { getPref, setPref } from "../../utils/prefs";
+import { loadTitleTerms } from "../../utils/title-terms";
+
+export function setupCustomDataFiles(pane: Element) {
+  const listen = preferenceListeners(pane);
+  const doc = pane.ownerDocument!;
+  for (const kind of ["abbr", "title"] as const) {
+    const button = pane.querySelector<HTMLButtonElement>(`#metaref-${kind}-choose-custom-data-button`)!;
+    const row = button.parentElement!;
+    const input = row.querySelector<HTMLInputElement>("input[preference]")!;
+    const key = input.getAttribute("preference")!.replace(`${addon.data.config.prefsPrefix}.`, "");
+    const status = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
+    status.className = "metaref-input-status metaref-custom-data-status";
+    status.id = `metaref-${kind}-file-status`;
+    status.setAttribute("role", "status");
+    status.setAttribute("aria-live", "polite");
+    row.appendChild(status);
+    input.setAttribute("aria-describedby", status.id);
+    const syncPath = () => {
+      const displayPath = String(getPref(key as any, "")) || (kind === "abbr" ? builtinAbbreviationPath() : "");
+      input.value = displayPath;
+      input.title = displayPath;
+    };
+    syncPath();
+    listen(input, "syncfrompreference", () => {
+      void Promise.resolve().then(() => {
+        if (!preferenceLifetime(pane).aborted && pane.isConnected && addon.data.alive)
+          syncPath();
+      });
+    });
+    if (kind === "abbr") {
+      const builtin = doc.createXULElement("button");
+      builtin.id = "metaref-abbr-use-builtin-button";
+      doc.l10n!.setAttributes(builtin, "metaref-settings-abbr-use-builtin");
+      button.before(builtin);
+      const refreshBuiltin = async (activate: boolean) => {
+        if (row.hasAttribute("data-busy"))
+          return;
+        row.setAttribute("data-busy", "true");
+        row.setAttribute("aria-busy", "true");
+        const buttons = [...row.querySelectorAll<HTMLButtonElement>("button")];
+        buttons.forEach(button => button.disabled = true);
+        try {
+          await writeBuiltinAbbreviationFile();
+          if (preferenceLifetime(pane).aborted || !pane.isConnected || !addon.data.alive)
+            return;
+          if (activate || !getPref(key as any))
+            setPref(key as any, builtinAbbreviationPath());
+          if (activate) {
+            setPref("rule.require-journal-abbr.sourceMode", "auto");
+            const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
+            if (source)
+              source.value = "auto";
+            status.textContent = getString("settings-abbr-builtin-ready");
+          }
+          syncPath();
+        }
+        catch (error) {
+          status.textContent = getString("settings-file-error", { args: { error: String(error) } });
+        }
+        finally {
+          row.removeAttribute("data-busy");
+          row.removeAttribute("aria-busy");
+          buttons.forEach(button => button.disabled = input.disabled || (button.dataset.resetPath === "true" && !getPref(key as any)));
+        }
+      };
+      listen(builtin, "command", () => refreshBuiltin(true));
+      void refreshBuiltin(false);
+    }
+    listen(pane, "metaref-preferences-synced", syncPath);
+    const signal = preferenceLifetime(pane);
+    observeHostPrefs([key], syncPath, signal);
+    let busy = false;
+    listen(button, "command", async () => {
+      if (busy)
+        return;
+      busy = true;
+      row.setAttribute("data-busy", "true");
+      row.setAttribute("aria-busy", "true");
+      const buttons = [...row.querySelectorAll<HTMLButtonElement>("button")];
+      buttons.forEach(button => button.disabled = true);
+      status.textContent = getString("settings-file-working");
+      try {
+        const path = await new ztoolkit.FilePicker(
+          getString(kind === "abbr" ? "settings-abbr-file-title" : "settings-title-file-title"),
+          "open",
+          kind === "abbr" ? [[getString("settings-abbr-file-types"), "*.json; *.csv"]] : [["CSV", "*.csv"]],
+          kind === "abbr" ? "metaref-custom-abbr-data.csv" : "metaref-custom-title-terms.csv",
+          doc.defaultView!,
+        ).open();
+        if (!path) {
+          status.textContent = "";
+          return;
+        }
+        DataLoader.invalidateFile(path);
+        const count = kind === "abbr" ? (await loadCustomAbbreviations(path)).size : (await loadTitleTerms(path)).length;
+        if (!count)
+          throw new Error(getString("settings-file-empty"));
+        if (signal.aborted || !pane.isConnected || !addon.data.alive)
+          return;
+        input.value = path;
+        const win = doc.defaultView as Window & typeof globalThis;
+        input.dispatchEvent(new win.Event("change", { bubbles: true }));
+        setPref(key as any, path);
+        if (kind === "abbr" && !["auto", "custom"].includes(String(getPref("rule.require-journal-abbr.sourceMode")))) {
+          setPref("rule.require-journal-abbr.sourceMode", "auto");
+          const source = pane.querySelector<HTMLSelectElement>("select[data-abbr-option='sourceMode']");
+          if (source)
+            source.value = "auto";
+        }
+        status.textContent = getString("settings-file-valid", { args: { count } });
+      }
+      catch (error) {
+        status.textContent = getString("settings-file-error", { args: { error: error instanceof Error ? error.message : String(error) } });
+      }
+      finally {
+        busy = false;
+        row.removeAttribute("data-busy");
+        row.removeAttribute("aria-busy");
+        buttons.forEach(button => button.disabled = input.disabled || (button.dataset.resetPath === "true" && !getPref(key as any)));
+      }
+    });
+  }
+}

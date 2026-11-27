@@ -2,15 +2,14 @@ import type { AddonRuntimeModules } from "./addon";
 import { AutomaticIngestBridge } from "./bridges/automatic-ingest-bridge";
 import { ItemSyncBridge } from "./bridges/item-sync-bridge";
 import { JournalInsightsDomainModule } from "./domains/journal-insights/module";
+import { onLintInBatch } from "./domains/lint-engine/batch-dispatch";
 import { LintEngineDomainModule } from "./domains/lint-engine/module";
 import { ReviewDuplicatesDomainModule } from "./domains/review-duplicates/module";
 import { WorkspaceUiDomainModule } from "./domains/workspace-ui/module";
+import { registerPrefsScripts, registerPrefsWindow } from "./domains/workspace-ui/preference";
+import { onShortcuts } from "./domains/workspace-ui/shortcut-actions";
 import { PluginKernel } from "./kernel/plugin-kernel";
-import { onLintInBatch } from "./modules/batch-dispatch";
-import { placeTLDRBeforeExtra, refreshTLDRInfoRow } from "./modules/item-info-row";
-import { registerNotifier, unregisterNotifier } from "./modules/notifier";
-import { registerPrefsScripts, registerPrefsWindow } from "./modules/preference";
-import { onShortcuts } from "./modules/shortcut-actions";
+import { registerNotifier, unregisterNotifier } from "./services/notifier";
 import { ServiceContainer } from "./services/service-container";
 import { cleanupResources } from "./utils/cleanup";
 import { migrateGreenFrogPreferences } from "./utils/greenfrog-migration";
@@ -43,6 +42,12 @@ function getRuntimeBundle(): RuntimeBundle {
   let cached = fallbackBundles.get(addon);
   if (!cached) {
     const kernel = new PluginKernel({
+      onHostNotify: payload => (addon.hooks?.onNotify ?? onNotify)(
+        payload.event,
+        payload.type,
+        [...payload.ids],
+        (payload.extraData ?? {}) as { [key: string]: unknown },
+      ),
       onError: (scope, error) => logger.error(`Kernel error (${scope}):`, error),
     });
     const services = new ServiceContainer(kernel);
@@ -81,6 +86,11 @@ async function onStartup(): Promise<void> {
     return;
   const { kernel, services, modules } = getRuntimeBundle();
   try {
+    if (kernel.isDisposed) {
+      await kernel.revive();
+      if (!addon.data.alive)
+        return;
+    }
     unregisterPersistence?.();
     unregisterPersistence = registerPersistenceShutdown(() => services.cache.flushAllPersistence());
     migrateGreenFrogPreferences();
@@ -175,20 +185,17 @@ async function onNotify(
   ids: Array<string | number>,
   extraData: { [key: string]: unknown },
 ): Promise<void> {
+  if (typeof addon !== "undefined" && addon?.data && !addon.data.alive)
+    return;
   logger.debug("notify", event, type, ids, extraData);
   const { kernel, services, modules } = getRuntimeBundle();
+  if (kernel.isDisposed)
+    return;
   services.init();
-  if (!kernel.ports.has("workspace-ui")) {
-    kernel.ports.register("workspace-ui", {
-      refreshTldrRow: rowID => refreshTLDRInfoRow(rowID),
-      placeTldrRow: doc => placeTLDRBeforeExtra(doc),
-      executeShortcut: (hookName, win) => onShortcuts(hookName, win),
-    });
-  }
-  if (!kernel.ports.has("journal-insights"))
-    modules.journalInsights.start();
-  if (!kernel.ports.has("lint-engine"))
-    modules.lintEngine.start();
+  modules.workspaceUi.ensurePortRegistered();
+  modules.journalInsights.ensurePortRegistered();
+  modules.reviewDuplicates.ensurePortRegistered();
+  modules.lintEngine.ensurePortRegistered();
   modules.itemSyncBridge.start();
   modules.automaticIngestBridge.start();
 

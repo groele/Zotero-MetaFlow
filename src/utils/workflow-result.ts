@@ -1,4 +1,4 @@
-import type { BatchResult } from "../modules/runner";
+import type { BatchResult } from "../services/lint/runner";
 
 /** Item counts describe the complete workflow; stage evidence keeps execution order. */
 export function combineWorkflowResults(itemIDs: number[], results: BatchResult[], durationMs: number, cancelled = false): BatchResult {

@@ -1,24 +1,35 @@
 import type { PluginKernel } from "../../kernel/plugin-kernel";
 import type { Disposable, DomainModule } from "../../kernel/types";
-import type { BatchResult } from "../../modules/runner";
+import type { BatchResult } from "../../services/lint/runner";
 import type { ServiceContainer } from "../../services/service-container";
-import { onLintInBatch } from "../../modules/batch-dispatch";
-import { stopCoreWorkflows } from "../../modules/core-workflow";
-import { Rules } from "../../modules/rules";
-import { clearSemanticScholarCache } from "../../modules/rules/tool-update-metadata/services/semantic-scholar-service";
+import { clearSemanticScholarCache } from "../../services/metadata/tool-update-metadata/services/semantic-scholar-service";
 import { AutomaticItems } from "../../utils/automatic-items";
 import { createAutomaticWorkflow, runAutomaticWorkflow } from "../../utils/automatic-workflow";
 import { logger } from "../../utils/logger";
 import { getPref } from "../../utils/prefs";
+import { onLintInBatch } from "./batch-dispatch";
+import { stopCoreWorkflows } from "./core-workflow";
+import { Rules } from "./rules";
 
 function isAddonAlive(): boolean {
   return typeof addon === "undefined" || !addon?.data || addon.data.alive;
+}
+
+function dispatchLintInBatch(
+  ...args: Parameters<typeof onLintInBatch>
+): ReturnType<typeof onLintInBatch> {
+  const hostBatch = (globalThis as { addon?: { hooks?: { onLintInBatch?: typeof onLintInBatch } } })
+    .addon
+    ?.hooks
+    ?.onLintInBatch;
+  return (hostBatch ?? onLintInBatch)(...args);
 }
 
 export class LintEngineDomainModule implements DomainModule {
   public readonly id = "lint-engine" as const;
 
   private active = false;
+  private portDisposer?: Disposable;
   private readonly disposers: Disposable[] = [];
   private readonly automaticItems: AutomaticItems;
 
@@ -39,39 +50,46 @@ export class LintEngineDomainModule implements DomainModule {
     return this.active;
   }
 
+  public ensurePortRegistered(): void {
+    if (this.portDisposer && this.kernel.ports.has("lint-engine"))
+      return;
+    this.portDisposer?.();
+    this.portDisposer = this.kernel.ports.register("lint-engine", {
+      runBatch: (ruleIDs, items, options) => dispatchLintInBatch(
+        (typeof ruleIDs === "string" ? ruleIDs : [...ruleIDs]) as Parameters<typeof onLintInBatch>[0],
+        items ?? "item",
+        options,
+      ),
+      stopAll: () => this.stopAll(),
+      enqueueAddedItems: ids => this.automaticItems.enqueue([...ids]),
+      cancelAddedItems: () => this.automaticItems.cancelPending(),
+      drainAddedItems: () => this.automaticItems.drain(),
+      isSavingPhase: () => (
+        ((globalThis as { addon?: { runner?: { stats?: { phase?: string } } } }).addon?.runner?.stats?.phase)
+        === "saving"
+      ),
+    });
+  }
+
   public start(): void {
     if (this.active)
       return;
     this.active = true;
+    this.ensurePortRegistered();
     const cleanerDisposer = this.services.cache.registerMemoryCleaner("semantic-scholar", clearSemanticScholarCache);
     this.disposers.push(
       cleanerDisposer,
-      this.kernel.ports.register("lint-engine", {
-        runBatch: (ruleIDs, items, options) => onLintInBatch(
-          (typeof ruleIDs === "string" ? ruleIDs : [...ruleIDs]) as Parameters<typeof onLintInBatch>[0],
-          items ?? "item",
-          options,
-        ),
-        stopAll: () => this.stopAll(),
-        enqueueAddedItems: ids => this.automaticItems.enqueue([...ids]),
-        cancelAddedItems: () => this.automaticItems.cancelPending(),
-        drainAddedItems: () => this.automaticItems.drain(),
-        isSavingPhase: () => (
-          ((globalThis as { addon?: { runner?: { stats?: { phase?: string } } } }).addon?.runner?.stats?.phase)
-          === "saving"
-        ),
-      }),
       this.kernel.commands.register({
         id: "metaflow:check",
         owner: this.id,
         title: "Check and repair metadata",
-        action: (items?: Zotero.Item[]) => onLintInBatch("standard", items ?? "item", { core: true }),
+        action: (items?: Zotero.Item[]) => dispatchLintInBatch("standard", items ?? "item", { core: true }),
       }),
       this.kernel.commands.register({
         id: "metaflow:update",
         owner: this.id,
         title: "Update metadata",
-        action: (items?: Zotero.Item[]) => onLintInBatch("tool-update-metadata", items ?? "item", { core: true }),
+        action: (items?: Zotero.Item[]) => dispatchLintInBatch("tool-update-metadata", items ?? "item", { core: true }),
       }),
     );
   }
@@ -81,6 +99,8 @@ export class LintEngineDomainModule implements DomainModule {
     this.automaticItems.cancelPending();
     await this.stopAll();
     await this.automaticItems.drain();
+    this.portDisposer?.();
+    this.portDisposer = undefined;
     while (this.disposers.length > 0)
       this.disposers.pop()?.();
   }
@@ -93,7 +113,8 @@ export class LintEngineDomainModule implements DomainModule {
   }
 
   private async processAddedItems(ids: number[]): Promise<void> {
-    if (!this.active || !isAddonAlive() || !getPref("lint.onAdded"))
+    const canProcess = (this.active || Boolean(this.portDisposer)) && isAddonAlive() && Boolean(getPref("lint.onAdded"));
+    if (!canProcess)
       return;
 
     const items = Zotero.Items.get(ids).filter((item): item is Zotero.Item => {
@@ -127,7 +148,7 @@ export class LintEngineDomainModule implements DomainModule {
             }) as BatchResult | undefined
             : undefined
         ),
-        format: async () => await onLintInBatch("standard", items, { automatic: true }) as BatchResult | undefined,
+        format: async () => await dispatchLintInBatch("standard", items, { automatic: true }) as BatchResult | undefined,
         journal: async () => {
           const journalItems = items.filter(item => ["journalArticle", "conferencePaper"].includes(item.itemType));
           if (!getPref("easyscholar.autoUpdateOnAdded", false) || !journalItems.length)
@@ -141,10 +162,10 @@ export class LintEngineDomainModule implements DomainModule {
           await journalPort?.refreshPane(journalIDs);
           return result;
         },
-      }, () => this.active && isAddonAlive() && Boolean(getPref("lint.onAdded")));
+      }, () => (this.active || Boolean(this.portDisposer)) && isAddonAlive() && Boolean(getPref("lint.onAdded")));
 
       if (
-        this.active
+        (this.active || Boolean(this.portDisposer))
         && isAddonAlive()
         && getPref("lint.onAdded")
         && !workflow.stages.some(stage => stage.status === "cancelled")

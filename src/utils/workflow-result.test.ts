@@ -1,4 +1,4 @@
-import type { BatchResult } from "../modules/runner";
+import type { BatchResult } from "../services/lint/runner";
 import { describe, expect, it } from "vitest";
 import { combineWorkflowResults, CoreWorkflowQueue } from "./workflow-result";
 

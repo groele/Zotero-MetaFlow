@@ -11,9 +11,10 @@ export default defineConfig({
       ],
       exclude: [
         "src/**/*.test.ts",
-        "src/modules/rules/_*.ts",
-        "src/modules/rules/index.ts",
-        "src/modules/rules/rule-base.ts",
+        "src/modules/**/*.ts",
+        "src/domains/lint-engine/rules/_*.ts",
+        "src/domains/lint-engine/rules/index.ts",
+        "src/services/lint/rule-base.ts",
       ],
       reporter: ["json-summary", "text", "html"],
     },

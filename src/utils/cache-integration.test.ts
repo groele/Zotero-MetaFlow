@@ -49,14 +49,14 @@ it("cache integration: concurrent case variants of one journal should share a re
 });
 
 it("cache integration: changing from DOI to the returned paper ID after restart should reuse the cached paper", async () => {
-  let service = (await import("../modules/rules/tool-update-metadata/services/semantic-scholar-service")).SemanticScholarService;
+  let service = (await import("../services/metadata/tool-update-metadata/services/semantic-scholar-service")).SemanticScholarService;
   const context = { item: { itemType: "journalArticle" }, identifiers: { DOI: "10.1234/audit" }, isPreprint: false, debug: () => {} };
   await service.fetch!(context as any);
   await (await import("./service-cache-storage")).flushServiceCache();
   (await import("./http")).clearRequestCache();
   (await import("./service-cache-storage")).resetServiceCacheSession();
   vi.resetModules();
-  service = (await import("../modules/rules/tool-update-metadata/services/semantic-scholar-service")).SemanticScholarService;
+  service = (await import("../services/metadata/tool-update-metadata/services/semantic-scholar-service")).SemanticScholarService;
   await service.fetch!({ ...context, identifiers: { SemanticScholarID: "audit-paper-id" } } as any);
   expect(request).toHaveBeenCalledTimes(1);
 });
@@ -65,7 +65,7 @@ it("cache integration: strict custom maps should allow titles distinguished by p
   const { DataLoader } = await import("./data-loader");
   const loader = vi.spyOn(DataLoader, "load").mockResolvedValue({ "A-B Journal": "AB. J.", "A B Journal": "A. B. J." });
   try {
-    const { loadCustomAbbreviations } = await import("../modules/rules/require-abbr");
+    const { loadCustomAbbreviations } = await import("../services/metadata/journal-abbr-rule");
     await expect(loadCustomAbbreviations("audit-custom.json")).resolves.toHaveProperty("size", 2);
   }
   finally { loader.mockRestore(); }

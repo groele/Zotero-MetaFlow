@@ -1,0 +1,62 @@
+import { defineRule } from "../../../services/lint/rule-base";
+import { watchItemFields } from "../../../utils/field-conflicts";
+import { getString } from "../../../utils/locale";
+
+export const CorrectPagesRange = defineRule({
+  id: "correct-pages-range",
+  scope: "field",
+  targetItemTypes: ["journalArticle"],
+  targetItemField: "pages",
+  async apply({ item, debug, report }) {
+    const pages = item.getField("pages").trim();
+
+    if (!shouldApply(pages)) {
+      debug(`Skip process pages ${pages}, it may be alrady a range, or a paper id`);
+      return;
+    }
+
+    const unchanged = watchItemFields(item, ["pages"], report);
+    const numberOfPages = await getPDFPages(item);
+    if (!unchanged())
+      return;
+    if (!numberOfPages) {
+      debug(`Can not get number of pages from PDF`);
+      return;
+    }
+
+    const newPages = generateRange(pages, numberOfPages);
+    if (newPages && newPages !== pages) {
+      report({
+        level: "warning",
+        field: "pages",
+        message: getString("rule-correct-pages-range-review", { args: { range: newPages, total: numberOfPages } }),
+      });
+    }
+  },
+});
+
+export function shouldApply(pages: string) {
+  return /^\d{1,3}$/.test(pages) && Number(pages) > 0;
+}
+
+async function getPDFPages(item: Zotero.Item): Promise<number | void> {
+  const attachment = await item.getBestAttachment();
+  if (!attachment)
+    return;
+
+  if (attachment.attachmentContentType !== "application/pdf")
+    return;
+
+  const pages = await Zotero.Fulltext.getPages(attachment.id);
+  if (!pages || !Number.isSafeInteger(pages.total) || pages.total <= 0)
+    return;
+
+  return pages.total;
+}
+
+export function generateRange(first: string, total: number): string {
+  if (Number(first))
+    return `${Number(first)}-${Number(first) + total - 1}`;
+  else
+    return `${1}-${total}`;
+}

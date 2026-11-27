@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { refreshJournalPane } from "./domains/journal-insights/journal-pane";
+import { refreshTLDRInfoRow } from "./domains/workspace-ui/item-info-row";
 import hooks from "./hooks";
-import { refreshTLDRInfoRow } from "./modules/item-info-row";
-import { refreshJournalPane } from "./modules/journal-pane";
 import {
   computeItemLintSignature,
   getLintFingerprintStats,
@@ -17,23 +17,23 @@ const mocks = vi.hoisted(() => ({
   windowLocale: vi.fn(),
   toolbarInit: vi.fn(),
 }));
-vi.mock("./modules/core-workflow", () => ({ stopCoreWorkflows: mocks.stopCore, localDOICheck: vi.fn(), runCoreWorkflow: vi.fn() }));
+vi.mock("./domains/lint-engine/core-workflow", () => ({ stopCoreWorkflows: mocks.stopCore, localDOICheck: vi.fn(), runCoreWorkflow: vi.fn() }));
 vi.mock("./utils/persistence-shutdown", () => ({ registerPersistenceShutdown: vi.fn(() => vi.fn()) }));
-vi.mock("./modules/item-tree", () => ({ registerExtraColumns: mocks.register, unregisterExtraColumns: mocks.unregister }));
-vi.mock("./modules/item-info-row", () => ({ registerInfoRows: mocks.register, unregisterInfoRows: mocks.unregister, refreshTLDRInfoRow: vi.fn(), placeTLDRBeforeExtra: vi.fn() }));
-vi.mock("./modules/journal-pane", () => ({ registerJournalPane: mocks.register, unregisterJournalPane: mocks.unregister, refreshJournalPane: vi.fn(), setJournalUpdateResult: vi.fn() }));
-vi.mock("./modules/menu", () => ({ registerMenu: mocks.register, unregisterMenu: mocks.unregister }));
-vi.mock("./modules/notifier", () => ({ registerNotifier: mocks.register, unregisterNotifier: mocks.unregister }));
-vi.mock("./modules/preference", () => ({ registerPrefs: mocks.register, registerPrefsScripts: vi.fn(), registerPrefsWindow: vi.fn(), unregisterPrefsWindows: mocks.unregister }));
-vi.mock("./modules/rich-text", () => ({
+vi.mock("./domains/journal-insights/item-tree", () => ({ registerExtraColumns: mocks.register, unregisterExtraColumns: mocks.unregister }));
+vi.mock("./domains/workspace-ui/item-info-row", () => ({ registerInfoRows: mocks.register, unregisterInfoRows: mocks.unregister, refreshTLDRInfoRow: vi.fn(), placeTLDRBeforeExtra: vi.fn() }));
+vi.mock("./domains/journal-insights/journal-pane", () => ({ registerJournalPane: mocks.register, unregisterJournalPane: mocks.unregister, refreshJournalPane: vi.fn(), setJournalUpdateResult: vi.fn() }));
+vi.mock("./domains/workspace-ui/menu", () => ({ registerMenu: mocks.register, unregisterMenu: mocks.unregister }));
+vi.mock("./services/notifier", () => ({ registerNotifier: mocks.register, unregisterNotifier: mocks.unregister }));
+vi.mock("./domains/workspace-ui/preference", () => ({ registerPrefs: mocks.register, registerPrefsScripts: vi.fn(), registerPrefsWindow: vi.fn(), unregisterPrefsWindows: mocks.unregister }));
+vi.mock("./domains/workspace-ui/rich-text", () => ({
   RichTextToolBar: class {
     init = mocks.toolbarInit;
     clean = vi.fn();
   },
   setHtmlTag: vi.fn(),
 }));
-vi.mock("./modules/rules", () => ({ Rules: {} }));
-vi.mock("./modules/shortcuts", () => ({ registerShortcuts: vi.fn() }));
+vi.mock("./domains/lint-engine/rules", () => ({ Rules: {} }));
+vi.mock("./domains/workspace-ui/shortcuts", () => ({ registerShortcuts: vi.fn() }));
 vi.mock("./utils/dialog", () => ({ closeAllDialogs: mocks.unregister }));
 vi.mock("./utils/journal-insights", () => ({ loadJournalInsights: mocks.load }));
 vi.mock("./utils/locale", () => ({ initLocale: mocks.register, registerMainWindowLocale: mocks.windowLocale, unloadLocale: mocks.locale, unregisterMainWindowLocale: vi.fn() }));

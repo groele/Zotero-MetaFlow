@@ -1,0 +1,281 @@
+import type { MetadataContext, TransformedData } from "./services/base-service";
+import { getString } from "../../../utils/locale";
+import { getPref } from "../../../utils/prefs";
+import { isFieldValidForItemType } from "../../../utils/zotero";
+import { defineRule } from "../../lint/rule-base";
+import { discoverSnapshotIdentifiers, isSnapshotItem } from "../snapshot-reviver";
+import { applyItemCreators, applyItemFields, applyItemType, hasAuthors, normalizeMetadata } from "./applier";
+import { extractIdentifiers, isPreprint } from "./identifiers";
+import { resolveMissingISSN } from "./issn-resolver";
+import { hasMissingJournalBiblio, mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI } from "./policy";
+import * as serviceRegistry from "./services";
+import { backfillItemTLDR } from "./tldr";
+
+export { normalizeMetadata } from "./applier";
+
+interface UpdateMetadataOption {
+  mode: "blank" | "all";
+  allowTypeChanged: boolean;
+  repairCreators?: boolean;
+  creatorsOnly?: boolean;
+  tldrEnabled?: boolean;
+  tldrTarget?: "note" | "extra" | "both" | "abstract";
+  tldrExtraFormat?: "remark" | "tldr";
+  reviveSnapshots?: boolean;
+  // lint: boolean;
+}
+
+export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
+  id: "tool-update-metadata",
+  scope: "item",
+  targetItemTypes: ["journalArticle", "preprint", "conferencePaper", "webpage", "blogPost"],
+  category: "tool",
+  cooldown: 0,
+  async apply({ item, options, report, debug, signal }) {
+    const original = item.toJSON() as TransformedData;
+    // 1. extract identifiers
+    const identifiers = extractIdentifiers(item);
+    if (options.reviveSnapshots && isSnapshotItem(item) && !identifiers.DOI && !identifiers.arXiv && !identifiers.PMID && !identifiers.PMCID) {
+      const snapshotCandidates = await discoverSnapshotIdentifiers(item, signal);
+      for (const candidate of snapshotCandidates) {
+        if (candidate.kind === "DOI" && !identifiers.DOI)
+          identifiers.DOI = candidate.value;
+        else if (candidate.kind === "arXiv" && !identifiers.arXiv)
+          identifiers.arXiv = candidate.value;
+        else if (candidate.kind === "PMID" && !identifiers.PMID)
+          identifiers.PMID = candidate.value;
+        else if (candidate.kind === "PMCID" && !identifiers.PMCID)
+          identifiers.PMCID = candidate.value;
+      }
+    }
+    const initialIdentifiers = { ...identifiers };
+    const originalDOI = normalizeDOI(identifiers.DOI);
+    const allowRelatedDOI = isPreprint(item, identifiers);
+    debug("Identifiers: ", identifiers);
+    if (Object.entries(identifiers).length === 0 && !String(item.getField("title") || "").trim() && !String(item.getField("publicationTitle") || "").trim()) {
+      report({
+        level: "error",
+        message: getString("rule-tool-update-metadata-no-identifiers"),
+      });
+      return;
+    }
+
+    function createServiceContext(service: typeof serviceRegistry.services[number]): MetadataContext {
+      return {
+        item,
+        identifiers,
+        isPreprint: isPreprint(item, identifiers),
+        debug: (msg: string) => debug(`[${service.id}] ${msg}`),
+        signal,
+      };
+    }
+
+    let errorMessage: string = "";
+
+    // 2. get available metadata services
+    const isAvailable = (service: typeof serviceRegistry.services[number]): boolean => {
+      try {
+        return (!service.supportedItemTypes || service.supportedItemTypes.includes(item.itemType)) && service.shouldApply(createServiceContext(service));
+      }
+      catch (error) {
+        signal?.throwIfAborted();
+        const message = error instanceof Error ? error.message : String(error);
+        debug(`Failed to check ${service.name}: ${message}`);
+        errorMessage += `${service.name}: ${message}\n`;
+        return false;
+      }
+    };
+    const orderedServices = "getOrderedMetadataServices" in serviceRegistry && typeof serviceRegistry.getOrderedMetadataServices === "function"
+      ? serviceRegistry.getOrderedMetadataServices(serviceRegistry.services)
+      : serviceRegistry.services;
+    const availableServices = orderedServices.filter(isAvailable);
+    debug(`Available services: ${availableServices.map(s => s.id).join(", ")}`);
+
+    // 3. update identidiers
+    for (const service of availableServices) {
+      signal?.throwIfAborted();
+      if (!service.updateIdentifiers)
+        continue;
+
+      const status = await service.updateIdentifiers?.(createServiceContext(service))
+        .catch((error) => {
+          signal?.throwIfAborted();
+          const message = error instanceof Error ? error.message : String(error);
+          debug(`Failed to update identifiers via ${service.name}: ${message}`);
+          errorMessage += `${service.name}: ${message}\n`;
+        });
+
+      // To save resources, we expect that once a service has obtained a general identifier,
+      // it will not attempt further operations.
+      // This can prevent some items that could have been updated via DOI service from being
+      // forced to use a rate-limited semantic scholar service.
+      // When the number of services increases further, we may be able to change this logic.
+      if (status) {
+        if (originalDOI && !allowRelatedDOI && normalizeDOI(identifiers.DOI) !== originalDOI) {
+          identifiers.DOI = originalDOI;
+          delete identifiers.SemanticScholarID;
+          report({ level: "warning", message: getString("rule-tool-update-metadata-identity-conflict", { args: { service: service.name } }) });
+        }
+        debug(`Identifiers updated via service ${service.name}: ${JSON.stringify(identifiers, null, 2)}`);
+        break;
+      }
+    }
+
+    // 3. request metadata and clean data
+    let data: TransformedData | null = null;
+    const sources = new Map<string, string>();
+    const successfulServices = new Set<string>();
+    const expectedType = (result: TransformedData) => options.mode === "all" && options.allowTypeChanged && result.itemType
+      && Zotero.ItemTypes.getID(result.itemType)
+      ? result.itemType
+      : item.itemType;
+    for (const service of orderedServices.filter(isAvailable)) {
+      signal?.throwIfAborted();
+      if (!service.fetch)
+        continue;
+
+      debug(`Service ${service.name} processing...`);
+
+      try {
+        const res = await service.fetch(createServiceContext(service));
+        signal?.throwIfAborted();
+        if (!res) {
+          debug(`Service ${service.name} failed: no response`);
+          continue;
+        }
+        const transformedData = normalizeMetadata(service.transform?.(res));
+        if (transformedData) {
+          const identity = metadataIdentity(original, identifiers, transformedData, service.lookup);
+          if (!identity) {
+            report({ level: "warning", message: getString("rule-tool-update-metadata-identity-conflict", { args: { service: service.name } }) });
+            continue;
+          }
+          // An echoed identifier alone is not a metadata update.
+          if (!Object.entries(transformedData).some(([field, value]) => !["DOI", "itemType", "libraryCatalog"].includes(field) && (Array.isArray(value) ? value.length > 0 : Boolean(value))))
+            continue;
+          const merged = mergeMetadata(data ?? {}, transformedData);
+          if (options.repairCreators && !hasAuthors(data?.creators) && hasAuthors(transformedData.creators)) {
+            merged.creators = transformedData.creators;
+            sources.set("creators", service.name);
+          }
+          for (const field of Object.keys(merged)) {
+            if (!sources.has(field) && (field === "creators" ? merged.creators?.length : merged[field as keyof TransformedData]))
+              sources.set(field, service.name);
+          }
+          data = merged;
+          successfulServices.add(service.name);
+          const missing = options.creatorsOnly
+            ? !hasAuthors(data.creators)
+            : metadataMissing(data, original, options.mode, expectedType(data)).length
+              || hasMissingJournalBiblio(data, original, options.mode, expectedType(data))
+              || (options.repairCreators && !hasAuthors(data.creators));
+          if (!missing)
+            break;
+        }
+      }
+      catch (error) {
+        signal?.throwIfAborted();
+        const message = error instanceof Error ? error.message : String(error);
+        debug(`Service ${service.name} failed: ${message}`);
+        errorMessage += `${service.name}: ${message}\n`;
+      }
+    }
+
+    // Resolve independently of article metadata; merge before the shared edit guards.
+    if (!options.creatorsOnly && isFieldValidForItemType("ISSN", item.itemType)
+      && !String(original.ISSN || "").trim() && !String(data?.ISSN || "").trim()) {
+      const resolved = await resolveMissingISSN({
+        doi: originalDOI,
+        publicationTitle: String(original.publicationTitle || data?.publicationTitle || ""),
+        signal,
+        debug,
+      });
+      signal?.throwIfAborted();
+      if (resolved) {
+        data = { ...data, ISSN: resolved.issn };
+        sources.set("ISSN", resolved.source);
+        successfulServices.add(resolved.source);
+      }
+    }
+
+    if (!data) {
+      if (options.tldrEnabled && !options.creatorsOnly) {
+        const tldrSuccess = await backfillItemTLDR(item, identifiers, {
+          target: options.tldrTarget,
+          extraFormat: options.tldrExtraFormat,
+          report,
+          debug,
+          signal,
+        });
+        if (tldrSuccess)
+          return;
+      }
+      report({
+        level: "error",
+        message: getString("rule-tool-update-metadata-no-data", { args: { errors: errorMessage } }),
+      });
+      return;
+    }
+    else if (errorMessage) {
+      report({
+        level: "warning",
+        message: getString("rule-tool-update-metadata-service-warning", { args: { service: [...successfulServices].join(", "), errors: errorMessage } }),
+      });
+    }
+
+    debug("Clean data: ", data);
+    const missing = options.creatorsOnly ? data.creators?.length ? [] : ["creators"] : metadataMissing(data, original, options.mode, expectedType(data));
+    if (options.repairCreators && !hasAuthors(data.creators) && !missing.includes("creators"))
+      missing.push("creators");
+    if (missing.length)
+      report({ level: "warning", message: getString("rule-tool-update-metadata-incomplete", { args: { fields: missing.join(", ") } }) });
+
+    const unchanged = (field: string, value: unknown) => {
+      if (metadataValuesEqual(field, (original as Record<string, unknown>)[field], value))
+        return true;
+      report({ level: "warning", message: getString("rule-tool-update-metadata-edited", { args: { field } }) });
+      return false;
+    };
+
+    const currentIdentifiers = extractIdentifiers(item);
+    const changedIdentifiers = [...new Set([...Object.keys(initialIdentifiers), ...Object.keys(currentIdentifiers)])]
+      .filter(key => initialIdentifiers[key as keyof typeof initialIdentifiers] !== currentIdentifiers[key as keyof typeof currentIdentifiers]);
+    if (changedIdentifiers.length) {
+      report({ level: "warning", message: getString("rule-tool-update-metadata-edited", { args: { field: changedIdentifiers.join(", ") } }) });
+      return;
+    }
+
+    // 4. apply field changes
+    if (!options.creatorsOnly)
+      applyItemType(item, data, options, original, unchanged, report, debug);
+    applyItemCreators(item, data, options, original, sources, unchanged, report, debug);
+    const { itemType, creators, ...fields } = data;
+    if (!options.creatorsOnly)
+      applyItemFields(item, fields, options, sources, unchanged, report, debug);
+
+    if (options.tldrEnabled && !options.creatorsOnly) {
+      await backfillItemTLDR(item, identifiers, {
+        target: options.tldrTarget,
+        extraFormat: options.tldrExtraFormat,
+        report,
+        debug,
+        signal,
+      });
+    }
+
+    // if (options.lint)
+    //   addon.runner.add({ rules: "standard", items: item });
+  },
+
+  prepare() {
+    return {
+      mode: getPref("rule.tool-update-metadata.option.mode") === "all" ? "all" : "blank",
+      allowTypeChanged: getPref("rule.tool-update-metadata.option.allow-type-changed"),
+      repairCreators: getPref("metadata.repairCreators" as any, true) === true,
+      tldrEnabled: getPref("workflow.tldrEnabled" as any, true) === true,
+      tldrTarget: getPref("workflow.tldrTarget" as any, "note") as "note" | "extra" | "both" | "abstract",
+      tldrExtraFormat: getPref("workflow.tldrExtraFormat" as any, "tldr") as "remark" | "tldr",
+      reviveSnapshots: getPref("workflow.reviveSnapshots" as any, true) === true,
+    };
+  },
+});

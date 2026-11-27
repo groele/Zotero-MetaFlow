@@ -1,6 +1,6 @@
 // autocorrect-disable
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getEnabledEasyScholarFields, mergeEasyScholarExtra } from "../modules/rules/tool-update-easyscholar";
+import { getEnabledEasyScholarFields, mergeEasyScholarExtra } from "../services/metadata/easyscholar-rule";
 import { clearEasyScholarCache, EASYSCHOLAR_DEFAULT_FIELDS, EASYSCHOLAR_FIELD_DEFINITIONS, fetchEasyScholarRank, getEasyScholarFieldMessageID, parseEasyScholarRank, testEasyScholarConnection } from "./easyscholar";
 
 describe("easyScholar data integration", () => {

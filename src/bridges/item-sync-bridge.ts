@@ -1,6 +1,10 @@
 import type { PluginKernel } from "../kernel/plugin-kernel";
 import type { BridgeModule, Disposable } from "../kernel/types";
 
+function isAddonAlive(): boolean {
+  return typeof addon === "undefined" || !addon?.data || Boolean(addon.data.alive);
+}
+
 export class ItemSyncBridge implements BridgeModule {
   public readonly id = "item-sync" as const;
   public readonly requires = ["journal-insights", "workspace-ui"] as const;
@@ -44,12 +48,16 @@ export class ItemSyncBridge implements BridgeModule {
       return undefined;
     this.pendingModifyFlush = Promise.resolve().then(async () => {
       this.pendingModifyFlush = undefined;
-      if (!this.active || !this.pendingModifyIDs.size)
+      if (!this.active || !isAddonAlive() || !this.pendingModifyIDs.size) {
+        if (!isAddonAlive())
+          this.pendingModifyIDs.clear();
         return;
+      }
       const batchIDs = [...this.pendingModifyIDs];
       this.pendingModifyIDs.clear();
       await this.kernel.ports.get("journal-insights")?.refreshPane(batchIDs);
-      this.kernel.ports.get("workspace-ui")?.refreshTldrRow();
+      if (this.active && isAddonAlive())
+        this.kernel.ports.get("workspace-ui")?.refreshTldrRow();
     });
     return this.pendingModifyFlush;
   }

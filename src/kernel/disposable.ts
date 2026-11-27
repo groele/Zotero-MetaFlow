@@ -59,6 +59,10 @@ export class DisposableStack {
     this.disposeAll(onError);
     this.disposed = false;
   }
+
+  reopen(): void {
+    this.disposed = false;
+  }
 }
 
 /**
@@ -135,5 +139,10 @@ export class AsyncDisposableStack {
   async reset(onError?: (error: unknown) => void): Promise<void> {
     await this.disposeAll(onError);
     this.disposed = false;
+  }
+
+  reopen(): void {
+    if (!this.disposingPromise)
+      this.disposed = false;
   }
 }

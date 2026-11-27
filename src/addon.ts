@@ -1,4 +1,4 @@
-import type { BatchResult } from "./modules/runner";
+import type { BatchResult } from "./services/lint/runner";
 import type { AutomaticWorkflow } from "./utils/automatic-workflow";
 import type { CoreCommand, CoreStage } from "./utils/core-workflow";
 import { config } from "../package.json";
@@ -11,7 +11,7 @@ import { ReviewDuplicatesDomainModule } from "./domains/review-duplicates/module
 import { WorkspaceUiDomainModule } from "./domains/workspace-ui/module";
 import hooks from "./hooks";
 import { PluginKernel } from "./kernel/plugin-kernel";
-import { LintRunner } from "./modules/runner";
+import { LintRunner } from "./services/lint/runner";
 import { ServiceContainer } from "./services/service-container";
 import { DEFAULT_PREFS } from "./utils/prefs";
 import { createZToolkit } from "./utils/ztoolkit";
@@ -65,6 +65,12 @@ class Addon {
     this.kernel = new PluginKernel({
       prefPrefix: config.prefsPrefix,
       prefDefaults: DEFAULT_PREFS as Record<string, unknown>,
+      onHostNotify: payload => this.hooks.onNotify(
+        payload.event,
+        payload.type,
+        [...payload.ids],
+        (payload.extraData ?? {}) as { [key: string]: unknown },
+      ),
       onError: (scope, error) => Zotero.debug(`[MetaFlow kernel:${scope}] ${String(error)}`),
     });
     this.services = new ServiceContainer(this.kernel);
@@ -82,6 +88,11 @@ class Addon {
     this.kernel.registerDomain(lintEngine);
     this.kernel.registerBridge(itemSyncBridge);
     this.kernel.registerBridge(automaticIngestBridge);
+
+    workspaceUi.ensurePortRegistered();
+    journalInsights.ensurePortRegistered();
+    reviewDuplicates.ensurePortRegistered();
+    lintEngine.ensurePortRegistered();
 
     this.runtimeModules = {
       workspaceUi,

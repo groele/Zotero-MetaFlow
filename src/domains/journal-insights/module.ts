@@ -1,15 +1,7 @@
 import type { PluginKernel } from "../../kernel/plugin-kernel";
 import type { Disposable, DomainModule } from "../../kernel/types";
-import type { BatchResult } from "../../modules/runner";
-import { registerExtraColumns, unregisterExtraColumns } from "../../modules/item-tree";
-import {
-  refreshJournalInsights,
-  refreshJournalPane,
-  registerJournalPane,
-  setJournalUpdateResult,
-  unregisterJournalPane,
-} from "../../modules/journal-pane";
-import { ToolUpdateEasyScholar } from "../../modules/rules/tool-update-easyscholar";
+import type { BatchResult } from "../../services/lint/runner";
+import { ToolUpdateEasyScholar } from "../../services/metadata/easyscholar-rule";
 import { cleanupResourcesSync } from "../../utils/cleanup";
 import { invalidateEasyScholarTitle } from "../../utils/easyscholar";
 import { redrawItemValues } from "../../utils/item-value-refresh";
@@ -19,6 +11,14 @@ import { loadJournalRankingIndex } from "../../utils/journal-ranking-index";
 import { logger } from "../../utils/logger";
 import { getPref } from "../../utils/prefs";
 import { invalidateSupplementalJournalTitle } from "../../utils/supplemental-journals";
+import { registerExtraColumns, unregisterExtraColumns } from "./item-tree";
+import {
+  refreshJournalInsights,
+  refreshJournalPane,
+  registerJournalPane,
+  setJournalUpdateResult,
+  unregisterJournalPane,
+} from "./journal-pane";
 
 function isAddonAlive(): boolean {
   return typeof addon === "undefined" || !addon?.data || addon.data.alive;
@@ -28,6 +28,8 @@ export class JournalInsightsDomainModule implements DomainModule {
   public readonly id = "journal-insights" as const;
 
   private active = false;
+  private generation = 0;
+  private portDisposer?: Disposable;
   private readonly journalRefreshes = new Map<number, Promise<unknown>>();
   private readonly disposers: Disposable[] = [];
 
@@ -41,20 +43,27 @@ export class JournalInsightsDomainModule implements DomainModule {
     await Promise.all([loadJournalInsights(), loadJournalRankingIndex()]);
   }
 
+  public ensurePortRegistered(): void {
+    if (this.portDisposer && this.kernel.ports.has("journal-insights"))
+      return;
+    this.portDisposer?.();
+    this.portDisposer = this.kernel.ports.register("journal-insights", {
+      refreshPane: itemIDs => refreshJournalPane(itemIDs),
+      refreshInsights: () => refreshJournalInsights(),
+      refreshItemJournal: (item, force = false) => this.refreshItemJournal(item, force),
+      setUpdateResult: (itemIDs, result) => setJournalUpdateResult(itemIDs, result as BatchResult | undefined),
+      syncExtraColumns: () => registerExtraColumns(),
+    });
+  }
+
   public start(): void {
     if (this.active)
       return;
     this.active = true;
     registerExtraColumns();
     registerJournalPane();
+    this.ensurePortRegistered();
     this.disposers.push(
-      this.kernel.ports.register("journal-insights", {
-        refreshPane: itemIDs => refreshJournalPane(itemIDs),
-        refreshInsights: () => refreshJournalInsights(),
-        refreshItemJournal: (item, force = false) => this.refreshItemJournal(item, force),
-        setUpdateResult: (itemIDs, result) => setJournalUpdateResult(itemIDs, result as BatchResult | undefined),
-        syncExtraColumns: () => registerExtraColumns(),
-      }),
       this.kernel.bus.on("journal:refresh-requested", ({ itemIDs, reloadInsights }) => {
         const task = reloadInsights
           ? refreshJournalInsights()
@@ -80,6 +89,7 @@ export class JournalInsightsDomainModule implements DomainModule {
     const existing = this.journalRefreshes.get(item.id);
     if (existing)
       return existing;
+    const gen = this.generation;
     const task = (async () => {
       if (force) {
         clearJournalInsights();
@@ -107,7 +117,7 @@ export class JournalInsightsDomainModule implements DomainModule {
             silent: true,
           })
         : undefined;
-      if (this.active && isAddonAlive() && !result?.cancelled) {
+      if (gen === this.generation && isAddonAlive() && !result?.cancelled) {
         await getJournalInsights(item, { queryAPI: true });
         await redrawItemValues([item.id]);
         setJournalUpdateResult([item.id], result);
@@ -121,7 +131,10 @@ export class JournalInsightsDomainModule implements DomainModule {
 
   public stop(): void {
     this.active = false;
+    this.generation++;
     this.journalRefreshes.clear();
+    this.portDisposer?.();
+    this.portDisposer = undefined;
     while (this.disposers.length > 0)
       this.disposers.pop()?.();
     cleanupResourcesSync([

@@ -8,12 +8,12 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.2.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.2.0)
+[![Version](https://img.shields.io/badge/version-17.3.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.0)
 
-17.2.0 completes the five-layer microkernel architecture alignment with BridgeFlow (`kernel` / `services` + host anti-corruption layer / `domains` / `bridges`), introducing centralized deduplicated preference/notifier observers, strict domain port isolation, and real `omni.ja` host contract smoke checks (`pnpm run smoke:host`), building on 17.1.2's hardened chemical formula engine and 17.1.0's adaptive metadata completion. See the [architecture migration plan](docs/architecture-migration-plan.md), [v17.1.2 release notes](docs/releases/metaflow-v17.1.2.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.3.0 completes the full five-layer domain & service migration aligned with BridgeFlow (100% of production logic moved into `kernel` / `services` / `domains` / `bridges` / `utils`, leaving only 7 single-line compatibility re-export shims in `src/modules/` for external E2E specs and build scripts), resolves 8 deep-audit lifecycle & observer edge cases, and adds isolated-profile headless Zotero launch & cleanup smoke verification (`pnpm run smoke:launch`). See the [v17.3.0 release notes](docs/releases/metaflow-v17.3.0.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-840%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 Installation](#installation) · [✨ Key Highlights](#highlights) · [🛠️ Feature Matrix](#features) · [🚀 Quick Start](#quick-start) · [⚙️ Settings Guide](#settings) · [🛡️ Architecture & Safety](#architecture) · [🌐 Compatibility](#compatibility) · [❓ Troubleshooting & FAQ](#troubleshooting) · [🔗 Flow Series](#series) · [📄 Credits & License](#license)
 

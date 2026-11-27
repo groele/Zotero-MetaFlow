@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { duplicatePairs } from "./modules/review/duplicate-matching";
-import { extractTLDRFromItem } from "./modules/rules/tool-update-metadata/tldr-content";
+import { duplicatePairs } from "./domains/review-duplicates/review/duplicate-matching";
+import { extractTLDRFromItem } from "./services/metadata/tool-update-metadata/tldr-content";
 import { ItemMutationJournal } from "./utils/item-mutation-journal";
 import { cachedJournalInsights, clearJournalInsights, loadJournalInsights } from "./utils/journal-insights";
 import { computeBatchRuleSignature, computeItemLintSignature } from "./utils/lint-fingerprint-cache";

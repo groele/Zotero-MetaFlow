@@ -114,20 +114,33 @@ test("five-layer unidirectional dependency boundaries", () => {
   const violations = [];
   for (const file of prodTsFiles) {
     const rel = relSrc(file);
+    if (rel.startsWith("modules/"))
+      continue;
     const d1 = rel.match(/^domains\/([^/]+)\//);
     for (const resolved of collectRelativeImports(file, read(file))) {
+      if (resolved.startsWith("modules/"))
+        violations.push(`${rel} -> ${resolved} (production source cannot import legacy src/modules shims)`);
       if (rel.startsWith("kernel/") && /^(?:services|domains|modules|bridges|utils)\//.test(resolved))
         violations.push(`${rel} -> ${resolved} (kernel cannot import upper layers)`);
-      if (rel.startsWith("services/") && /^(?:domains|modules|bridges)\//.test(resolved))
-        violations.push(`${rel} -> ${resolved} (services cannot import domains/modules/bridges)`);
-      if (rel.startsWith("modules/") && /^(?:domains|bridges)\//.test(resolved))
-        violations.push(`${rel} -> ${resolved} (modules cannot import domains/bridges)`);
+      if ((rel.startsWith("services/") || rel.startsWith("utils/")) && /^(?:domains|modules|bridges)\//.test(resolved))
+        violations.push(`${rel} -> ${resolved} (services/utils cannot import domains/modules/bridges)`);
       const d2 = resolved.match(/^domains\/([^/]+)\//);
       if (d1 && d2 && d1[1] !== d2[1])
         violations.push(`${rel} -> ${resolved} (cross-domain import forbidden)`);
       if (d1 && resolved.startsWith("bridges/"))
         violations.push(`${rel} -> ${resolved} (domains cannot import bridges)`);
     }
+  }
+  assert.deepEqual(violations, []);
+});
+test("compatibility shim purity in src/modules", () => {
+  const moduleFiles = sources.filter(f => relSrc(f).startsWith("modules/"));
+  assert.ok(moduleFiles.length <= 7, `Unexpected file count in src/modules: ${moduleFiles.length}`);
+  const violations = [];
+  for (const file of moduleFiles) {
+    const text = read(file);
+    if (!/^(?:export\s+\*\s+from\s+"[^"]+";\r?\n)+$/.test(text))
+      violations.push(`${relSrc(file)} must be a pure 1-line re-export shim`);
   }
   assert.deepEqual(violations, []);
 });
@@ -192,7 +205,9 @@ test("EventBus closure (zero dead or half-open events)", () => {
   });
   assert.deepEqual(broken, []);
 });
-test("host contract smoke script integrity", () => {
+test("host contract and headless launch smoke script integrity", () => {
   assert.ok(existsSync("scripts/smoke-zotero.mjs"), "Missing scripts/smoke-zotero.mjs");
+  assert.ok(existsSync("scripts/smoke-launch.mjs"), "Missing scripts/smoke-launch.mjs");
   assert.equal(pkg.scripts?.["smoke:host"], "node scripts/smoke-zotero.mjs --check-only");
+  assert.equal(pkg.scripts?.["smoke:launch"], "node scripts/smoke-zotero.mjs --launch");
 });

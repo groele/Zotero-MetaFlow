@@ -1,18 +1,18 @@
 import type { PluginKernel } from "../../kernel/plugin-kernel";
 import type { Disposable, DomainModule } from "../../kernel/types";
-import { closeCoreFeedback } from "../../modules/batch-feedback";
-import { closeCompletionNotices } from "../../modules/completion-notice";
-import { placeTLDRBeforeExtra, refreshTLDRInfoRow, registerInfoRows, unregisterInfoRows } from "../../modules/item-info-row";
-import { registerMenu, unregisterMenu } from "../../modules/menu";
-import { registerPrefs, unregisterPrefsWindows } from "../../modules/preference";
-import { RichTextToolBar } from "../../modules/rich-text";
-import { onShortcuts } from "../../modules/shortcut-actions";
-import { registerShortcuts } from "../../modules/shortcuts";
+import { closeCoreFeedback } from "../../services/lint/batch-feedback";
+import { closeCompletionNotices } from "../../services/lint/completion-notice";
 import { cleanupResources } from "../../utils/cleanup";
 import { closeAllDialogs } from "../../utils/dialog";
 import { closeJournalShareDialogs } from "../../utils/journal-card-share";
 import { initLocale, registerMainWindowLocale, unloadLocale, unregisterMainWindowLocale } from "../../utils/locale";
 import { logger } from "../../utils/logger";
+import { placeTLDRBeforeExtra, refreshTLDRInfoRow, registerInfoRows, unregisterInfoRows } from "./item-info-row";
+import { registerMenu, unregisterMenu } from "./menu";
+import { registerPrefs, unregisterPrefsWindows } from "./preference";
+import { RichTextToolBar } from "./rich-text";
+import { onShortcuts } from "./shortcut-actions";
+import { registerShortcuts } from "./shortcuts";
 
 interface WindowBinding {
   closed: boolean;
@@ -41,6 +41,17 @@ export class WorkspaceUiDomainModule implements DomainModule {
     return this.active;
   }
 
+  public ensurePortRegistered(): void {
+    if (this.portDisposer && this.kernel.ports.has("workspace-ui"))
+      return;
+    this.portDisposer?.();
+    this.portDisposer = this.kernel.ports.register("workspace-ui", {
+      refreshTldrRow: rowID => refreshTLDRInfoRow(rowID),
+      placeTldrRow: doc => placeTLDRBeforeExtra(doc),
+      executeShortcut: (hookName, win) => onShortcuts(hookName, win),
+    });
+  }
+
   public async startEarly(): Promise<void> {
     if (this.earlyStarted)
       return;
@@ -49,12 +60,7 @@ export class WorkspaceUiDomainModule implements DomainModule {
     const prefsReady = registerPrefs();
     registerMenu();
     this.active = true;
-    this.portDisposer?.();
-    this.portDisposer = this.kernel.ports.register("workspace-ui", {
-      refreshTldrRow: rowID => refreshTLDRInfoRow(rowID),
-      placeTldrRow: doc => placeTLDRBeforeExtra(doc),
-      executeShortcut: (hookName, win) => onShortcuts(hookName, win),
-    });
+    this.ensurePortRegistered();
     await prefsReady;
   }
 

@@ -18,6 +18,8 @@ export interface UnifiedPrefServiceOptions {
 
 type ObserverToken = symbol | string | number;
 
+const UNSET_PREF = Symbol("unset-pref");
+
 function resolveHostAdapter(): HostPrefsAdapter | null {
   const host = (globalThis as any).Zotero?.Prefs;
   return host && typeof host.get === "function" ? host : null;
@@ -166,8 +168,11 @@ export class UnifiedPrefService {
   get<T = unknown>(key: string, fallback?: T): T {
     const adapter = this.resolveBoundAdapter();
     const observed = this.hostObserverByKey.has(key);
-    if (observed && this.cache.has(key))
-      return this.cache.get(key) as T;
+    if (observed && this.cache.has(key)) {
+      const cached = this.cache.get(key);
+      const raw = cached === UNSET_PREF ? undefined : cached;
+      return (raw !== undefined ? raw : fallback !== undefined ? fallback : this.defaults[key]) as T;
+    }
 
     let raw: unknown;
     try {
@@ -177,16 +182,15 @@ export class UnifiedPrefService {
       raw = undefined;
     }
 
-    const resolved = (raw !== undefined ? raw : fallback !== undefined ? fallback : this.defaults[key]) as T;
-    if (observed && (raw !== undefined || fallback === undefined))
-      this.cache.set(key, resolved);
-    return resolved;
+    if (observed)
+      this.cache.set(key, raw === undefined ? UNSET_PREF : raw);
+    return (raw !== undefined ? raw : fallback !== undefined ? fallback : this.defaults[key]) as T;
   }
 
   set(key: string, value: unknown): void {
     const adapter = this.resolveBoundAdapter();
     if (this.hostObserverByKey.has(key))
-      this.cache.set(key, value);
+      this.cache.set(key, value === undefined ? UNSET_PREF : value);
     const prevWriting = this.writingKey;
     this.writingKey = key;
     try {

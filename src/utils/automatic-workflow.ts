@@ -1,4 +1,4 @@
-import type { BatchResult } from "../modules/runner";
+import type { BatchResult } from "../services/lint/runner";
 
 export type AutomaticPhase = "metadata" | "format" | "journal";
 export interface AutomaticWorkflow {

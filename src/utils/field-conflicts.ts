@@ -1,4 +1,4 @@
-import type { ApplyContext } from "../modules/rules/rule-base";
+import type { ApplyContext } from "../services/lint/rule-base";
 import { getString } from "./locale";
 
 /** Check the inputs and destination again after asynchronous work. */

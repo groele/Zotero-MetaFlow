@@ -1,4 +1,4 @@
-import type { BatchResult } from "../modules/runner";
+import type { BatchResult } from "../services/lint/runner";
 import type { RuntimeData, RuntimeItem, RuntimeRun, RuntimeStage } from "./runtime-data-policy";
 import { metaflowCacheDirectory, OPERATION_HISTORY_FILE } from "./cache-paths";
 import { boundRuntimeRuns, normalizeRuntimeRun, RUNTIME_HISTORY_BYTES } from "./runtime-data-policy";

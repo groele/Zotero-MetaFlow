@@ -4,6 +4,14 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 import zlib from "node:zlib";
+import { runHeadlessLaunchSmoke } from "./smoke-launch.mjs";
+
+export {
+  removeDirWithRetry,
+  resolveExtensionStage,
+  runHeadlessLaunchSmoke,
+  terminateProcessTree,
+} from "./smoke-launch.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
 const ZIP_EOCD_SIG = 0x06054B50;
@@ -27,11 +35,7 @@ const PLATFORM_CANDIDATES = Object.freeze({
   linux: ["/usr/bin/zotero", "/usr/lib/zotero/zotero"],
 });
 
-export function detectZoteroBinary(
-  envPath = process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH,
-  platform = process.platform,
-  existsFn = fs.existsSync,
-) {
+export function detectZoteroBinary(envPath = process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH, platform = process.platform, existsFn = fs.existsSync) {
   if (typeof envPath === "string" && envPath.trim().length > 0) {
     const trimmed = envPath.trim();
     if (existsFn(trimmed))
@@ -168,10 +172,7 @@ export function parseIniText(iniText) {
 export function verifyZoteroOmniContracts(entriesMap, platformIniText = null, applicationIniText = null) {
   const platformIni = parseIniText(platformIniText);
   const appIni = parseIniText(applicationIniText);
-  const hostInfo = {
-    zoteroVersion: appIni.App?.Version ?? null,
-    geckoMilestone: platformIni.Build?.Milestone ?? null,
-  };
+  const hostInfo = { zoteroVersion: appIni.App?.Version ?? null, geckoMilestone: platformIni.Build?.Milestone ?? null };
   const contracts = HOST_CONTRACTS.map((spec) => {
     const matchedEntry = spec.entries.find(c => entriesMap.has(c)) ?? null;
     const entry = matchedEntry ?? spec.entries[0];
@@ -191,22 +192,36 @@ export function verifyZoteroOmniContracts(entriesMap, platformIniText = null, ap
   return { ok: passedCount === contracts.length, passedCount, failedCount: contracts.length - passedCount, hostInfo, contracts };
 }
 
-function parseCliArgs(argv) {
-  const args = { checkOnly: false, json: false, requireHost: false, zoteroBin: null };
+export function parseCliArgs(argv) {
+  const args = { checkOnly: false, launch: false, timeoutMs: 12000, json: false, requireHost: false, zoteroBin: null };
   for (const token of argv) {
-    if (token === "--check-only")
+    if (token === "--check-only") {
       args.checkOnly = true;
-    else if (token === "--json")
+    }
+    else if (token === "--launch") {
+      args.launch = true;
+    }
+    else if (token === "--json") {
       args.json = true;
-    else if (token === "--require-host")
+    }
+    else if (token === "--require-host") {
       args.requireHost = true;
-    else if (token.startsWith("--zotero-bin="))
+    }
+    else if (token.startsWith("--timeout=")) {
+      const parsed = Number.parseInt(token.slice("--timeout=".length), 10);
+      if (Number.isFinite(parsed) && parsed > 0)
+        args.timeoutMs = parsed;
+    }
+    else if (token.startsWith("--zotero-bin=")) {
       args.zoteroBin = token.slice("--zotero-bin=".length).trim() || null;
+    }
   }
+  if (args.checkOnly)
+    args.launch = false;
   return args;
 }
 
-function runCli() {
+async function runCli() {
   const args = parseCliArgs(process.argv.slice(2));
   const binaryPath = detectZoteroBinary(args.zoteroBin ?? process.env.ZOTERO_PLUGIN_ZOTERO_BIN_PATH);
   if (!binaryPath) {
@@ -220,39 +235,46 @@ function runCli() {
 
   const paths = resolveZoteroHostPaths(binaryPath);
   if (!paths.omniJaPath) {
-    console.error(`[FAIL] Zotero omni.ja not found near ${binaryPath}`);
+    const message = `Zotero omni.ja not found near ${binaryPath}`;
+    if (args.json)
+      console.log(JSON.stringify({ status: "fail", message, binaryPath }, null, 2));
+    else
+      console.error(`[FAIL] ${message}`);
     process.exit(1);
   }
 
-  const platformIniText = paths.platformIniPath ? fs.readFileSync(paths.platformIniPath, "utf8") : null;
-  const applicationIniText = paths.applicationIniPath ? fs.readFileSync(paths.applicationIniPath, "utf8") : null;
   const entriesMap = readZipEntries(fs.readFileSync(paths.omniJaPath), HOST_CONTRACTS.flatMap(s => s.entries));
-  const report = verifyZoteroOmniContracts(entriesMap, platformIniText, applicationIniText);
+  const report = verifyZoteroOmniContracts(
+    entriesMap,
+    paths.platformIniPath ? fs.readFileSync(paths.platformIniPath, "utf8") : null,
+    paths.applicationIniPath ? fs.readFileSync(paths.applicationIniPath, "utf8") : null,
+  );
+  const launch = args.launch ? await runHeadlessLaunchSmoke(paths.binaryPath, args.timeoutMs) : null;
+  const overallOk = report.ok && (!launch || launch.ok);
 
   if (args.json) {
-    console.log(JSON.stringify({ status: report.ok ? "pass" : "fail", ...paths, ...report }, null, 2));
-    process.exit(report.ok ? 0 : 1);
+    console.log(JSON.stringify({ status: overallOk ? "pass" : "fail", ...paths, ...report, launch }, null, 2));
+    process.exit(overallOk ? 0 : 1);
   }
 
-  console.log("Zotero MetaFlow Host Contract Smoke Check");
-  console.log(`  Binary : ${paths.binaryPath}`);
-  console.log(`  Archive: ${paths.omniJaPath}`);
-  console.log(`  Version: Zotero ${report.hostInfo.zoteroVersion ?? "unknown"} (Gecko ${report.hostInfo.geckoMilestone ?? "unknown"})`);
-  console.log("");
-  for (const contract of report.contracts) {
-    const counts = `${contract.matchedSymbols.length}/${contract.requiredSymbols.length} symbols`;
-    if (contract.ok) {
-      console.log(`[PASS] ${contract.id.padEnd(20)} ${contract.entry} (${counts})`);
-    }
-    else {
-      const detail = contract.foundEntry ? `missing: ${contract.missingSymbols.join(", ")}` : "entry not found";
-      console.error(`[FAIL] ${contract.id.padEnd(20)} ${contract.entry} (${counts}; ${detail})`);
-    }
+  console.log(`Zotero MetaFlow Host Contract Smoke Check\n  Binary : ${paths.binaryPath}\n  Archive: ${paths.omniJaPath}\n  Version: Zotero ${report.hostInfo.zoteroVersion ?? "unknown"} (Gecko ${report.hostInfo.geckoMilestone ?? "unknown"})\n`);
+  for (const c of report.contracts) {
+    const counts = `${c.matchedSymbols.length}/${c.requiredSymbols.length} symbols`;
+    console[c.ok ? "log" : "error"](`[${c.ok ? "PASS" : "FAIL"}] ${c.id.padEnd(20)} ${c.entry} (${counts}${c.ok ? "" : `; ${c.foundEntry ? `missing: ${c.missingSymbols.join(", ")}` : "entry not found"}`})`);
   }
-  console.log("");
-  console.log(`Summary: ${report.passedCount}/${report.contracts.length} host contracts passed.`);
-  process.exit(report.ok ? 0 : 1);
+  if (launch) {
+    const detail = launch.timedOut
+      ? `alive through ${args.timeoutMs}ms window (stage=${launch.stageMode}, addonSeen=${launch.addonSeen}, addonActive=${launch.addonActive}, treeKilled=${launch.treeKilled}, cleaned=${launch.cleanupRemoved})`
+      : `exit=${launch.exitCode} (stage=${launch.stageMode}, addonSeen=${launch.addonSeen}, addonActive=${launch.addonActive}, cleaned=${launch.cleanupRemoved})`;
+    console[launch.ok ? "log" : "error"](`[${launch.ok ? "PASS" : "FAIL"}] ${"headlessLaunch".padEnd(20)} isolated profile (${detail})`);
+    for (const errLine of launch.pluginErrors)
+      console.error(`       pluginError: ${errLine}`);
+    if (launch.cleanupWarning)
+      console.warn(`[WARN] ${launch.cleanupWarning}`);
+  }
+  console.log(`\nSummary: ${report.passedCount}/${report.contracts.length} host contracts passed.`);
+  process.exit(overallOk ? 0 : 1);
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(__filename))
-  runCli();
+  void runCli();

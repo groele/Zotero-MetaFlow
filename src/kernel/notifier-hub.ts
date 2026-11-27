@@ -7,6 +7,7 @@ export interface UnifiedNotifierHubOptions {
   observerID?: string;
   priority?: number;
   isAlive?: () => boolean;
+  onHostNotify?: (payload: NotifierEventPayload) => void | Promise<void>;
   onError?: (error: unknown) => void;
 }
 
@@ -18,6 +19,7 @@ export class UnifiedNotifierHub {
   private readonly observerID: string;
   private readonly priority: number;
   private readonly isAlive?: () => boolean;
+  private readonly onHostNotify?: (payload: NotifierEventPayload) => void | Promise<void>;
   private readonly onError?: (error: unknown) => void;
   private readonly listeners = new Map<string, Set<NotifierCallback>>();
   private registeredID: string | number | null = null;
@@ -28,6 +30,7 @@ export class UnifiedNotifierHub {
     this.observerID = options.observerID ?? "metaref";
     this.priority = options.priority ?? 666;
     this.isAlive = options.isAlive;
+    this.onHostNotify = options.onHostNotify;
     this.onError = options.onError;
   }
 
@@ -59,7 +62,10 @@ export class UnifiedNotifierHub {
             ids: Array.isArray(ids) ? [...ids] : [],
             extraData,
           };
-          void this.dispatch(payload).catch((error) => {
+          const task = this.onHostNotify
+            ? Promise.resolve().then(() => this.onHostNotify!(payload))
+            : this.dispatch(payload);
+          void task.catch((error) => {
             this.onError?.(error);
           });
         },
@@ -123,6 +129,15 @@ export class UnifiedNotifierHub {
     }
     this.registeredID = null;
     this.started = false;
+  }
+
+  restart(): void {
+    this.stop();
+    this.start();
+  }
+
+  dispose(): void {
+    this.stop();
     this.listeners.clear();
   }
 }
