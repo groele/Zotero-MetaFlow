@@ -75,18 +75,18 @@ describe("startup cancellation and failure cleanup", () => {
     expect(mocks.register).not.toHaveBeenCalled();
   });
 
-  it("does not register columns after disable during data loading", async () => {
+  it("does not register columns or notifier after disable during data loading", async () => {
     let ready!: () => void;
     mocks.load.mockImplementation(() => new Promise<void>((resolve) => {
       ready = resolve;
     }));
     const pending = hooks.onStartup();
     await vi.waitFor(() => expect(mocks.load).toHaveBeenCalledOnce());
-    expect(mocks.register).toHaveBeenCalledTimes(4);
+    expect(mocks.register).toHaveBeenCalledTimes(3);
     await hooks.onShutdown();
     ready();
     await pending;
-    expect(mocks.register).toHaveBeenCalledTimes(4);
+    expect(mocks.register).toHaveBeenCalledTimes(3);
   });
 
   it("cleans a failed startup even if host unregister operations throw", async () => {
@@ -107,7 +107,7 @@ describe("startup cancellation and failure cleanup", () => {
     expect((Zotero as any).MetaRef).toBe(replacement);
   });
 
-  it("coalesces concurrent modify notifications and invalidates lint fingerprint cache", async () => {
+  it("ignores notifications before kernel.start() and coalesces after startup", async () => {
     const item = { id: 42, version: 1, getField: () => "2026", toJSON: () => ({ title: "Test" }), getAttachments: () => [] } as unknown as Zotero.Item;
     const rule = { id: "r1", category: "rule", apply: () => {} } as any;
     const optionsMap = new Map([["r1", {}]]);
@@ -115,6 +115,11 @@ describe("startup cancellation and failure cleanup", () => {
     recordCleanLintFingerprint(sig);
     expect(getLintFingerprintStats().size).toBe(1);
 
+    await hooks.onNotify("modify", "item", [42], {});
+    expect(getLintFingerprintStats().size).toBe(1);
+    expect(refreshJournalPane).not.toHaveBeenCalled();
+
+    await hooks.onStartup();
     await Promise.all([
       hooks.onNotify("modify", "item", [42], {}),
       hooks.onNotify("modify", "item", [42, 43], {}),
@@ -123,6 +128,87 @@ describe("startup cancellation and failure cleanup", () => {
     expect(refreshJournalPane).toHaveBeenCalledOnce();
     expect(refreshJournalPane).toHaveBeenCalledWith([42, 43]);
     expect(refreshTLDRInfoRow).toHaveBeenCalledOnce();
+  });
+
+  it("does not revive stopped bridges or ports when a domain is disabled", async () => {
+    const prefs = new Map<string, unknown>([
+      ["extensions.zotero.metaref.domain.journal", true],
+      ["extensions.zotero.metaref.domain.workspace", true],
+      ["extensions.zotero.metaref.domain.lint", true],
+    ]);
+    const observers = new Map<string | number | symbol, { key: string; handler: () => void }>();
+    const prefAdapter = {
+      get: (key: string) => prefs.get(key),
+      set: (key: string, value: unknown) => {
+        prefs.set(key, value);
+        for (const entry of observers.values()) {
+          if (entry.key === key)
+            entry.handler();
+        }
+      },
+      clear: (key: string) => {
+        prefs.delete(key);
+      },
+      registerObserver: (key: string, handler: () => void) => {
+        const token = Symbol(key);
+        observers.set(token, { key, handler });
+        return token;
+      },
+      unregisterObserver: (token: string | number | symbol) => {
+        observers.delete(token);
+      },
+    };
+    const { PluginKernel } = await import("./kernel/plugin-kernel");
+    const { ServiceContainer } = await import("./services/service-container");
+    const { WorkspaceUiDomainModule } = await import("./domains/workspace-ui/module");
+    const { JournalInsightsDomainModule } = await import("./domains/journal-insights/module");
+    const { ReviewDuplicatesDomainModule } = await import("./domains/review-duplicates/module");
+    const { LintEngineDomainModule } = await import("./domains/lint-engine/module");
+    const { ItemSyncBridge } = await import("./bridges/item-sync-bridge");
+    const { AutomaticIngestBridge } = await import("./bridges/automatic-ingest-bridge");
+
+    const kernel = new PluginKernel({ prefAdapter });
+    const services = new ServiceContainer(kernel);
+    const workspaceUi = new WorkspaceUiDomainModule(kernel);
+    const journalInsights = new JournalInsightsDomainModule(kernel);
+    const reviewDuplicates = new ReviewDuplicatesDomainModule(kernel);
+    const lintEngine = new LintEngineDomainModule(kernel, services);
+    const itemSyncBridge = new ItemSyncBridge(kernel);
+    const automaticIngestBridge = new AutomaticIngestBridge(kernel);
+    kernel.registerDomain(workspaceUi);
+    kernel.registerDomain(journalInsights);
+    kernel.registerDomain(reviewDuplicates);
+    kernel.registerDomain(lintEngine);
+    kernel.registerBridge(itemSyncBridge);
+    kernel.registerBridge(automaticIngestBridge);
+
+    vi.stubGlobal("addon", {
+      data: { alive: true, config: { addonID: "metaflow@groele", addonInstance: "MetaRef" } },
+      runner: { stop: vi.fn() },
+      kernel,
+      services,
+      runtimeModules: { workspaceUi, journalInsights, reviewDuplicates, lintEngine, itemSyncBridge, automaticIngestBridge },
+      hooks,
+    });
+
+    await hooks.onStartup();
+    expect(kernel.isBridgeActive("item-sync")).toBe(true);
+    expect(kernel.ports.has("journal-insights")).toBe(true);
+
+    (journalInsights as unknown as { enabledPref?: string }).enabledPref = "domain.journal";
+    prefAdapter.set("extensions.zotero.metaref.domain.journal", false);
+    await kernel.syncDomainStates();
+    expect(journalInsights.isActive()).toBe(false);
+    expect(kernel.isBridgeActive("item-sync")).toBe(false);
+    expect(kernel.ports.has("journal-insights")).toBe(false);
+
+    await hooks.onNotify("modify", "item", [77], {});
+    expect(kernel.isBridgeActive("item-sync")).toBe(false);
+    expect(kernel.ports.has("journal-insights")).toBe(false);
+    expect(refreshJournalPane).not.toHaveBeenCalled();
+
+    await hooks.onRefreshJournal({ id: 77, deleted: false, itemType: "journalArticle" } as unknown as Zotero.Item, true);
+    expect(refreshJournalPane).not.toHaveBeenCalled();
   });
 
   it("initializes each existing main window only once during startup", async () => {

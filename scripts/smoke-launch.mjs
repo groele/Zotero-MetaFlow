@@ -147,6 +147,9 @@ export async function runHeadlessLaunchSmoke(binaryPath, timeoutMs = 12000, opti
   const stageCheck = resolveExtensionStage(repoRoot, { existsFn: options.existsFn });
   const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "zotero-metaflow-smoke-"));
   const platform = options.platform ?? process.platform;
+  const spawnFn = options.spawnFn ?? spawn;
+  const terminateFn = options.terminateFn ?? terminateProcessTree;
+  const inspectFn = options.inspectFn ?? inspectExtensionsState;
   const spawnArgs = typeof options.buildArgs === "function"
     ? options.buildArgs(profileDir)
     : ["-profile", profileDir, "-headless", "-no-remote", "-ZoteroDebugText"];
@@ -201,7 +204,7 @@ export async function runHeadlessLaunchSmoke(binaryPath, timeoutMs = 12000, opti
       };
 
       try {
-        child = spawn(binaryPath, spawnArgs, {
+        child = spawnFn(binaryPath, spawnArgs, {
           stdio: ["ignore", "pipe", "pipe"],
           windowsHide: true,
           detached: platform !== "win32",
@@ -226,16 +229,22 @@ export async function runHeadlessLaunchSmoke(binaryPath, timeoutMs = 12000, opti
       });
       timer = setTimeout(() => {
         timedOut = true;
-        treeKilled = terminateProcessTree(child, { platform });
+        treeKilled = terminateFn(child, { platform });
         killWaitTimer = setTimeout(finish, 3000);
       }, timeoutMs);
     });
 
     const combinedOutput = chunks.join("").trim();
-    const { addonSeen, addonActive } = inspectExtensionsState(profileDir, stageCheck.addonId);
+    const { addonSeen, addonActive } = inspectFn(profileDir, stageCheck.addonId);
     const pluginErrors = scanPluginErrors(combinedOutput);
-    const ok = !spawnError && (timedOut || exitCode === 0) && pluginErrors.length === 0 && (!addonSeen || addonActive);
     const cleanup = await removeDirWithRetry(profileDir, options.cleanupOptions);
+    const ok = !spawnError
+      && (timedOut || exitCode === 0)
+      && (!timedOut || treeKilled)
+      && pluginErrors.length === 0
+      && addonSeen
+      && addonActive
+      && cleanup.removed;
 
     return {
       ok,

@@ -95,20 +95,33 @@ export const IdentifiersTranslateService = defineService({
   transform,
 });
 
+function isAllowedHttpURL(value?: string): string | undefined {
+  if (!value)
+    return undefined;
+  try {
+    const parsed = new URL(value.trim());
+    return (parsed.protocol === "https:" || parsed.protocol === "http:") ? parsed.href : undefined;
+  }
+  catch {
+    return undefined;
+  }
+}
+
 export const URLTranslateService = defineService({
   id: "url-translate-service",
   lookup: "url",
   name: "Web Translate Service",
   cooldown: 100,
-  shouldApply: ({ identifiers }) => !!identifiers.URL,
+  shouldApply: ({ identifiers }) => Boolean(isAllowedHttpURL(identifiers.URL)),
 
   fetch: async ({ identifiers, signal }) => {
-    if (!identifiers.URL)
+    const safeUrl = isAllowedHttpURL(identifiers.URL);
+    if (!safeUrl)
       return;
 
     const translate = new Zotero.Translate.Web();
     return runTranslationOperation(async (active) => {
-      const doc = await Zotero.HTTP.processDocuments(identifiers.URL!, doc => doc);
+      const doc = await Zotero.HTTP.processDocuments(safeUrl, doc => doc);
       active.throwIfAborted();
       translate.setDocument(doc[0]);
       return translateItem(translate, active);

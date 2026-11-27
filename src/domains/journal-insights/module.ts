@@ -83,6 +83,8 @@ export class JournalInsightsDomainModule implements DomainModule {
   }
 
   public refreshItemJournal(item: Zotero.Item, force = false): Promise<unknown> {
+    if (!this.active || !isAddonAlive())
+      return Promise.resolve();
     if (!item || item.deleted || !["journalArticle", "conferencePaper"].includes(item.itemType))
       return Promise.resolve();
     if (!force && (!hasEnabledJournalMetrics() || !item.isEditable()))
@@ -118,14 +120,17 @@ export class JournalInsightsDomainModule implements DomainModule {
             silent: true,
           })
         : undefined;
-      if (gen === this.generation && isAddonAlive() && !result?.cancelled) {
+      if (this.active && gen === this.generation && isAddonAlive() && !result?.cancelled) {
         await getJournalInsights(item, { queryAPI: true });
         await redrawItemValues([item.id]);
         setJournalUpdateResult([item.id], result);
         await refreshJournalPane([item.id]);
       }
       return result;
-    })().finally(() => this.journalRefreshes.delete(item.id));
+    })().finally(() => {
+      if (this.journalRefreshes.get(item.id) === task)
+        this.journalRefreshes.delete(item.id);
+    });
     this.journalRefreshes.set(item.id, task);
     return task;
   }

@@ -1,6 +1,8 @@
+import { EventEmitter } from "node:events";
+import fs from "node:fs";
 import { describe, expect, it, vi } from "vitest";
 // @ts-expect-error -- ESM Node script helper under scripts/
-import { parseCliArgs, removeDirWithRetry, resolveExtensionStage, terminateProcessTree } from "../scripts/smoke-zotero.mjs";
+import { parseCliArgs, removeDirWithRetry, resolveExtensionStage, runHeadlessLaunchSmoke, terminateProcessTree } from "../scripts/smoke-zotero.mjs";
 
 describe("smoke-zotero and smoke-launch harness", () => {
   it("parses --launch, --timeout, and forces launch=false when --check-only is set", () => {
@@ -62,5 +64,79 @@ describe("smoke-zotero and smoke-launch harness", () => {
     expect(xpiStage.mode).toBe("xpi");
 
     expect(() => resolveExtensionStage("/repo", { existsFn: () => false })).toThrow(/pnpm run build/);
+  });
+
+  it("requires addonSeen, addonActive, treeKilled (on timeout), and cleanupRemoved in runHeadlessLaunchSmoke", async () => {
+    const makeSpawn = (timeoutExitCode = 0) => () => {
+      const child = new EventEmitter() as EventEmitter & { pid: number; stdout: EventEmitter; stderr: EventEmitter; kill: () => void };
+      child.pid = 9999;
+      child.stdout = new EventEmitter();
+      child.stderr = new EventEmitter();
+      child.kill = () => {};
+      setTimeout(() => child.emit("close", timeoutExitCode, null), 10);
+      return child;
+    };
+    const existsFn = (p: string) => p.replaceAll("\\", "/").endsWith(".scaffold/build/addon/manifest.json");
+
+    const missingAddon = await runHeadlessLaunchSmoke("zotero", 5, {
+      existsFn,
+      spawnFn: makeSpawn(0),
+      terminateFn: () => true,
+      inspectFn: () => ({ addonSeen: false, addonActive: false }),
+    });
+    expect(missingAddon.ok).toBe(false);
+
+    const failedKill = await runHeadlessLaunchSmoke("zotero", 5, {
+      existsFn,
+      spawnFn: () => {
+        const child = new EventEmitter() as EventEmitter & { pid: number; stdout: EventEmitter; stderr: EventEmitter; kill: () => void };
+        child.pid = 9999;
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        child.kill = () => {};
+        return child;
+      },
+      terminateFn: () => false,
+      inspectFn: () => ({ addonSeen: true, addonActive: true }),
+    });
+    expect(failedKill.timedOut).toBe(true);
+    expect(failedKill.treeKilled).toBe(false);
+    expect(failedKill.ok).toBe(false);
+
+    let createdProfileDir = "";
+    try {
+      const failedCleanup = await runHeadlessLaunchSmoke("zotero", 50, {
+        existsFn,
+        buildArgs: (dir: string) => {
+          createdProfileDir = dir;
+          return ["-profile", dir];
+        },
+        spawnFn: makeSpawn(0),
+        terminateFn: () => true,
+        inspectFn: () => ({ addonSeen: true, addonActive: true }),
+        cleanupOptions: {
+          maxAttempts: 1,
+          rmSyncFn: () => {
+            const err = new Error("locked") as Error & { code: string };
+            err.code = "EBUSY";
+            throw err;
+          },
+        },
+      });
+      expect(failedCleanup.cleanupRemoved).toBe(false);
+      expect(failedCleanup.ok).toBe(false);
+    }
+    finally {
+      if (createdProfileDir)
+        fs.rmSync(createdProfileDir, { recursive: true, force: true });
+    }
+
+    const healthy = await runHeadlessLaunchSmoke("zotero", 50, {
+      existsFn,
+      spawnFn: makeSpawn(0),
+      terminateFn: () => true,
+      inspectFn: () => ({ addonSeen: true, addonActive: true }),
+    });
+    expect(healthy.ok).toBe(true);
   });
 });

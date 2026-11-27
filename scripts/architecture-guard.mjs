@@ -102,10 +102,18 @@ test("deterministic XPI paths, timestamps and checksums", () => {
 });
 function collectRelativeImports(file, text) {
   const specs = [];
-  for (const match of text.matchAll(/\bfrom\s+["']([^"']+)["']/g)) {
-    const spec = match[1];
-    if (spec.startsWith("."))
-      specs.push(path.relative("src", path.resolve(path.dirname(file), spec)).replaceAll("\\", "/"));
+  const patterns = [
+    /\bfrom\s+["']([^"']+)["']/g,
+    /\bimport\s+["']([^"']+)["']/g,
+    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
+    /\brequire\s*\(\s*["']([^"']+)["']\s*\)/g,
+  ];
+  for (const pattern of patterns) {
+    for (const match of text.matchAll(pattern)) {
+      const spec = match[1];
+      if (spec.startsWith("."))
+        specs.push(path.relative("src", path.resolve(path.dirname(file), spec)).replaceAll("\\", "/"));
+    }
   }
   return specs;
 }

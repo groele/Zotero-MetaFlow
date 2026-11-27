@@ -26,7 +26,7 @@ export function showNativeNotice(message: string, title = "Zotero MetaFlow") {
     }
   }
   catch (error) {
-    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+    logger.debug("ztoolkit.ProgressWindow notice failed", error);
   }
 
   try {
@@ -39,7 +39,7 @@ export function showNativeNotice(message: string, title = "Zotero MetaFlow") {
     }
   }
   catch (error) {
-    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+    logger.debug("ztoolkit.ProgressWindow notice failed", error);
   }
 }
 
@@ -140,7 +140,7 @@ async function copyTextToClipboard(win: Window | null | undefined, text: string)
     }
   }
   catch (error) {
-    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+    logger.debug("ztoolkit.ProgressWindow notice failed", error);
   }
 
   const nav = win?.navigator as any;

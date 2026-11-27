@@ -51,8 +51,10 @@ export async function dedupeAndRegisterPreferencePane(spec: PreferencePaneSpec):
   }
 
   if (current) {
-    if (spec.isAlive?.() === false)
+    if (spec.isAlive?.() === false) {
       api.unregister?.(current.id);
+      return "";
+    }
     return current.id;
   }
 

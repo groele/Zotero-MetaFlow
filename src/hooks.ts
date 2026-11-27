@@ -1,4 +1,5 @@
 import type { AddonRuntimeModules } from "./addon";
+import { version } from "../package.json";
 import { AutomaticIngestBridge } from "./bridges/automatic-ingest-bridge";
 import { ItemSyncBridge } from "./bridges/item-sync-bridge";
 import { JournalInsightsDomainModule } from "./domains/journal-insights/module";
@@ -96,7 +97,7 @@ async function onStartup(): Promise<void> {
     migrateGreenFrogPreferences();
     kernel.init({
       id: addon.data.config?.addonID ?? "metaflow@groele",
-      version: "",
+      version,
       rootURI: typeof rootURI === "string" ? rootURI : "",
     });
     modules.workspaceUi.ensurePortRegistered();
@@ -106,7 +107,6 @@ async function onStartup(): Promise<void> {
     services.cache.startMaintenance();
     services.init();
     const prefsReady = modules.workspaceUi.startEarly();
-    registerNotifier();
     modules.reviewDuplicates.start();
     await Promise.all([prefsReady, modules.journalInsights.preload()]);
     if (!addon.data.alive)
@@ -119,6 +119,9 @@ async function onStartup(): Promise<void> {
     modules.workspaceUi.startInfoRows();
     modules.lintEngine.start();
     await kernel.start();
+    if (!addon.data.alive || kernel.isDisposed)
+      return;
+    registerNotifier();
   }
   catch (error) {
     await onShutdown();
@@ -191,17 +194,10 @@ async function onNotify(
 ): Promise<void> {
   if (typeof addon !== "undefined" && addon?.data && !addon.data.alive)
     return;
-  logger.debug("notify", event, type, ids, extraData);
-  const { kernel, services, modules } = getRuntimeBundle();
-  if (kernel.isDisposed)
+  const { kernel, modules } = getRuntimeBundle();
+  if (!kernel.isStarted || kernel.isDisposed)
     return;
-  services.init();
-  modules.workspaceUi.ensurePortRegistered();
-  modules.journalInsights.ensurePortRegistered();
-  modules.reviewDuplicates.ensurePortRegistered();
-  modules.lintEngine.ensurePortRegistered();
-  modules.itemSyncBridge.start();
-  modules.automaticIngestBridge.start();
+  logger.debug("notify", event, type, ids, extraData);
 
   await kernel.notifier.dispatch({ event, type, ids: [...ids], extraData });
   if (event === "modify" && type === "item")

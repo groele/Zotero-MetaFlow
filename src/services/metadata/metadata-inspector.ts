@@ -4,7 +4,7 @@ import type { ArxivRecord } from "./tool-update-metadata/services/arxiv-service"
 import type { TransformedData } from "./tool-update-metadata/services/base-service";
 import { requestCachedGET } from "../../utils/http";
 import { getString } from "../../utils/locale";
-import { waitForOperation } from "../../utils/rule-execution";
+import { createAbortController, waitForOperation } from "../../utils/rule-execution";
 import { isFieldValidForItemType } from "../../utils/zotero";
 import { identifiersFromText, identityConflicts, isbnEquivalent, normalizeArxiv, normalizeISBN, reviewChanges } from "./review-policy";
 import { discoverSnapshotIdentifiers, isSnapshotItem, reviveProposal } from "./snapshot-reviver";
@@ -64,11 +64,6 @@ export async function discoverIdentifiers(item: Zotero.Item, signal?: AbortSigna
   }
   signal?.throwIfAborted();
   return [...new Map(candidates.map(candidate => [`${candidate.kind}:${candidate.value}`, candidate])).values()].slice(0, 20);
-}
-
-function createAbortController(): AbortController {
-  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
-  return new Controller();
 }
 
 async function arxivRecord(item: Zotero.Item, value: string, latest: boolean, signal?: AbortSignal) {
@@ -180,6 +175,7 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
     let matched: TransformedData | undefined;
     let matchedSource = "";
     let mismatched: { data: TransformedData; source: string } | undefined;
+    let usedMismatched = false;
     let lastError: unknown;
     let triedS2 = false;
 
@@ -197,9 +193,9 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
     const fetchService = async (svc: any, label?: string, checkTitle = false, extraIds: Identifiers = {}) => {
       if (!svc?.fetch)
         return;
+      const res = await svc.fetch({ item, identifiers: { DOI: value, ...extraIds }, isPreprint: false, debug: () => {}, signal });
       if (svc.id === "semantic-scholar-service")
         triedS2 = true;
-      const res = await svc.fetch({ item, identifiers: { DOI: value, ...extraIds }, isPreprint: false, debug: () => {}, signal });
       const data = normalizeMetadata(res && svc.transform?.(res));
       if (!data?.title)
         return;
@@ -213,9 +209,9 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
     };
     const pipeline = hasApi
       ? [() => fetchService(s2Service, "Semantic Scholar"), runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve()]
-      : [runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve(), () => fetchService(s2Service, "Semantic Scholar")];
+      : [runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => fetchService(s2Service, "Semantic Scholar"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve()];
     for (const step of pipeline) {
-      if (matched?.title)
+      if (matched?.title && normalizeDOI(matched.DOI) === value.toLowerCase())
         break;
       try {
         await step();
@@ -228,10 +224,11 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
     if (!matched?.title && mismatched) {
       matched = mismatched.data;
       matchedSource = mismatched.source;
+      usedMismatched = true;
     }
     if (!matched?.title)
       throw lastError instanceof Error ? lastError : new Error(getString("review-no-data"));
-    if (normalizeDOI(matched.DOI) === value.toLowerCase() && lacksJournalKeyFields(matched, original) && !triedS2 && s2Service?.fetch) {
+    if (!usedMismatched && (!matched.DOI || normalizeDOI(matched.DOI) === value.toLowerCase()) && lacksJournalKeyFields(matched, original) && !triedS2 && s2Service?.fetch) {
       try {
         await fetchService(s2Service, "Semantic Scholar");
       }
@@ -325,11 +322,16 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
       signal?.throwIfAborted();
       const s2Service = serviceRegistry.services.find(s => s.id === "semantic-scholar-service");
       if (s2Service?.fetch) {
-        const res = await s2Service.fetch({ item, identifiers: { DOI: publishedDOI }, isPreprint: false, debug: () => {}, signal });
-        const data = normalizeMetadata(res && s2Service.transform?.(res));
-        if (data?.title) {
-          candidate = data;
-          candidateSource = "Semantic Scholar";
+        try {
+          const res = await s2Service.fetch({ item, identifiers: { DOI: publishedDOI }, isPreprint: false, debug: () => {}, signal });
+          const data = normalizeMetadata(res && s2Service.transform?.(res));
+          if (data?.title) {
+            candidate = data;
+            candidateSource = "Semantic Scholar";
+          }
+        }
+        catch {
+          signal?.throwIfAborted();
         }
       }
     }

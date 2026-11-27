@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.2)
+[![Version](https://img.shields.io/badge/version-17.3.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.3)
 
-17.3.2 fixes automatic metadata inspection DOI-mismatch blocking and duplicate source requests, single-entry arXiv feed parsing without `<id>` and URL fallback overriding published DOIs, unified native menu checkboxes and `16px` static-card heading alignment in Preferences, plus `innerHTML` and empty `catch` hygiene cleanup. See the [v17.3.2 release notes](docs/releases/metaflow-v17.3.2.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.3.3 enforces kernel lifecycle gating in `onNotify`, defers Notifier registration until `kernel.start()`, tightens headless smoke launch pass criteria, fixes DOI fallback when translators omit DOI and retries Semantic Scholar after transient errors, restricts `URLTranslateService` to HTTP(S), and guards inactive-domain refresh paths. See the [v17.3.3 release notes](docs/releases/metaflow-v17.3.3.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
