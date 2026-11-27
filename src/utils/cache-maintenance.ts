@@ -56,7 +56,9 @@ export function cleanExpiredCaches(): Promise<void> {
         try {
           await IOUtils.remove(PathUtils.join(dir, legacy), { ignoreAbsent: true });
         }
-        catch {}
+        catch (error) {
+          logger.debug("Ignoring legacy cache removal failure", legacy, error);
+        }
       }
     }
     if (results.some(result => result.status === "rejected" || result.value === false))

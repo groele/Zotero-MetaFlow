@@ -880,7 +880,7 @@ groupbox:has(#metaref) > label:first-child {
   margin-block: 8px;
 }
 #metaref .metaref-static-card > .metaref-card-heading {
-  padding: 8px 13px;
+  padding: 8px 16px;
 }
 #metaref #metaref-journal-share-settings hbox {
   flex-wrap: wrap;

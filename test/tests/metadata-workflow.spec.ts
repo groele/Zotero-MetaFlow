@@ -181,75 +181,89 @@ describe("metadata workflow in Zotero", function () {
         assert.isAtMost(row.scrollWidth, row.clientWidth + 1, "shortcut row must wrap inside preferences");
       }
       const list = doc.querySelector<HTMLElement>(".metaref-shortcut-list")!;
+      const previousTab = doc.querySelector<HTMLButtonElement>(".metaref-tab-btn.is-active, .metaref-tab-btn[aria-selected='true']");
+      const toolsTab = doc.querySelector<HTMLButtonElement>(".metaref-tab-btn[data-metaref-tab='tools']");
+      toolsTab?.click();
+      const shortcutCard = list.closest("details");
+      const wasOpen = shortcutCard?.open ?? false;
+      if (shortcutCard)
+        shortcutCard.open = true;
       await doc.fonts.ready;
       win.resizeTo(1000, 760);
       const layouts = [];
-      for (const width of [570, 470, 350]) {
-        list.style.width = `${width}px`;
-        list.scrollIntoView({ block: "center" });
-        const rows = [...list.querySelectorAll<HTMLElement>(".metaref-shortcut-row")];
-        const expectedTracks = width > 520 ? 1 : width > 380 ? 2 : 3;
-        // Native style/container-query resolution can lag the resize. A fixed
-        // sleep can sample `none` or zero-sized content before layout settles.
-        let ready = false;
-        for (let attempt = 0; attempt < 100; attempt++) {
-          list.getBoundingClientRect();
-          ready = rows.length > 0 && rows.every((row) => {
+      try {
+        for (const width of [570, 470, 350]) {
+          list.style.width = `${width}px`;
+          list.scrollIntoView({ block: "center" });
+          const rows = [...list.querySelectorAll<HTMLElement>(".metaref-shortcut-row")];
+          const expectedTracks = width > 520 ? 1 : width > 380 ? 2 : 3;
+          // Native style/container-query resolution can lag the resize. A fixed
+          // sleep can sample `none` or zero-sized content before layout settles.
+          let ready = false;
+          for (let attempt = 0; attempt < 100; attempt++) {
+            list.getBoundingClientRect();
+            ready = rows.length > 0 && rows.every((row) => {
+              const style = win.getComputedStyle(row);
+              if (!style)
+                return false;
+              const tracks = style.gridTemplateRows.split(/\s+/).map(Number.parseFloat);
+              return row.getBoundingClientRect().width > 0 && tracks.length === expectedTracks
+                && tracks.every(value => Number.isFinite(value) && value >= 0);
+            });
+            if (ready)
+              break;
+            await Zotero.Promise.delay(25);
+          }
+          assert.isTrue(ready, `native shortcut layout settles at ${width}px`);
+          const metrics = rows.map((row: HTMLElement) => {
+            const rect = row.getBoundingClientRect();
+            const buttons = [...row.querySelectorAll<HTMLElement>(".metaref-shortcut-action")];
+            const [clear, reset] = buttons.map(button => button.getBoundingClientRect());
+            assert.isAtMost(Math.abs(clear.top - reset.top), 1, "action buttons stay together");
+            assert.isAtMost(reset.right, rect.right + 1, "actions remain within the row");
+            assert.isAtMost(row.scrollWidth, row.clientWidth + 1, "row does not overflow");
             const style = win.getComputedStyle(row);
             if (!style)
-              return false;
+              throw new Error("Native shortcut computed style is unavailable");
             const tracks = style.gridTemplateRows.split(/\s+/).map(Number.parseFloat);
-            return row.getBoundingClientRect().width > 0 && tracks.length === expectedTracks
-              && tracks.every(value => Number.isFinite(value) && value >= 0);
+            assert.lengthOf(tracks, expectedTracks, "shortcut row uses only its responsive content tracks");
+            assert.isTrue(tracks.every(value => Number.isFinite(value) && value >= 0), "resolved tracks have valid dimensions");
+            if (tracks.includes(0)) {
+              assert.isTrue(tracks.slice(0, -1).every(value => value > 0), "control tracks remain visible");
+              assert.isEmpty(row.querySelector(".metaref-shortcut-preview")!.textContent!.trim(), "only an empty disabled-shortcut preview can collapse");
+            }
+            const fontSize = Number.parseFloat(style.fontSize);
+            const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
+            const borders = Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
+            const gap = Number.parseFloat(style.rowGap);
+            assert.isAtMost(padding, fontSize * 0.65, "compact spacing must not grow independently of text size");
+            assert.isAtMost(gap, fontSize * 0.65, "responsive track spacing remains compact");
+            const contentHeight = tracks.reduce((sum, value) => sum + value, 0) + gap * (tracks.length - 1);
+            assert.closeTo(rect.height, contentHeight + padding + borders, 1, "row fits native controls without extra blank space");
+            assert.isAtMost(row.scrollHeight, row.clientHeight + 1, "native control content is not vertically clipped");
+            return { height: rect.height, width: rect.width, tracks, fontSize, buttonTop: clear.top, resetTop: reset.top };
           });
-          if (ready)
-            break;
-          await Zotero.Promise.delay(25);
-        }
-        assert.isTrue(ready, `native shortcut layout settles at ${width}px`);
-        const metrics = rows.map((row: HTMLElement) => {
-          const rect = row.getBoundingClientRect();
-          const buttons = [...row.querySelectorAll<HTMLElement>(".metaref-shortcut-action")];
-          const [clear, reset] = buttons.map(button => button.getBoundingClientRect());
-          assert.isAtMost(Math.abs(clear.top - reset.top), 1, "action buttons stay together");
-          assert.isAtMost(reset.right, rect.right + 1, "actions remain within the row");
-          assert.isAtMost(row.scrollWidth, row.clientWidth + 1, "row does not overflow");
-          const style = win.getComputedStyle(row);
-          if (!style)
-            throw new Error("Native shortcut computed style is unavailable");
-          const tracks = style.gridTemplateRows.split(/\s+/).map(Number.parseFloat);
-          assert.lengthOf(tracks, expectedTracks, "shortcut row uses only its responsive content tracks");
-          assert.isTrue(tracks.every(value => Number.isFinite(value) && value >= 0), "resolved tracks have valid dimensions");
-          if (tracks.includes(0)) {
-            assert.isTrue(tracks.slice(0, -1).every(value => value > 0), "control tracks remain visible");
-            assert.isEmpty(row.querySelector(".metaref-shortcut-preview")!.textContent!.trim(), "only an empty disabled-shortcut preview can collapse");
+          const rect = list.getBoundingClientRect();
+          const screenshotPath = PathUtils.join(PathUtils.tempDir, `metaref-shortcuts-${Zotero.locale}-${width}.png`);
+          const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas") as HTMLCanvasElement;
+          canvas.width = Math.ceil(rect.width);
+          canvas.height = Math.ceil(rect.height);
+          const context = canvas.getContext("2d")!;
+          if ("drawWindow" in context) {
+            (context as any).drawWindow(win, rect.left, rect.top, rect.width, rect.height, "rgb(245,245,245)");
+            const bytes = Uint8Array.from(win.atob(canvas.toDataURL("image/png").split(",")[1]), char => char.charCodeAt(0));
+            await IOUtils.write(screenshotPath, bytes);
           }
-          const fontSize = Number.parseFloat(style.fontSize);
-          const padding = Number.parseFloat(style.paddingTop) + Number.parseFloat(style.paddingBottom);
-          const borders = Number.parseFloat(style.borderTopWidth) + Number.parseFloat(style.borderBottomWidth);
-          const gap = Number.parseFloat(style.rowGap);
-          assert.isAtMost(padding, fontSize * 0.65, "compact spacing must not grow independently of text size");
-          assert.isAtMost(gap, fontSize * 0.65, "responsive track spacing remains compact");
-          const contentHeight = tracks.reduce((sum, value) => sum + value, 0) + gap * (tracks.length - 1);
-          assert.closeTo(rect.height, contentHeight + padding + borders, 1, "row fits native controls without extra blank space");
-          assert.isAtMost(row.scrollHeight, row.clientHeight + 1, "native control content is not vertically clipped");
-          return { height: rect.height, width: rect.width, tracks, fontSize, buttonTop: clear.top, resetTop: reset.top };
-        });
-        const rect = list.getBoundingClientRect();
-        const screenshotPath = PathUtils.join(PathUtils.tempDir, `metaref-shortcuts-${Zotero.locale}-${width}.png`);
-        const canvas = doc.createElementNS("http://www.w3.org/1999/xhtml", "canvas") as HTMLCanvasElement;
-        canvas.width = Math.ceil(rect.width);
-        canvas.height = Math.ceil(rect.height);
-        const context = canvas.getContext("2d")!;
-        if ("drawWindow" in context) {
-          (context as any).drawWindow(win, rect.left, rect.top, rect.width, rect.height, "rgb(245,245,245)");
-          const bytes = Uint8Array.from(win.atob(canvas.toDataURL("image/png").split(",")[1]), char => char.charCodeAt(0));
-          await IOUtils.write(screenshotPath, bytes);
+          layouts.push({ width, listHeight: rect.height, metrics, screenshotPath });
         }
-        layouts.push({ width, listHeight: rect.height, metrics, screenshotPath });
+        await Zotero.File.putContentsAsync(PathUtils.join(Zotero.DataDirectory.dir, "shortcut-layout.json"), JSON.stringify(layouts));
       }
-      await Zotero.File.putContentsAsync(PathUtils.join(Zotero.DataDirectory.dir, "shortcut-layout.json"), JSON.stringify(layouts));
-      list.style.removeProperty("width");
+      finally {
+        list.style.removeProperty("width");
+        if (shortcutCard)
+          shortcutCard.open = wasOpen;
+        previousTab?.click();
+      }
       for (const field of doc.querySelectorAll<HTMLInputElement>(".metaref-shortcut-input")) {
         assert.match(field.id, /^metaref-shortcut-/);
         assert.isNotNull(field.parentElement?.querySelector("button[data-l10n-id='metaref-shortcut-reset']"));

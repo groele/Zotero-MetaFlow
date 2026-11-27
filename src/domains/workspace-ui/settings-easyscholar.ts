@@ -61,8 +61,6 @@ export function setupEasyScholarSettings(pane: Element) {
   }
 
   for (const original of pane.querySelectorAll("checkbox[preference]")) {
-    if (original.closest?.("#metaref-menu-settings, #metaref-menu-settings-grid"))
-      continue;
     const pref = original.getAttribute("preference")!.replace(`${addon.data.config.prefsPrefix}.`, "");
     const fallback = (original as any).checked === true || original.getAttribute("checked") === "true" || pref.startsWith("menu.");
     const replacement = makeCheckbox(pref, original.getAttribute("data-l10n-id")!, getPref(pref as any, fallback) !== false);

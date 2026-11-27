@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.1)
+[![Version](https://img.shields.io/badge/version-17.3.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.2)
 
-17.3.1 fixes Gecko `loadSubScript` sandbox global resolution (`resolveAddonHost` / `resolveZoteroHost`) so Duplicate Settings controls render reliably and expands the architecture guard to 22 checks, building on 17.3.0's full five-layer domain & service migration and isolated-profile headless Zotero launch smoke verification (`pnpm run smoke:launch`). See the [v17.3.1 release notes](docs/releases/metaflow-v17.3.1.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.3.2 fixes automatic metadata inspection DOI-mismatch blocking and duplicate source requests, single-entry arXiv feed parsing without `<id>` and URL fallback overriding published DOIs, unified native menu checkboxes and `16px` static-card heading alignment in Preferences, plus `innerHTML` and empty `catch` hygiene cleanup. See the [v17.3.2 release notes](docs/releases/metaflow-v17.3.2.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

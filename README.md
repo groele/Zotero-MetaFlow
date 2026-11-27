@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.1)
+[![Version](https://img.shields.io/badge/version-17.3.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.2)
 
-17.3.1 修复 Gecko `loadSubScript` 沙箱作用域下「查重与合并 → 去重设置」面板控件未渲染与跨域端口解析问题并升级至 22 项架构守卫；继承 17.3.0 对标 BridgeFlow 的五层微内核全量业务下沉与隔离 Profile 无头 Zotero 真实启动冒烟验证（`pnpm run smoke:launch`）。详见[v17.3.1 发布说明](docs/releases/metaflow-v17.3.1.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.3.2 修复自动元数据巡检 DOI 错配阻断与重复源调用、预印本 arXiv 单条目无 `<id>` 解析与 URL 回退覆盖发表后 DOI、设置面板菜单复选框统一与静态卡片 `16px` 对齐，并完成 `innerHTML`/空 `catch` 代码卫生治理；详见[v17.3.2 发布说明](docs/releases/metaflow-v17.3.2.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

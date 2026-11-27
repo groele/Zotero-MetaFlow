@@ -179,31 +179,43 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
     const itemUrl = String(original.url || item.getField("url") || "").trim();
     let matched: TransformedData | undefined;
     let matchedSource = "";
+    let mismatched: { data: TransformedData; source: string } | undefined;
     let lastError: unknown;
+    let triedS2 = false;
 
-    const tryMerge = (incoming: TransformedData | null | undefined, label: string) => {
-      if (!incoming?.title || (incoming.DOI && normalizeDOI(incoming.DOI) !== value.toLowerCase()))
-        return;
+    const acceptIncoming = (incoming: TransformedData | null | undefined, label: string) => {
+      if (!incoming?.title)
+        return false;
+      if (incoming.DOI && normalizeDOI(incoming.DOI) !== value.toLowerCase()) {
+        mismatched ??= { data: incoming, source: label };
+        return false;
+      }
       matched = matched ? mergeMetadata(matched, incoming) : incoming;
       matchedSource ||= label;
+      return true;
     };
     const fetchService = async (svc: any, label?: string, checkTitle = false, extraIds: Identifiers = {}) => {
       if (!svc?.fetch)
         return;
+      if (svc.id === "semantic-scholar-service")
+        triedS2 = true;
       const res = await svc.fetch({ item, identifiers: { DOI: value, ...extraIds }, isPreprint: false, debug: () => {}, signal });
       const data = normalizeMetadata(res && svc.transform?.(res));
-      if (data?.title && (!checkTitle || (data.DOI && normalizeDOI(data.DOI) === value.toLowerCase()) || titlesAgree(original.title || matched?.title || "", data.title)))
-        tryMerge(data, label || data.libraryCatalog || getString("review-source-translator"));
+      if (!data?.title)
+        return;
+      if (checkTitle && !((data.DOI && normalizeDOI(data.DOI) === value.toLowerCase()) || titlesAgree(original.title || matched?.title || "", data.title)))
+        return;
+      acceptIncoming(data, label || data.libraryCatalog || getString("review-source-translator"));
     };
     const runTranslator = async () => {
       const data = await translateIdentifier(item, { DOI: value }, signal);
-      tryMerge(data, data.libraryCatalog || getString("review-source-translator"));
+      acceptIncoming(data, data.libraryCatalog || getString("review-source-translator"));
     };
     const pipeline = hasApi
       ? [() => fetchService(s2Service, "Semantic Scholar"), runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve()]
       : [runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve(), () => fetchService(s2Service, "Semantic Scholar")];
     for (const step of pipeline) {
-      if (matched?.title && !lacksJournalKeyFields(matched, original))
+      if (matched?.title)
         break;
       try {
         await step();
@@ -213,8 +225,20 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
         lastError = err;
       }
     }
+    if (!matched?.title && mismatched) {
+      matched = mismatched.data;
+      matchedSource = mismatched.source;
+    }
     if (!matched?.title)
       throw lastError instanceof Error ? lastError : new Error(getString("review-no-data"));
+    if (normalizeDOI(matched.DOI) === value.toLowerCase() && lacksJournalKeyFields(matched, original) && !triedS2 && s2Service?.fetch) {
+      try {
+        await fetchService(s2Service, "Semantic Scholar");
+      }
+      catch {
+        signal?.throwIfAborted();
+      }
+    }
     if (!matched.ISSN && !original.ISSN && isFieldValidForItemType("ISSN", item.itemType)) {
       const pubTitle = String(original.publicationTitle || matched.publicationTitle || "");
       const resolved = await resolveMissingISSN({ doi: value, publicationTitle: pubTitle, signal }).catch(() => {
@@ -293,9 +317,25 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
     signal?.throwIfAborted();
   }
   if (!candidate?.title) {
-    candidate = await translateIdentifier(item, { DOI: publishedDOI }, signal);
-    candidateSource = candidate.libraryCatalog || getString("review-source-translator");
+    try {
+      candidate = await translateIdentifier(item, { DOI: publishedDOI }, signal);
+      candidateSource = candidate.libraryCatalog || getString("review-source-translator");
+    }
+    catch {
+      signal?.throwIfAborted();
+      const s2Service = serviceRegistry.services.find(s => s.id === "semantic-scholar-service");
+      if (s2Service?.fetch) {
+        const res = await s2Service.fetch({ item, identifiers: { DOI: publishedDOI }, isPreprint: false, debug: () => {}, signal });
+        const data = normalizeMetadata(res && s2Service.transform?.(res));
+        if (data?.title) {
+          candidate = data;
+          candidateSource = "Semantic Scholar";
+        }
+      }
+    }
   }
+  if (!candidate?.title)
+    throw new Error(getString("review-no-data"));
   const blocked = normalizeDOI(candidate.DOI) !== publishedDOI || !["journalArticle", "conferencePaper"].includes(candidate.itemType || "");
   const conflicts = identityConflicts(original, candidate, true);
   if (blocked)

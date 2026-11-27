@@ -21,7 +21,9 @@ export function parseArxiv(xml: string, requested = "", latest?: boolean): Trans
   const entry = expected
     ? entries.find((element) => {
         const returned = normalizeArxiv(element.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "id")[0]?.textContent || "");
-        return returned && (latest || !/v\d+$/.test(expected) ? returned.replace(/v\d+$/, "") === expected.replace(/v\d+$/, "") : returned === expected);
+        if (!returned)
+          return latest === undefined && entries.length === 1;
+        return latest || !/v\d+$/.test(expected) ? returned.replace(/v\d+$/, "") === expected.replace(/v\d+$/, "") : returned === expected;
       })
     : entries[0];
   if (!entry) {

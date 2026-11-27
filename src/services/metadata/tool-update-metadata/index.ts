@@ -133,6 +133,8 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
       signal?.throwIfAborted();
       if (!service.fetch)
         continue;
+      if (data && service.lookup === "url")
+        continue;
 
       debug(`Service ${service.name} processing...`);
 

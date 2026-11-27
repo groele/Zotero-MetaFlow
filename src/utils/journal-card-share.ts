@@ -1,6 +1,7 @@
 import { ClipboardHelper, FilePickerHelper } from "zotero-plugin-toolkit";
 import { renderCardCanvas } from "./journal-card-canvas";
 import { getString } from "./locale";
+import { logger } from "./logger";
 import { getPref } from "./prefs";
 
 export { renderCardCanvas } from "./journal-card-canvas";
@@ -24,7 +25,9 @@ export function showNativeNotice(message: string, title = "Zotero MetaFlow") {
       return;
     }
   }
-  catch {}
+  catch (error) {
+    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+  }
 
   try {
     if (typeof Zotero !== "undefined" && (Zotero as any).ProgressWindow) {
@@ -35,7 +38,9 @@ export function showNativeNotice(message: string, title = "Zotero MetaFlow") {
       pw.startCloseTimer(2500);
     }
   }
-  catch {}
+  catch (error) {
+    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+  }
 }
 
 /** Backward compatibility alias */
@@ -134,7 +139,9 @@ async function copyTextToClipboard(win: Window | null | undefined, text: string)
       return;
     }
   }
-  catch {}
+  catch (error) {
+    logger.debug("nsIClipboardHelper fallback to navigator.clipboard", error);
+  }
 
   const nav = win?.navigator as any;
   if (nav?.clipboard?.writeText) {

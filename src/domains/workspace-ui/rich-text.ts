@@ -115,10 +115,13 @@ class ButtonManager {
     button.setAttribute("aria-label", titleText);
     button.setAttribute("aria-pressed", "false");
 
-    button.innerHTML = btn.icon;
-    const svg = button.querySelector("svg");
-    if (svg) {
-      svg.setAttribute("style", `width: ${BUTTON_ICON_SIZE}px; height: ${BUTTON_ICON_SIZE}px; fill: currentColor; pointer-events: none;`);
+    const ownerDoc = button.ownerDocument;
+    const Parser = ownerDoc?.defaultView?.DOMParser ?? DOMParser;
+    const svgNode = new Parser().parseFromString(btn.icon, "image/svg+xml").documentElement;
+    if (ownerDoc && svgNode && svgNode.nodeName.toLowerCase() === "svg") {
+      const imported = ownerDoc.importNode(svgNode, true) as Element;
+      imported.setAttribute("style", `width: ${BUTTON_ICON_SIZE}px; height: ${BUTTON_ICON_SIZE}px; fill: currentColor; pointer-events: none;`);
+      button.appendChild(imported);
     }
 
     button.addEventListener("mouseenter", () => {

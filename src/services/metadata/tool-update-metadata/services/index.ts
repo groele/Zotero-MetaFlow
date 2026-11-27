@@ -66,8 +66,8 @@ export function getOrderedMetadataServices(allServices: MetadataService<any>[] =
         CrossrefService.id,
         ItemTranslateService.id,
         OpenAlexService.id,
-        URLTranslateService.id,
         SemanticScholarService.id,
+        URLTranslateService.id,
       ];
 
   const ordered: MetadataService<any>[] = [];
