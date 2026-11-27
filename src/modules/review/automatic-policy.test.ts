@@ -14,6 +14,7 @@ describe("automatic metadata decisions", () => {
     expect(hasLocalCorroboration({ title: "Generic title", date: "2026-10" }, "Title")).toBe(false);
     expect(hasLocalCorroboration({ title: "Generic title", creators: [{ creatorType: "author", lastName: "Doe", firstName: "Jane" }] })).toBe(true);
     expect(hasLocalCorroboration({ title: "Generic title", creators: [{ creatorType: "author", lastName: "Doe", firstName: "Jane" }] }, "Title")).toBe(true);
+    expect(hasLocalCorroboration({ title: "Generic title", publicationTitle: "Nature Physics" }, "Title")).toBe(true);
   });
   it("prefers an explicit identifier and never picks an ambiguous DOI by array order", () => {
     expect(automaticIdentifier([identifier("10.1234/b", "DOI", "References"), identifier("10.1234/a")])?.value).toBe("10.1234/a");
@@ -44,6 +45,15 @@ describe("automatic metadata decisions", () => {
     const value = proposal({ conflicts: ["title", "date", "creators"] });
     expect(automaticSelection(value).reason).toBe("conflict");
     expect(automaticSelection(value, true).selection?.fields.has("date")).toBe(true);
+    const bareExtraDOI = proposal({
+      original: { itemType: "journalArticle", title: "Optical response of layered materials", date: "2026", extra: "10.1234/test" },
+      conflicts: ["date"],
+    });
+    expect(automaticSelection(bareExtraDOI, true).selection?.fields.has("date")).toBe(true);
+    const conflictingBareExtraDOI = proposal({
+      original: { itemType: "journalArticle", title: "Optical response of layered materials", date: "2026", extra: "10.1234/other" },
+    });
+    expect(automaticSelection(conflictingBareExtraDOI, true).reason).toBe("conflict");
     for (const extra of [
       { original: { title: "Local without a DOI" } },
       { candidate: { title: "Source without a DOI" } },
@@ -80,6 +90,11 @@ describe("automatic metadata decisions", () => {
     const creators = [{ creatorType: "author" as const, firstName: "Jane", lastName: "Doe" }];
     const value = proposal();
     expect(automaticSelection(proposal({ identifier: identifier("title", "Title"), original: { title: value.original.title, creators }, candidate: { ...value.candidate, creators } })).selection).toBeDefined();
+    expect(automaticSelection(proposal({
+      identifier: identifier("title", "Title"),
+      original: { itemType: "journalArticle", title: value.original.title, publicationTitle: "Journal" },
+      candidate: { ...value.candidate, publicationTitle: "Journal", volume: "12", issue: "4", date: "2026" },
+    })).selection).toBeDefined();
   });
   it("retains disabled fields and links a verified publication while preserving its preprint", () => {
     const value = proposal({ preprintURL: "https://arxiv.org/abs/2610.12345v1", excludedFields: ["creators"], changes: [{ field: "creators", before: [], after: [{ name: "Jane Doe" }] }, { field: "DOI", before: "10.48550/arxiv.2610.12345", after: "10.1234/test" }, { field: "itemType", before: "preprint", after: "journalArticle" }] });

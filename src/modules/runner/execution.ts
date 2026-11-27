@@ -10,12 +10,14 @@ import {
 } from "../../utils/lint-fingerprint-cache";
 import { getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
-import { executeRule, waitForOperation } from "../../utils/rule-execution";
+import { createAbortController, executeRule, waitForOperation } from "../../utils/rule-execution";
 import { ruleSupportsItems } from "../../utils/workflow-policy";
 import { isFieldValidForItemType } from "../../utils/zotero";
 import { Rules } from "../rules";
 
 import { RunnerState } from "./state";
+
+export { createAbortController };
 
 const logger = createLogger("Runner");
 
@@ -69,11 +71,6 @@ function shouldApplyRule(rule: Rule<any>, item: Zotero.Item): boolean {
   }
 
   return true;
-}
-
-export function createAbortController(): AbortController {
-  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
-  return new Controller();
 }
 
 export class RuleExecution extends RunnerState {
@@ -132,6 +129,7 @@ export class RuleExecution extends RunnerState {
     item: Zotero.Item,
     rules: Rule<any>[],
     optionsMap: Map<string, any>,
+    batchRuleSig?: string,
   ) {
     logger.debug(`Linting item ${item.id}`);
     if (this.unsafeItems.has(item)) {
@@ -139,8 +137,9 @@ export class RuleExecution extends RunnerState {
       await item.reload(["primaryData", "itemData", "creators", "tags", "collections", "relations"], true);
       this.unsafeItems.delete(item);
     }
+    const baseline = item.toJSON() as Record<string, unknown>;
     const eligibleForCache = isEligibleForLintFingerprint(rules, optionsMap);
-    const preSignature = eligibleForCache ? computeItemLintSignature(item, rules, optionsMap) : "";
+    const preSignature = eligibleForCache ? computeItemLintSignature(item, rules, optionsMap, batchRuleSig, baseline) : "";
     if (preSignature && hasCleanLintFingerprint(preSignature)) {
       for (const rule of rules) {
         if (optionsMap.has(rule.id) && optionsMap.get(rule.id) !== false && shouldApplyRule(rule, item)) {
@@ -153,7 +152,6 @@ export class RuleExecution extends RunnerState {
     }
     const errors: any[] = [];
     const recordsBefore = this.stats.records.length;
-    const baseline = item.toJSON() as Record<string, unknown>;
 
     for (const rule of rules) {
       await this.checkpoint();
@@ -202,7 +200,10 @@ export class RuleExecution extends RunnerState {
       });
     }
 
-    const mutated = !this.unsafeItems.has(item) && item.hasChanged() && JSON.stringify(item.toJSON()) !== JSON.stringify(baseline);
+    const unsafe = this.unsafeItems.has(item);
+    const hasChanged = !unsafe && item.hasChanged();
+    const afterJSON = hasChanged ? (item.toJSON() as Record<string, unknown>) : baseline;
+    const mutated = hasChanged && JSON.stringify(afterJSON) !== JSON.stringify(baseline);
     if (mutated) {
       this.modifiedItems.add(item);
       this.itemBaselines.set(item, baseline);
@@ -212,10 +213,10 @@ export class RuleExecution extends RunnerState {
       && preSignature
       && errors.length === 0
       && !this.cancelled
-      && !this.unsafeItems.has(item)
+      && !unsafe
       && this.stats.records.length === recordsBefore
     ) {
-      const postSignature = computeItemLintSignature(item, rules, optionsMap);
+      const postSignature = computeItemLintSignature(item, rules, optionsMap, batchRuleSig, afterJSON);
       if (postSignature === preSignature)
         recordCleanLintFingerprint(preSignature);
     }

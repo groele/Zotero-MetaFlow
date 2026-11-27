@@ -3,6 +3,8 @@ import pinyin from "tiny-pinyin";
 import { Surnames } from "./pinyin-surnames";
 import { capitalizeFirstLetter } from "./str";
 
+const COMPOUND_SURNAMES = Object.keys(Surnames).filter(s => s.length >= 2).sort((a, b) => b.length - a.length);
+
 // To better support unit testing and improved performance,
 // we do not use Zotero's built-in toSentenceCase API
 function _startCase(text: string) {
@@ -23,7 +25,7 @@ export function getSurnamePinyin(text: string): string {
 
 export function splitChineseName(fullName: string): [string, string] {
   // 先尝试匹配复姓（两个字及以上）
-  for (const surname of Object.keys(Surnames)) {
+  for (const surname of COMPOUND_SURNAMES) {
     if (fullName.startsWith(surname)) {
       const givenName = fullName.slice(surname.length);
       return [surname, givenName];

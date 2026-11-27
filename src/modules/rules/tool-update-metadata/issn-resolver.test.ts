@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as http from "../../../utils/http";
-import { fetchISSNFromCrossref, fetchISSNFromOpenAlex, normalizeISSN, resolveMissingISSN } from "./issn-resolver";
+import { CompleteMissingISSN } from "./complete-issn";
+import { clearISSNResolutionAttempts, fetchISSNFromCrossref, fetchISSNFromOpenAlex, markISSNResolutionAttempted, normalizeISSN, resolveMissingISSN, wasISSNResolutionAttempted } from "./issn-resolver";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  clearISSNResolutionAttempts();
+  vi.restoreAllMocks();
+});
 
 describe("issn-resolver", () => {
   describe("normalizeISSN", () => {
@@ -50,6 +54,32 @@ describe("issn-resolver", () => {
 
       const issn = await fetchISSNFromOpenAlex({ doi: "10.1016/j.actamat.2023.118944" });
       expect(issn).toBe("1359-6454");
+      expect(http.requestCachedGET).toHaveBeenCalledWith(
+        "https://api.openalex.org/works/https://doi.org/10.1016%2Fj.actamat.2023.118944",
+        expect.anything(),
+        undefined,
+      );
+    });
+
+    it("skips duplicate ISSN network lookups in CompleteMissingISSN when inspectMetadata already attempted the same item and fields", async () => {
+      vi.stubGlobal("ztoolkit", { ExtraField: { getExtraField: () => "" } });
+      vi.stubGlobal("addon", { data: { config: { addonRef: "metaref" } }, locale: { current: { "journal-issn-unresolved": "journal-issn-unresolved" } } });
+      const item = {
+        getField: (field: string) => field === "DOI" ? "10.1016/j.actamat.2023.118944" : field === "publicationTitle" ? "Acta Materialia" : "",
+        setField: vi.fn(),
+      } as unknown as Zotero.Item;
+      markISSNResolutionAttempted(item, "10.1016/j.actamat.2023.118944", "Acta Materialia");
+      expect(wasISSNResolutionAttempted(item, "10.1016/j.actamat.2023.118944", "Acta Materialia")).toBe(true);
+      expect(wasISSNResolutionAttempted(item, "10.1016/j.actamat.2023.118944", "Different Journal")).toBe(false);
+
+      const spyService = vi.spyOn(http, "requestServiceGET");
+      const spyCached = vi.spyOn(http, "requestCachedGET");
+      const report = vi.fn();
+      await CompleteMissingISSN.apply({ item, options: undefined, report, debug: vi.fn() });
+      expect(spyService).not.toHaveBeenCalled();
+      expect(spyCached).not.toHaveBeenCalled();
+      expect(report).toHaveBeenCalledWith(expect.objectContaining({ level: "warning", field: "ISSN", code: "issn-unresolved" }));
+      vi.unstubAllGlobals();
     });
 
     it("fetches ISSN from OpenAlex via publicationTitle when DOI is absent", async () => {

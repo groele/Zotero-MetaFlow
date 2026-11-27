@@ -81,8 +81,9 @@ export class RuntimeDataStore {
     this.timer = undefined;
     await this.load();
     const retained = boundRuntimeRuns(this.runs);
-    if (retained.length !== this.runs.length) {
-      this.runs = retained;
+    const lengthChanged = retained.length !== this.runs.length;
+    this.runs = retained;
+    if (lengthChanged) {
       this.dirty = true;
       this.revision++;
     }
@@ -92,11 +93,11 @@ export class RuntimeDataStore {
     if (this.queuedRevision === revision)
       return this.writes;
     this.queuedRevision = revision;
-    const snapshot: RuntimeData = { version: 1, updatedAt: Date.now(), runs: boundRuntimeRuns(this.runs) };
+    const snapshot: RuntimeData = { version: 1, updatedAt: Date.now(), runs: retained };
     this.writes = this.writes.catch(() => {}).then(async () => {
       await IOUtils.makeDirectory(PathUtils.parent(this.file)!, { ignoreExisting: true, createAncestors: true });
       if (!clearBackup && this.persisted)
-        await IOUtils.writeJSON(`${this.file}.bak`, { ...this.persisted, runs: boundRuntimeRuns(this.persisted.runs) }, { tmpPath: `${this.file}.bak.tmp` });
+        await IOUtils.writeJSON(`${this.file}.bak`, { ...this.persisted, runs: lengthChanged ? retained : this.persisted.runs }, { tmpPath: `${this.file}.bak.tmp` });
       await IOUtils.writeJSON(this.file, snapshot, { tmpPath: `${this.file}.tmp` });
       if (clearBackup)
         await IOUtils.writeJSON(`${this.file}.bak`, snapshot, { tmpPath: `${this.file}.bak.tmp` });

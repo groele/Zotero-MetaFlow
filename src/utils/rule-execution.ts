@@ -1,9 +1,82 @@
+export function createAbortController(): AbortController {
+  let hostWindow: any;
+  try {
+    hostWindow = typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function"
+      ? Zotero.getMainWindow()
+      : undefined;
+  }
+  catch {
+    hostWindow = undefined;
+  }
+  const Controller = hostWindow?.AbortController || AbortController;
+  return new Controller();
+}
+
+export async function runWithDeadline<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  signal: AbortSignal | undefined,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  signal?.throwIfAborted();
+  const controller = createAbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const onParentAbort = () => controller.abort(signal?.reason);
+  signal?.addEventListener("abort", onParentAbort, { once: true });
+  if (signal?.aborted)
+    onParentAbort();
+
+  const deadline = timeoutMs > 0
+    ? new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          const error = new Error(timeoutMessage);
+          controller.abort(error);
+          reject(error);
+        }, timeoutMs);
+      })
+    : undefined;
+
+  const cancelled = signal
+    ? new Promise<never>((_, reject) => {
+        if (signal.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+      })
+    : undefined;
+
+  try {
+    const task = Promise.resolve().then(() => {
+      controller.signal.throwIfAborted();
+      return operation(controller.signal);
+    });
+    const racers: Promise<T>[] = [task];
+    if (deadline)
+      racers.push(deadline);
+    if (cancelled)
+      racers.push(cancelled);
+    return await Promise.race(racers);
+  }
+  catch (error) {
+    if (!controller.signal.aborted)
+      controller.abort(error);
+    throw error;
+  }
+  finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onParentAbort);
+    if (!controller.signal.aborted)
+      controller.abort(new Error("Operation has finished"));
+  }
+}
+
 /** Prevent a timed-out rule from changing the live item or reporting into a later batch. */
 export async function executeRule<T extends object>(
   item: T,
   apply: (item: T, signal: AbortSignal) => Promise<void>,
   timeout = 60_000,
-  createController: () => AbortController = () => new AbortController(),
+  createController: () => AbortController = createAbortController,
   onMutation: (mutate: () => unknown) => unknown = mutate => mutate(),
   owner?: AbortSignal,
 ): Promise<void> {

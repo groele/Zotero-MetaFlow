@@ -83,6 +83,8 @@ export function setupDependencies(pane: Element) {
     }
     for (const control of controls)
       control.closest(".metaref-check-option, .subordinate-row")?.classList.toggle("is-disabled", control.disabled);
+    for (const custom of pane.querySelectorAll<HTMLInputElement>(".metaref-check-option > input"))
+      custom.closest(".metaref-check-option")?.classList.toggle("is-disabled", custom.disabled);
   };
   const schedule = () => {
     void Promise.resolve().then(update);
@@ -97,8 +99,13 @@ export function setupDependencies(pane: Element) {
       if (signal.aborted || !pane.isConnected || !addon.data.alive)
         return;
       // Host bindings may update checked after the preference observer callback.
-      for (const parent of parents)
-        parent.control.checked = getPref(key(parent.control) as any, false) === true;
+      for (const control of controls) {
+        if (control.localName === "checkbox" || control.type === "checkbox") {
+          const current = getPref(key(control) as any);
+          if (typeof current === "boolean")
+            control.checked = current;
+        }
+      }
       const Event = (pane.ownerDocument!.defaultView as Window & typeof globalThis).Event;
       pane.dispatchEvent(new Event("metaref-preferences-synced"));
       update();

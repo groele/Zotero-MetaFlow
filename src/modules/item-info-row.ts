@@ -22,8 +22,10 @@ const documentObservers = new DocumentObservers();
 const activeTimers = new Set<ReturnType<typeof setTimeout>>();
 const migratingItemIDs = new Set<number>();
 let isPlacingTLDR = false;
+let isObserverMuted = false;
 
 function schedulePlaceTLDRBeforeExtra() {
+  clearPendingTimers();
   if (typeof setTimeout !== "function")
     return;
   for (const delay of [0, 50, 200]) {
@@ -37,9 +39,8 @@ function schedulePlaceTLDRBeforeExtra() {
 
 function clearPendingTimers() {
   if (typeof clearTimeout === "function") {
-    for (const timer of activeTimers) {
+    for (const timer of activeTimers)
       clearTimeout(timer);
-    }
   }
   activeTimers.clear();
 }
@@ -103,11 +104,7 @@ export function registerInfoRows() {
             setEditable(Boolean(isEditable));
           }
 
-          // 自动清洗历史条目 Extra 字段中残留的 TLDR，根治「两个都填充了」：
-          // 若当前启用了「撷论」常驻行，且条目 Extra 字段仍残留有历史 TLDR 文本，
-          // 自动将论点沉淀至专属子笔记，并从 Extra 字段彻底移除保存（仅当 target 偏好为 note 或 abstract 时），
-          // 使「其他」字段恢复纯净（不再填充 TLDR），仅在专属的「撷论」行展示！
-          // 注意：此处仅处理 TLDR/撷论 格式，绝不触碰用户的个人简记 (remark/简记)！
+          // 自动清洗历史条目 Extra 字段中残留的 TLDR，沉淀至专属子笔记并使「其他」字段恢复纯净（绝不触碰 remark/简记）
           if (isTLDREnabled && item && !isTrashedItem(item) && typeof item.getField === "function") {
             const target = getPref("workflow.tldrTarget" as any, "note");
             if (target === "note" || target === "abstract") {
@@ -173,23 +170,25 @@ export function placeTLDRBeforeExtra(doc?: Document) {
     return;
 
   isPlacingTLDR = true;
+  isObserverMuted = true;
   try {
     const docs = getAllItemDocuments(doc);
-
     for (const d of docs) {
       try {
+        const onMutate = () => {
+          if (!isObserverMuted)
+            placeTLDRBeforeExtra(d);
+        };
         const tables = d.querySelectorAll<HTMLElement>("#info-table");
-        for (const table of Array.from<HTMLElement>(tables)) {
-          documentObservers.observe(d, table, () => placeTLDRBeforeExtra(d));
-        }
+        for (const table of Array.from<HTMLElement>(tables))
+          documentObservers.observe(d, table, onMutate);
 
         const tldrRows = d.querySelectorAll<HTMLElement>(".meta-row[data-custom-row-id=\"tldr\"]");
         for (const tldrRow of Array.from<HTMLElement>(tldrRows)) {
           const infoTable = tldrRow.parentElement;
           if (!infoTable)
             continue;
-
-          documentObservers.observe(d, infoTable, () => placeTLDRBeforeExtra(d));
+          documentObservers.observe(d, infoTable, onMutate);
 
           const labelElem = tldrRow.querySelector?.(".meta-label");
           if (labelElem && labelElem.classList) {
@@ -303,6 +302,10 @@ export function placeTLDRBeforeExtra(doc?: Document) {
   }
   finally {
     isPlacingTLDR = false;
+    if (typeof queueMicrotask === "function")
+      queueMicrotask(() => { isObserverMuted = false; });
+    else
+      isObserverMuted = false;
   }
 }
 

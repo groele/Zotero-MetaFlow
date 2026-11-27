@@ -2,7 +2,7 @@ import type { TransformedData } from "./services/base-service";
 import { getString } from "../../../utils/locale";
 import { isFieldValidForItemType } from "../../../utils/zotero";
 import { isSnapshotItem, revivalExtra } from "../../review/snapshot-reviver";
-import { isPlaceholderCreator, metadataValuesEqual, normalizeDOI, sanitizeWebTitle, titlesAgree } from "./policy";
+import { isDateRefinement, isPlaceholderCreator, metadataValuesEqual, normalizeDOI, sanitizeWebTitle, titlesAgree } from "./policy";
 
 export interface UpdateMetadataApplyOptions {
   mode: "blank" | "all";
@@ -193,7 +193,8 @@ export function applyItemFields(
     }
 
     if (options.mode !== "all" && !!String(oldFieldValue || "").trim()
-      && !(field === "title" && sanitizeWebTitle(oldFieldValue) !== oldFieldValue && titlesAgree(oldFieldValue, String(value || "")))) {
+      && !(field === "title" && sanitizeWebTitle(oldFieldValue) !== oldFieldValue && titlesAgree(oldFieldValue, String(value || "")))
+      && !(field === "date" && isDateRefinement(oldFieldValue, value))) {
       continue;
     }
 

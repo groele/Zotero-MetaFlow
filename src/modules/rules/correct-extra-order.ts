@@ -1,5 +1,7 @@
 import { defineRule } from "./rule-base";
 
+const COLLATOR = new Intl.Collator("en", { sensitivity: "base" });
+
 export const CorrectExtraOrder = defineRule({
   id: "correct-extra-order",
   scope: "field",
@@ -8,6 +10,8 @@ export const CorrectExtraOrder = defineRule({
     l10nID: "rule-correct-extra-order-menu-field",
   },
   async apply({ item }) {
+    if (!item.getField?.("extra"))
+      return;
     const zoteroFields = (Zotero.ItemFields.getAll() as { id: number; name: string }[]).map(f => f.name);
     const extraFields = ztoolkit.ExtraField.getExtraFields(item);
     if (!extraFields || extraFields.size === 0)
@@ -33,7 +37,7 @@ export function sortExtraFieldMap(
 
   const entries = [...input.entries()];
   const standardFields = new Set(zoteroFields.map(field => field.toLowerCase()));
-  const collator = new Intl.Collator("en", { sensitivity: "base" });
+  const collator = COLLATOR;
 
   entries.sort(([keyA], [keyB]) => {
     const a = keyA.toLowerCase();

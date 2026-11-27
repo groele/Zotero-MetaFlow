@@ -3,7 +3,14 @@ import type { TransformedData } from "./services/base-service";
 import { extractDOIFromUrl } from "./identifiers";
 
 export function normalizeDOI(value?: string): string {
-  return (extractDOIFromUrl(value || "") || value?.trim().match(/^10\/\S+$/)?.[0] || "").toLowerCase();
+  const raw = String(value || "").trim().replace(/^doi:\s*/i, "");
+  if (!raw)
+    return "";
+  let doi = extractDOIFromUrl(raw) || raw.match(/^10\/\S+$/)?.[0] || "";
+  doi = doi.replace(/[.,;:]+$/, "");
+  while (doi.endsWith(")") && (doi.match(/\)/g)?.length || 0) > (doi.match(/\(/g)?.length || 0))
+    doi = doi.slice(0, -1);
+  return doi.toLowerCase();
 }
 
 export function sanitizeWebTitle(title?: string): string {
@@ -152,6 +159,16 @@ export function isPlaceholderCreator(creator: any): boolean {
 
   return false;
 }
+export function isDateRefinement(before?: unknown, after?: unknown): boolean {
+  const b = String(before ?? "").trim();
+  const a = String(after ?? "").trim();
+  if (!b || !a || a.length <= b.length)
+    return false;
+  if (!/^\d{4}(?:-\d{2})?$/.test(b))
+    return false;
+  return a.startsWith(`${b}-`) && /^\d{4}-\d{2}(?:-\d{2})?$/.test(a);
+}
+
 export function mergeMetadata(current: TransformedData, incoming: TransformedData): TransformedData {
   const result = { ...current };
   const placeholderAbstract = /^(?:abstract|no\s+abstract(?:\s+available)?|none|\[none\]|n\/a|摘要)$/i;
@@ -170,6 +187,9 @@ export function mergeMetadata(current: TransformedData, incoming: TransformedDat
         result.abstractNote = next;
       }
     }
+    else if (field === "date" && isDateRefinement(result.date, value)) {
+      result.date = String(value).trim();
+    }
     else {
       const existing = (result as Record<string, unknown>)[field];
       const isBlank = existing === undefined || existing === null || (typeof existing === "string" && !existing.trim());
@@ -179,6 +199,13 @@ export function mergeMetadata(current: TransformedData, incoming: TransformedDat
     }
   }
   return result;
+}
+
+export function hasMissingJournalBiblio(data: TransformedData, original: TransformedData, mode: "blank" | "all", itemType: string): boolean {
+  if (itemType !== "journalArticle")
+    return false;
+  const effective = mode === "blank" ? mergeMetadata(original, data) : mergeMetadata(data, original);
+  return (["volume", "issue", "pages", "date", "publicationTitle", "ISSN"] as const).some(field => !String(effective[field] || "").trim());
 }
 
 export function metadataMissing(data: TransformedData, original: TransformedData, mode: "blank" | "all", itemType: string): string[] {

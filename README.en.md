@@ -8,12 +8,12 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.0.0)
+[![Version](https://img.shields.io/badge/version-17.1.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.0)
 
-17.0.0 advances the unified major release baseline, bundling hardened journal identity verification across shared-title ISSNs, EasyScholar, and NJAU lookups, tightened CJK title and title-search author matching, Fluent-localized item diagnostics, and condensed settings copy. See the [v17.0.0 release notes](docs/releases/metaflow-v17.0.0.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.1.0 introduces keyless/API adaptive bibliographic completion (OpenAlex + native Zotero Translators for volume, issue, pages, and full dates), expanded chemical formula sub/superscript normalization, a high-readability BridgeFlow-style horizontal tabbed settings panel, and $O(1)$ virtual table scroll caching. See the [v17.1.0 release notes](docs/releases/metaflow-v17.1.0.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-786%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 Installation](#installation) · [✨ Key Highlights](#highlights) · [🛠️ Feature Matrix](#features) · [🚀 Quick Start](#quick-start) · [⚙️ Settings Guide](#settings) · [🛡️ Architecture & Safety](#architecture) · [🌐 Compatibility](#compatibility) · [❓ Troubleshooting & FAQ](#troubleshooting) · [🔗 Flow Series](#series) · [📄 Credits & License](#license)
 

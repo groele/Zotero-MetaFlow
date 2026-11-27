@@ -1,5 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import hooks from "./hooks";
+import { refreshTLDRInfoRow } from "./modules/item-info-row";
+import { refreshJournalPane } from "./modules/journal-pane";
+import {
+  computeItemLintSignature,
+  getLintFingerprintStats,
+  recordCleanLintFingerprint,
+} from "./utils/lint-fingerprint-cache";
 
 const mocks = vi.hoisted(() => ({
   register: vi.fn(),
@@ -90,6 +97,24 @@ describe("startup cancellation and failure cleanup", () => {
     (Zotero as any).MetaRef = replacement;
     await hooks.onShutdown();
     expect((Zotero as any).MetaRef).toBe(replacement);
+  });
+
+  it("coalesces concurrent modify notifications and invalidates lint fingerprint cache", async () => {
+    const item = { id: 42, version: 1, getField: () => "2026", toJSON: () => ({ title: "Test" }), getAttachments: () => [] } as unknown as Zotero.Item;
+    const rule = { id: "r1", category: "rule", apply: () => {} } as any;
+    const optionsMap = new Map([["r1", {}]]);
+    const sig = computeItemLintSignature(item, [rule], optionsMap);
+    recordCleanLintFingerprint(sig);
+    expect(getLintFingerprintStats().size).toBe(1);
+
+    await Promise.all([
+      hooks.onNotify("modify", "item", [42], {}),
+      hooks.onNotify("modify", "item", [42, 43], {}),
+    ]);
+    expect(getLintFingerprintStats().size).toBe(0);
+    expect(refreshJournalPane).toHaveBeenCalledOnce();
+    expect(refreshJournalPane).toHaveBeenCalledWith([42, 43]);
+    expect(refreshTLDRInfoRow).toHaveBeenCalledOnce();
   });
 });
 vi.mock("./utils/greenfrog-migration", () => ({ migrateGreenFrogPreferences: vi.fn() }));

@@ -35,3 +35,18 @@ it("coalesces maintenance requests and keeps shutdown waiting until both writes 
   await stopping;
   await expect(cleanExpiredCaches()).resolves.toBeUndefined();
 });
+
+it("defers initial cache maintenance on startup instead of blocking synchronously", async () => {
+  vi.useFakeTimers();
+  try {
+    const { startCacheMaintenance, stopCacheMaintenance } = await import("./cache-maintenance");
+    startCacheMaintenance();
+    expect(mocks.read).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(mocks.read).toHaveBeenCalledOnce();
+    await stopCacheMaintenance();
+  }
+  finally {
+    vi.useRealTimers();
+  }
+});

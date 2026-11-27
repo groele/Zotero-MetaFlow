@@ -3,7 +3,7 @@ import { cleanupResourcesSync } from "../../utils/cleanup";
 import { EASYSCHOLAR_FIELD_DEFINITIONS } from "../../utils/easyscholar";
 import { redrawItemValues } from "../../utils/item-value-refresh";
 import { isJournalFeedback } from "../../utils/journal-feedback";
-import { clearJournalInsights, getJournalInsights, loadJournalInsights } from "../../utils/journal-insights";
+import { cachedJournalInsights, clearJournalInsights, getJournalInsights, loadJournalInsights } from "../../utils/journal-insights";
 import { hasEnabledJournalMetrics, isJournalIndexEnabled } from "../../utils/journal-permissions";
 import { journalRankingRows } from "../../utils/journal-ranking-rows";
 import { getLocaleID, getString } from "../../utils/locale";
@@ -131,6 +131,8 @@ export function registerJournalPane() {
         body.replaceChildren();
         return;
       }
+      if (body.firstElementChild?.classList?.contains("metaref-journal-pane-wrap") && item && cachedJournalInsights(item))
+        return;
       if (doc) {
         const loading = doc.createElementNS("http://www.w3.org/1999/xhtml", "div");
         loading.className = "metaref-journal-pane-wrap";

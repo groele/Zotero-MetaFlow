@@ -302,6 +302,8 @@ export function setupWorkflowSettings(pane: Element) {
   listen(pane, "command", updateDependencies);
   listen(pane, "metaref-preferences-synced", () => {
     syncRadioUI();
+    if (tldrTargetSelect)
+      tldrTargetSelect.value = String(getPref("workflow.tldrTarget" as any, "note"));
     updateDependencies();
   });
   updateDependencies();

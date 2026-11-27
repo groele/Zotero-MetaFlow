@@ -1,5 +1,5 @@
 import type { TransformedData } from "./base-service";
-import { requestServiceGET } from "../../../../utils/http";
+import { parseResponseJSON, requestServiceGET } from "../../../../utils/http";
 import { normalizeDOI } from "../policy";
 import { defineService } from "./base-service";
 
@@ -230,9 +230,9 @@ export const CrossrefService = defineService<CrossrefResponse>({
     try {
       const res = await requestServiceGET("crossref", url, options, signal);
       if (res.status === 200 && res.response) {
-        const parsed = typeof res.response === "object" && res.response !== null ? res.response : JSON.parse(typeof res.response === "string" ? res.response : res.responseText || "{}");
+        const parsed = parseResponseJSON<CrossrefResponse>(res);
         if (parsed.status === "ok" && parsed.message)
-          return parsed as CrossrefResponse;
+          return parsed;
       }
       debug(`Crossref returned status ${res.status}`);
       return undefined;

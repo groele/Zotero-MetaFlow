@@ -314,10 +314,10 @@ export class RichTextToolBar {
         selectionCaptureAttached.delete(textarea);
       });
     }
-    if (getPref("richtext.toolBar", true))
-      this.buttonManager.attachToolbar(textarea);
-    if (getPref("richtext.toolBar", true))
-      activeTitleEditors.set(this.window, textarea);
+    activeTitleEditors.set(this.window, textarea);
+    if (!getPref("richtext.toolBar", true))
+      return;
+    this.buttonManager.attachToolbar(textarea);
   }
 
   /** Close the toolbar when the title editor loses focus. */

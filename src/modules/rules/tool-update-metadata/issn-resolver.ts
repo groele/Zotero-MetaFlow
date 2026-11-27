@@ -1,4 +1,4 @@
-import { requestCachedGET, requestServiceGET } from "../../../utils/http";
+import { parseResponseJSON, requestCachedGET, requestServiceGET } from "../../../utils/http";
 import { publicationCacheName } from "../../../utils/service-cache-policy";
 import { normalizeDOI } from "./policy";
 
@@ -10,10 +10,44 @@ const CROSSREF_WORK_OPTIONS = {
   },
 };
 
-function safeParseJSON(res: any): any {
-  if (typeof res?.response === "object" && res.response !== null)
-    return res.response;
-  return JSON.parse(res?.response || res?.responseText || "{}");
+const attemptedISSNItems = new WeakMap<object, string>();
+const recentNegativeISSNKeys = new Map<string, number>();
+const NEGATIVE_ISSN_TTL = 30_000;
+const NEGATIVE_ISSN_LIMIT = 512;
+
+function issnAttemptSignature(doi?: string, publicationTitle?: string): string {
+  return `${normalizeDOI(doi)}::${publicationCacheName(publicationTitle || "")}`;
+}
+
+export function markISSNResolutionAttempted(item: object | undefined, doi?: string, publicationTitle?: string): void {
+  const sig = issnAttemptSignature(doi, publicationTitle);
+  if (item && typeof item === "object")
+    attemptedISSNItems.set(item, sig);
+  if (sig !== "::") {
+    recentNegativeISSNKeys.set(sig, Date.now() + NEGATIVE_ISSN_TTL);
+    while (recentNegativeISSNKeys.size > NEGATIVE_ISSN_LIMIT)
+      recentNegativeISSNKeys.delete(recentNegativeISSNKeys.keys().next().value!);
+  }
+}
+
+export function clearISSNResolutionAttempts(item?: object): void {
+  if (item && typeof item === "object")
+    attemptedISSNItems.delete(item);
+  recentNegativeISSNKeys.clear();
+}
+
+export function wasISSNResolutionAttempted(item: object | undefined, doi?: string, publicationTitle?: string): boolean {
+  const sig = issnAttemptSignature(doi, publicationTitle);
+  if (item && typeof item === "object" && attemptedISSNItems.get(item) === sig)
+    return true;
+  if (sig !== "::") {
+    const expires = recentNegativeISSNKeys.get(sig);
+    if (expires && expires > Date.now())
+      return true;
+    if (expires)
+      recentNegativeISSNKeys.delete(sig);
+  }
+  return false;
 }
 
 /**
@@ -53,13 +87,13 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
   // 1. Query by DOI
   if (cleanDOI) {
     try {
-      const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDOI)}?select=doi,primary_location`;
+      const url = `https://api.openalex.org/works/https://doi.org/${encodeURIComponent(cleanDOI)}`;
       debug?.(`[OpenAlex] Fetching work by DOI: ${cleanDOI}`);
       const res = await requestCachedGET(url, {
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = safeParseJSON(res);
+        const body = parseResponseJSON(res);
         const source = normalizeDOI(body.doi) === cleanDOI ? body.primary_location?.source : undefined;
         const candidate = source?.issn_l || source?.issn?.[0];
         const normalized = normalizeISSN(candidate);
@@ -85,7 +119,7 @@ export async function fetchISSNFromOpenAlex(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = safeParseJSON(res);
+        const body = parseResponseJSON(res);
         const source = body.results?.find((entry: any) => sameJournal(entry.display_name, publicationTitle));
         const candidate = source?.issn_l || source?.issn?.[0];
         const normalized = normalizeISSN(candidate);
@@ -118,7 +152,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
       debug?.(`[Crossref] Fetching work by DOI: ${cleanDOI}`);
       const res = await requestServiceGET("crossref", url, CROSSREF_WORK_OPTIONS, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = safeParseJSON(res);
+        const body = parseResponseJSON(res);
         const message = normalizeDOI(body.message?.DOI) === cleanDOI ? body.message : undefined;
         const candidate = [...(message?.ISSN || []), ...(message?.["issn-type"] || []).map((entry: any) => entry.value)].find(value => normalizeISSN(value));
         const normalized = normalizeISSN(candidate);
@@ -144,7 +178,7 @@ export async function fetchISSNFromCrossref(opts: ResolveISSNOptions): Promise<s
         timeout: 10_000,
       }, signal);
       if (res && (res.status === 200 || res.status === undefined)) {
-        const body = safeParseJSON(res);
+        const body = parseResponseJSON(res);
         const journal = body.message?.items?.find((entry: any) => entry["container-title"]?.some((title: string) => sameJournal(title, publicationTitle)));
         const candidate = [...(journal?.ISSN || []), ...(journal?.["issn-type"] || []).map((entry: any) => entry.value)].find(value => normalizeISSN(value));
         const normalized = normalizeISSN(candidate);

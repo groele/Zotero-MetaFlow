@@ -95,6 +95,10 @@ function scheduleWrite() {
   }, 250);
 }
 
+export function getJournalRankingIndexRevision(): number {
+  return revision;
+}
+
 export async function loadJournalRankingIndex() {
   await load();
 }

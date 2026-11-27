@@ -6,7 +6,7 @@ import { buildNatureIndexLookupMaps } from "./nature-index";
 
 const prefs = vi.hoisted(() => ({ path: "", naturePath: "", format: "{subject}ESI", esiEnabled: true, natureEnabled: true, saved: new Map<string, string>() }));
 vi.mock("./prefs", () => ({ getPref: (key: string, fallback: unknown) => key === "easyscholar.fields.esi" ? prefs.esiEnabled : key === "insights.natureEnabled" ? prefs.natureEnabled : key === "insights.natureCustomDataPath" ? prefs.naturePath : key === "insights.esiCustomDataPath" ? prefs.path : key === "insights.esiFormat" ? prefs.format : fallback }));
-vi.mock("./journal-ranking-index", () => ({ readJournalRankingIndex: () => new Map(prefs.saved) }));
+vi.mock("./journal-ranking-index", () => ({ readJournalRankingIndex: () => new Map(prefs.saved), getJournalRankingIndexRevision: () => 0 }));
 vi.mock("./data-loader", () => ({ DataLoader: { getESIJournalMaps: vi.fn(), getNatureIndexJournalMaps: vi.fn(), clearCache: vi.fn() } }));
 const esi = buildESILookupMaps([{ title: "Known Journal", issn: "1234-5678", category: "PHYSICS" }]);
 const nature = buildNatureIndexLookupMaps([{ title: "Known Journal", type: "journal", issn: ["1234-5678"] }]);

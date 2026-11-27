@@ -1,5 +1,23 @@
-import { describe, expect, it } from "vitest";
-import { executeRule, normalizedConcurrency, waitForOperation } from "./rule-execution";
+import { describe, expect, it, vi } from "vitest";
+import { createAbortController, executeRule, normalizedConcurrency, runWithDeadline, waitForOperation } from "./rule-execution";
+
+describe("host factory & runWithDeadline", () => {
+  it("uses Zotero.getMainWindow()?.AbortController when available and falls back safely", () => {
+    const controller = createAbortController();
+    expect(controller).toBeInstanceOf(AbortController);
+    vi.stubGlobal("Zotero", { getMainWindow: () => undefined });
+    expect(createAbortController()).toBeInstanceOf(AbortController);
+    vi.unstubAllGlobals();
+  });
+
+  it("enforces timeout and parent cancellation in runWithDeadline", async () => {
+    await expect(runWithDeadline(async () => "ok", undefined, 100, "timeout")).resolves.toBe("ok");
+    await expect(runWithDeadline(async () => new Promise(() => {}), undefined, 10, "Deadline exceeded")).rejects.toThrow("Deadline exceeded");
+    const parent = new AbortController();
+    parent.abort(new Error("Parent aborted"));
+    await expect(runWithDeadline(async () => "ok", parent.signal, 100, "timeout")).rejects.toThrow("Parent aborted");
+  });
+});
 
 describe("rule deadlines", () => {
   it("does not start queued preparation after same-turn cancellation", async () => {

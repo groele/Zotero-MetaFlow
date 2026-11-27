@@ -10,11 +10,18 @@ export function setupAbbreviationSettings(pane: Element) {
   const metrics = pane.querySelector("#metaref-easyscholar-settings");
   if (metrics && rules)
     pane.insertBefore(metrics, rules);
+  const syncAbbrSelects = () => {
+    for (const select of pane.querySelectorAll<HTMLSelectElement>("select[data-abbr-option]")) {
+      const key = `rule.require-journal-abbr.${select.dataset.abbrOption}`;
+      select.value = String(getPref(key as any, select.options[0].value));
+    }
+  };
   for (const select of pane.querySelectorAll<HTMLSelectElement>("select[data-abbr-option]")) {
     const key = `rule.require-journal-abbr.${select.dataset.abbrOption}`;
     select.value = String(getPref(key as any, select.options[0].value));
     preferenceListeners(pane)(select, "change", () => setPref(key as any, select.value));
   }
+  preferenceListeners(pane)(pane, "metaref-preferences-synced", syncAbbrSelects);
 }
 
 export function setupIntegrationStatus(pane: Element) {

@@ -5,6 +5,7 @@ import { SERVICE_CACHE_ENTRY_BYTES, SERVICE_CACHE_TTL, serviceCacheBytes, servic
 interface StoredResponse { status: number; response: string; responseText: string }
 interface Entry { expires: number; value?: StoredResponse; alias?: string }
 const logger = createLogger("service-cache");
+const textEncoder = new TextEncoder();
 const entries = new Map<string, Entry>();
 const sizes = new Map<string, number>();
 let bytes = 0;
@@ -38,8 +39,19 @@ function remove(key: string) {
     }
   }
 }
+function entryBytes(key: string, entry: Entry): number {
+  if (!entry.value)
+    return textEncoder.encode(JSON.stringify([key, entry])).byteLength + 1;
+  const { response, responseText } = entry.value;
+  if (response === responseText) {
+    entry.value.responseText = response;
+    const bodyBytes = textEncoder.encode(JSON.stringify(response)).byteLength;
+    return key.length + String(entry.expires).length + bodyBytes * 2 + 52;
+  }
+  return textEncoder.encode(JSON.stringify([key, entry])).byteLength + 1;
+}
 function put(key: string, entry: Entry) {
-  const size = new TextEncoder().encode(JSON.stringify([key, entry])).byteLength + 1;
+  const size = entryBytes(key, entry);
   if (size > SERVICE_CACHE_ENTRY_BYTES || (entry.alias && !entries.get(entry.alias)?.value))
     return false;
   remove(key);
@@ -94,8 +106,11 @@ async function load() {
         const expires = data.version === 3 ? entry.expires : Math.min(entry.expires, entry.expires - legacyTTL + ttl);
         if (expires <= Date.now() || expires > Date.now() + ttl)
           continue;
-        if ((entry.value?.status === 200 && typeof entry.value.response === "string" && typeof entry.value.responseText === "string") || (typeof entry.alias === "string" && validKey.test(entry.alias) && entry.alias.split(":")[0] === key.split(":")[0] && entry.alias !== key))
-          valid.push([key, entry.value ? { expires, value: { status: 200, response: entry.value.response, responseText: entry.value.responseText } } : { expires, alias: entry.alias }]);
+        if ((entry.value?.status === 200 && typeof entry.value.response === "string" && typeof entry.value.responseText === "string") || (typeof entry.alias === "string" && validKey.test(entry.alias) && entry.alias.split(":")[0] === key.split(":")[0] && entry.alias !== key)) {
+          const response = entry.value?.response;
+          const responseText = entry.value?.responseText === response ? response! : entry.value?.responseText;
+          valid.push([key, entry.value ? { expires, value: { status: 200, response: response!, responseText: responseText! } } : { expires, alias: entry.alias }]);
+        }
       }
       for (const [key, entry] of valid.filter(([, entry]) => entry.value))
         put(key, entry);

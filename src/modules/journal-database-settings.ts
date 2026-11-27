@@ -8,11 +8,18 @@ import { refreshJournalInsights } from "./journal-pane";
 
 export function setupJournalDatabases(pane: Element) {
   const listen = preferenceListeners(pane);
+  const syncIndexSelects = () => {
+    for (const select of pane.querySelectorAll<HTMLSelectElement>("select[data-index-policy]")) {
+      const key = `insights.${select.dataset.indexPolicy}SourcePriority`;
+      select.value = String(getPref(key as any, "local-only"));
+    }
+  };
   for (const select of pane.querySelectorAll<HTMLSelectElement>("select[data-index-policy]")) {
     const key = `insights.${select.dataset.indexPolicy}SourcePriority`;
     select.value = String(getPref(key as any, "local-only"));
     listen(select, "change", () => setPref(key as any, select.value));
   }
+  listen(pane, "metaref-preferences-synced", syncIndexSelects);
   for (const kind of ["esi", "nature"] as JournalDatasetKind[]) {
     const key = kind === "esi" ? "insights.esiCustomDataPath" : "insights.natureCustomDataPath";
     const group = pane.querySelector(`[data-journal-database='${kind}']`)!;
@@ -114,4 +121,16 @@ export function setupJournalShareSettings(pane: Element) {
       setPref("insights.shareSilentFormat" as any, formatSelect.value);
     });
   }
+  listen(pane, "metaref-preferences-synced", () => {
+    if (modeSelect) {
+      modeSelect.value = String(getPref("insights.shareMode" as any, "silent"));
+      const isModal = modeSelect.value === "modal";
+      if (formatSelect)
+        formatSelect.disabled = isModal;
+      if (formatRow)
+        formatRow.hidden = isModal;
+    }
+    if (formatSelect)
+      formatSelect.value = String(getPref("insights.shareSilentFormat" as any, "image"));
+  });
 }

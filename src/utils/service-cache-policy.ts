@@ -1,3 +1,5 @@
+import { readIntPref } from "./prefs";
+
 export const SERVICE_CACHE_TTL = 72 * 60 * 60_000;
 export const SERVICE_CACHE_LIMIT = 1024;
 export const SERVICE_CACHE_MEMORY_LIMIT = 512;
@@ -7,17 +9,6 @@ export const PUBLIC_CACHE_TTL = 5 * 60_000;
 export const PUBLIC_CACHE_LIMIT = 128;
 export const PUBLIC_CACHE_BYTES = 4 * 1024 * 1024;
 export const SERVICE_MEMORY_BYTES = 16 * 1024 * 1024;
-
-function readIntPref(key: string, fallback: number, min: number, max: number): number {
-  try {
-    const value = (Zotero as any)?.Prefs?.get?.(`extensions.zotero.metaref.${key}`, true);
-    const num = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
-    return Number.isInteger(num) && num >= min && num <= max ? num : fallback;
-  }
-  catch {
-    return fallback;
-  }
-}
 
 export function easyScholarCacheHours(): number {
   return readIntPref("cache.easyScholarHours", 72, 1, 720);

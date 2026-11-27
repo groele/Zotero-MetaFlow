@@ -7,8 +7,8 @@ import { defineRule } from "../rule-base";
 import { applyItemCreators, applyItemFields, applyItemType, hasAuthors, normalizeMetadata } from "./applier";
 import { extractIdentifiers, isPreprint } from "./identifiers";
 import { resolveMissingISSN } from "./issn-resolver";
-import { mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI } from "./policy";
-import { services } from "./services";
+import { hasMissingJournalBiblio, mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI } from "./policy";
+import * as serviceRegistry from "./services";
 import { backfillItemTLDR } from "./tldr";
 
 export { normalizeMetadata } from "./applier";
@@ -60,7 +60,7 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
       return;
     }
 
-    function createServiceContext(service: typeof services[number]): MetadataContext {
+    function createServiceContext(service: typeof serviceRegistry.services[number]): MetadataContext {
       return {
         item,
         identifiers,
@@ -73,7 +73,7 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
     let errorMessage: string = "";
 
     // 2. get available metadata services
-    const isAvailable = (service: typeof services[number]): boolean => {
+    const isAvailable = (service: typeof serviceRegistry.services[number]): boolean => {
       try {
         return (!service.supportedItemTypes || service.supportedItemTypes.includes(item.itemType)) && service.shouldApply(createServiceContext(service));
       }
@@ -85,7 +85,10 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
         return false;
       }
     };
-    const availableServices = services.filter(isAvailable);
+    const orderedServices = "getOrderedMetadataServices" in serviceRegistry && typeof serviceRegistry.getOrderedMetadataServices === "function"
+      ? serviceRegistry.getOrderedMetadataServices(serviceRegistry.services)
+      : serviceRegistry.services;
+    const availableServices = orderedServices.filter(isAvailable);
     debug(`Available services: ${availableServices.map(s => s.id).join(", ")}`);
 
     // 3. update identidiers
@@ -126,7 +129,7 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
       && Zotero.ItemTypes.getID(result.itemType)
       ? result.itemType
       : item.itemType;
-    for (const service of services.filter(isAvailable)) {
+    for (const service of orderedServices.filter(isAvailable)) {
       signal?.throwIfAborted();
       if (!service.fetch)
         continue;
@@ -161,7 +164,11 @@ export const ToolUpdateMetadata = defineRule<UpdateMetadataOption>({
           }
           data = merged;
           successfulServices.add(service.name);
-          const missing = options.creatorsOnly ? !hasAuthors(data.creators) : metadataMissing(data, original, options.mode, expectedType(data)).length || (options.repairCreators && !hasAuthors(data.creators));
+          const missing = options.creatorsOnly
+            ? !hasAuthors(data.creators)
+            : metadataMissing(data, original, options.mode, expectedType(data)).length
+              || hasMissingJournalBiblio(data, original, options.mode, expectedType(data))
+              || (options.repairCreators && !hasAuthors(data.creators));
           if (!missing)
             break;
         }

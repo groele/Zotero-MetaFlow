@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearRequestCache, requestCachedGET, requestGET } from "./http";
+import { clearRequestCache, parseResponseJSON, requestCachedGET, requestGET } from "./http";
 
 afterEach(() => {
   clearRequestCache();
@@ -137,5 +137,16 @@ describe("public API request lifetime", () => {
     expect(cancel).toHaveBeenCalledOnce();
     // Drain the eager transport's rejection too, not just the subscriber race.
     await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  it("caches public requests with non-sensitive headers and bypasses cache only for auth headers", async () => {
+    const request = vi.fn().mockResolvedValue({ status: 200, response: "{\"ok\":true}" });
+    vi.stubGlobal("Zotero", { getMainWindow: () => ({ AbortController }), HTTP: { request } });
+    const res1 = await requestCachedGET("https://example.org/public", { headers: { Accept: "application/json" } });
+    const res2 = await requestCachedGET("https://example.org/public", { headers: { Accept: "application/json" } });
+    expect(parseResponseJSON(res1)).toEqual({ ok: true });
+    expect(parseResponseJSON(res2)).toEqual({ ok: true });
+    expect(request).toHaveBeenCalledTimes(1);
+    await requestCachedGET("https://example.org/public", { headers: { "x-api-key": "secret" } });
+    expect(request).toHaveBeenCalledTimes(2);
   });
 });

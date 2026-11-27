@@ -1,7 +1,7 @@
 import { getString } from "../../../utils/locale";
 import { defineRule } from "../rule-base";
 import { extractIdentifiers } from "./identifiers";
-import { resolveMissingISSN } from "./issn-resolver";
+import { resolveMissingISSN, wasISSNResolutionAttempted } from "./issn-resolver";
 
 /** Runs after review so rejected or unavailable article metadata does not block ISSN. */
 export const CompleteMissingISSN = defineRule({
@@ -13,7 +13,12 @@ export const CompleteMissingISSN = defineRule({
     if (String(item.getField("ISSN") || "").trim())
       return;
     const original = ["DOI", "publicationTitle", "ISSN"].map(field => String(item.getField(field) || ""));
-    const resolved = await resolveMissingISSN({ doi: extractIdentifiers(item).DOI, publicationTitle: original[1], signal, debug });
+    const doi = extractIdentifiers(item).DOI;
+    if (wasISSNResolutionAttempted(item, doi, original[1])) {
+      report({ level: "warning", field: "ISSN", code: "issn-unresolved", message: getString("journal-issn-unresolved" as any) });
+      return;
+    }
+    const resolved = await resolveMissingISSN({ doi, publicationTitle: original[1], signal, debug });
     signal?.throwIfAborted();
     if (!resolved) {
       report({ level: "warning", field: "ISSN", code: "issn-unresolved", message: getString("journal-issn-unresolved" as any) });

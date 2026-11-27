@@ -7,7 +7,7 @@ import { ESI_CATEGORIES, formatESICategories, matchESICategories } from "./esi";
 import { journalDatabaseErrorMessage } from "./journal-database-error";
 import { extractValidISSNs } from "./journal-identity";
 import { isJournalIndexEnabled } from "./journal-permissions";
-import { readJournalRankingIndex } from "./journal-ranking-index";
+import * as journalRankingIndex from "./journal-ranking-index";
 import { isNatureIndexJournal } from "./nature-index";
 import { getPref } from "./prefs";
 
@@ -41,6 +41,10 @@ let currentPath: string | undefined;
 let pending: Promise<IndexData> | undefined;
 let loaded: IndexData | undefined;
 let generation: object | undefined;
+let itemInsightsCache = new WeakMap<Zotero.Item, { key: string; result: JournalInsights }>();
+const ESI_CATEGORY_LOOKUP = new Map(
+  Object.entries(ESI_CATEGORIES).flatMap(([key, names]) => [key, names.zh, names.en].map(name => [name.toUpperCase(), key] as const)),
+);
 const message = journalDatabaseErrorMessage;
 const paths = () => [getPref("insights.esiCustomDataPath") || "", getPref("insights.natureCustomDataPath") || ""] as const;
 const indexConfiguration = () => JSON.stringify([...paths(), isJournalIndexEnabled("esi"), isJournalIndexEnabled("nature")]);
@@ -51,6 +55,7 @@ export function clearJournalInsights() {
   pending = undefined;
   loaded = undefined;
   generation = undefined;
+  itemInsightsCache = new WeakMap();
 }
 
 export function loadJournalInsights(): Promise<IndexData> {
@@ -62,6 +67,7 @@ export function loadJournalInsights(): Promise<IndexData> {
   loaded = undefined;
   const token = {};
   generation = token;
+  itemInsightsCache = new WeakMap();
   const task: Promise<IndexData> = (async () => {
     const data: IndexData = { path, naturePath };
     await Promise.all([
@@ -113,7 +119,24 @@ export function loadJournalInsights(): Promise<IndexData> {
 export function cachedJournalInsights(item: Zotero.Item): JournalInsights | undefined {
   if (currentPath !== indexConfiguration() || !loaded)
     return undefined;
-  return calculate(item, loaded);
+  if (!item || typeof item !== "object")
+    return calculate(item, loaded);
+  const rankingRev = "getJournalRankingIndexRevision" in journalRankingIndex && typeof journalRankingIndex.getJournalRankingIndexRevision === "function"
+    ? journalRankingIndex.getJournalRankingIndexRevision()
+    : 0;
+  const savedEsi = journalRankingIndex.readJournalRankingIndex(item).get("esi") || "";
+  const title = String(item.getField?.("publicationTitle") || "");
+  const issn = String(item.getField?.("ISSN") || "");
+  const abbr = String(item.getField?.("journalAbbreviation") || "");
+  const extra = String(item.getField?.("extra") || "");
+  const apiStatus = peekEasyScholarRank(title, extractValidISSNs(issn))?.status || "";
+  const cacheKey = `${currentPath}|${rankingRev}|${savedEsi}|${sourcePriority("esi")}|${sourcePriority("nature")}|${getPref("insights.esiFormat") || ""}|${item.itemType}|${issn}|${title}|${abbr}|${extra}|${apiStatus}`;
+  const cached = itemInsightsCache.get(item);
+  if (cached && cached.key === cacheKey)
+    return { ...cached.result, categories: [...cached.result.categories] };
+  const result = calculate(item, loaded);
+  itemInsightsCache.set(item, { key: cacheKey, result });
+  return { ...result, categories: [...result.categories] };
 }
 export async function getJournalInsights(item: Zotero.Item, options: { queryAPI?: boolean; signal?: AbortSignal } = {}): Promise<JournalInsights> {
   const data = await loadJournalInsights();
@@ -172,7 +195,7 @@ function calculateLocal(item: Zotero.Item, data: IndexData): JournalInsights {
     }
   }
   if (!result.categories.length) {
-    const savedCategories = apiESICategories(readJournalRankingIndex(item).get("esi") || "");
+    const savedCategories = apiESICategories(journalRankingIndex.readJournalRankingIndex(item).get("esi") || "");
     if (savedCategories.length) {
       result.categories = savedCategories;
       result.esiSource = "saved";
@@ -184,11 +207,12 @@ function calculateLocal(item: Zotero.Item, data: IndexData): JournalInsights {
 }
 
 export function apiESICategories(value: string): string[] {
-  const lookup = new Map(Object.entries(ESI_CATEGORIES).flatMap(([key, names]) => [key, names.zh, names.en].map(name => [name.toUpperCase(), key] as const)));
+  if (!value.trim())
+    return [];
   const parse = (part: string): string[] => {
     const normalized = part.trim().replace(/ESI$/i, "").trim().toUpperCase();
-    const exact = lookup.get(normalized);
-    return exact ? [exact] : normalized.split(/[,、]/).map(name => lookup.get(name.trim())).filter((key): key is string => Boolean(key));
+    const exact = ESI_CATEGORY_LOOKUP.get(normalized);
+    return exact ? [exact] : normalized.split(/[,、]/).map(name => ESI_CATEGORY_LOOKUP.get(name.trim())).filter((key): key is string => Boolean(key));
   };
   return [...new Set(value.split(/[;；|]/).flatMap(parse))];
 }

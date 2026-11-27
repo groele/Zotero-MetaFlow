@@ -16,6 +16,14 @@ interface CachedRequest {
 }
 const publicRequests = new Map<string, CachedRequest>();
 const serviceRequests = new Map<string, CachedRequest>();
+const textEncoder = new TextEncoder();
+const SENSITIVE_HEADER_RE = /^(?:authorization|x-api-key|zotero-api-key)$/i;
+
+export function parseResponseJSON<T = any>(res: any): T {
+  if (typeof res?.response === "object" && res.response !== null)
+    return res.response as T;
+  return JSON.parse(typeof res?.response === "string" && res.response ? res.response : res?.responseText || "{}") as T;
+}
 
 export function clearRequestCache() {
   for (const store of [publicRequests, serviceRequests]) {
@@ -92,7 +100,7 @@ export async function rememberServiceAliases(namespace: string, url: string, ali
 /** Share public lookups only; authenticated metadata services never use this cache. */
 export async function requestCachedGET(url: string, options: RequestOptions = {}, signal?: AbortSignal) {
   signal?.throwIfAborted();
-  if (options.headers && Object.keys(options.headers).length)
+  if (options.headers && Object.keys(options.headers).some(header => SENSITIVE_HEADER_RE.test(header)))
     return requestGET(url, options, signal);
   const key = JSON.stringify([url, options.responseType || "text"]);
   return cachedGET(url, options, signal, publicRequests, key, PUBLIC_CACHE_TTL);
@@ -140,7 +148,9 @@ async function cachedGET(url: string, options: RequestOptions, signal: AbortSign
               ? data.code === 200
               : key.startsWith("crossref:")
                 ? (data.status === "ok" && typeof data.message === "object")
-                : typeof data.paperId === "string"
+                : key.startsWith("semantic-scholar:")
+                  ? typeof data.paperId === "string"
+                  : true
           );
           if (key.startsWith("easyscholar:") && valid) {
             const all = data.data?.officialRank?.all;
@@ -152,7 +162,7 @@ async function cachedGET(url: string, options: RequestOptions, signal: AbortSign
         }
         catch { valid = false; }
       }
-      created.bytes = new TextEncoder().encode(typeof result.response === "string" ? result.response : JSON.stringify(result.response || result.responseText || "")).byteLength;
+      created.bytes = textEncoder.encode(typeof result.response === "string" ? result.response : JSON.stringify(result.response || result.responseText || "")).byteLength;
       if (created.bytes > SERVICE_CACHE_ENTRY_BYTES)
         valid = false;
       if (!valid && store.get(key) === created)

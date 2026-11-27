@@ -55,7 +55,13 @@ export function setupRefreshButton(doc: Document, item: Zotero.Item): HTMLButton
               { duration: 180, easing: "ease-out" },
             );
           }
-          const resetTimer = doc.defaultView?.setTimeout(() => {
+          let resetTimer: number | undefined;
+          const onUnload = () => {
+            doc.defaultView?.clearTimeout(resetTimer);
+            doc.defaultView?.removeEventListener("unload", onUnload);
+          };
+          resetTimer = doc.defaultView?.setTimeout(() => {
+            doc.defaultView?.removeEventListener("unload", onUnload);
             if (!targetBtn.isConnected)
               return;
             targetBtn.removeAttribute("data-refresh-success");
@@ -63,7 +69,7 @@ export function setupRefreshButton(doc: Document, item: Zotero.Item): HTMLButton
             targetBtn.title = getString("journal-refresh-rankings");
             targetBtn.setAttribute("aria-label", targetBtn.title);
           }, 1600);
-          doc.defaultView?.addEventListener("unload", () => doc.defaultView?.clearTimeout(resetTimer), { once: true });
+          doc.defaultView?.addEventListener("unload", onUnload, { once: true });
         }
       }
     }

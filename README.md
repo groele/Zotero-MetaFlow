@@ -8,12 +8,12 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.0.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.0.0)
+[![Version](https://img.shields.io/badge/version-17.1.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.1.0)
 
-17.0.0 完成统一大版本升级与发布基线收敛，整合期刊跨 ISSN / EasyScholar / 南农指标身份校验、中文标题与作者匹配防误伤、Fluent 本地化条目诊断及精简设置文案。详见 [v17.0.0 发布说明](docs/releases/metaflow-v17.0.0.md) 与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.1.0 新增无密钥 / API 双模自适应书目补全（支持 OpenAlex 与原生 Translator 补齐卷期页与精确日期）、化学式角标深度修复、BridgeFlow 风格高可读性横向标签设置面板，以及批处理快照复用与虚拟列表 $O(1)$ 滚动缓存。详见 [v17.1.0 发布说明](docs/releases/metaflow-v17.1.0.md) 与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-786%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-812%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [🌐 运行环境](#compatibility) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
 

@@ -91,9 +91,23 @@ export function escapeRegex(str: string) {
   return str;
 }
 
+export function parseXMLDocument(xml: string): Document {
+  let hostWindow: any;
+  try {
+    hostWindow = typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function"
+      ? Zotero.getMainWindow()
+      : undefined;
+  }
+  catch {
+    hostWindow = undefined;
+  }
+  const Parser = hostWindow?.DOMParser || DOMParser;
+  return new Parser().parseFromString(xml, "text/xml");
+}
+
 export function parseXML(xml: string) {
-  const doc = new DOMParser().parseFromString(xml, "text/xml");
-  return doc.body;
+  const doc = parseXMLDocument(xml);
+  return doc.body || doc.documentElement;
 }
 
 /**

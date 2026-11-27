@@ -1,7 +1,8 @@
 import type { DuplicateRecord } from "./duplicate-matching";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 import { duplicateMatchEvents, duplicatePairs } from "./duplicate-matching";
 import { canMergePair, duplicateGroups } from "./duplicate-policy";
+import * as policy from "./policy";
 
 const record = (id: number, doi: string): DuplicateRecord => ({ id, libraryID: 1, preprint: false, data: { itemType: "journalArticle", DOI: doi } });
 
@@ -55,4 +56,33 @@ it("preserves candidate and merge components across exclusions, versions and sel
     expect(groups(compact.filter(merge))).toEqual(groups(full.filter(merge)));
     expect(compact.every(pair => accept(pair) && (selected.has(pair.left.id) || selected.has(pair.right.id)))).toBe(true);
   }
+});
+
+it("pre-filters non-selected title candidates by normalized title and year before invoking firstCreator in large libraries", () => {
+  const spy = vi.spyOn(policy, "firstCreator");
+  const records: DuplicateRecord[] = [
+    {
+      id: 1,
+      libraryID: 1,
+      preprint: false,
+      data: { itemType: "journalArticle", title: "Target Paper With Sufficiently Long Title", date: "2026", creators: [{ creatorType: "author", lastName: "Zhang" }] },
+    },
+    {
+      id: 2,
+      libraryID: 1,
+      preprint: false,
+      data: { itemType: "journalArticle", title: "Target Paper With Sufficiently Long Title", date: "2026", creators: [{ creatorType: "author", lastName: "Zhang" }] },
+    },
+    ...Array.from({ length: 100 }, (_, i) => ({
+      id: i + 3,
+      libraryID: 1,
+      preprint: false,
+      data: { itemType: "journalArticle" as const, title: `Unrelated Paper Title Number ${i + 3} In Library`, date: "2026", creators: [{ creatorType: "author" as const, lastName: "Author" }] },
+    })),
+  ];
+  const pairs = duplicatePairs(new Set([1]), records);
+  expect(pairs).toHaveLength(1);
+  expect(pairs[0]).toMatchObject({ left: { id: 1 }, right: { id: 2 }, reason: "title" });
+  expect(spy).toHaveBeenCalledTimes(2);
+  spy.mockRestore();
 });

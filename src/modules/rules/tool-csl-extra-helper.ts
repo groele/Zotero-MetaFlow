@@ -167,8 +167,9 @@ export const ToolCSLHelper = defineRule<Options>({
                         return;
                       const value = textarea.value || "";
                       const newValue = value.split("\n").map((line) => {
-                        const [lastName, firstName] = line.split("||").map(s => s.trim());
-                        const newFirstName = splitPinyin(firstName);
+                        const [lastName, firstName = ""] = line.split("||").map(s => s.trim());
+                        const splitCandidates = splitPinyin(firstName);
+                        const newFirstName = splitCandidates[0] || firstName;
                         return `${lastName} || ${newFirstName}`;
                       }).join("\n");
 

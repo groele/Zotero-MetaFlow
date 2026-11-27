@@ -17,12 +17,26 @@ export function getTitleEditor(win: Window): HTMLTextAreaElement | null {
   const active = win.document.activeElement as HTMLElement | null;
   if (active?.localName === "textarea" && active.closest?.(HEADER_TITLE_SELECTOR))
     return active as HTMLTextAreaElement;
-  if (active?.closest?.(`.${TOOLBAR_CLASS}`)) {
-    const editor = activeTitleEditors.get(win);
-    const selection = savedTitleSelections.get(win);
-    if (editor && selection?.editor === editor && editor.isConnected)
+  const headerEditable = active?.closest?.(HEADER_TITLE_SELECTOR);
+  if (headerEditable) {
+    const innerTextarea = headerEditable.querySelector("textarea");
+    if (innerTextarea)
+      return innerTextarea;
+  }
+  const editor = activeTitleEditors.get(win);
+  const selection = savedTitleSelections.get(win);
+  if (
+    editor
+    && editor.isConnected
+    && (
+      active?.closest?.(`.${TOOLBAR_CLASS}`)
+      || editor.closest(HEADER_TITLE_SELECTOR)?.classList.contains("focused")
+      || selection?.editor === editor
+    )
+  ) {
+    if (selection?.editor === editor)
       editor.setSelectionRange(selection.start, selection.end, selection.direction);
-    return editor ?? null;
+    return editor;
   }
   return null;
 }
@@ -47,6 +61,31 @@ function isSingleOuterTag(source: string, tag: string, expectedOpenTag: string):
   return false;
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function findEnclosingTagAtCursor(
+  text: string,
+  cursor: number,
+  tag: string,
+  openPattern: RegExp,
+): { start: number; end: number; content: string } | null {
+  const pairRegex = new RegExp(`(${openPattern.source})([\\s\\S]*?)<\\/${tag}>`, "gi");
+  for (let match = pairRegex.exec(text); match; match = pairRegex.exec(text)) {
+    const matchStart = match.index;
+    const matchEnd = matchStart + match[0].length;
+    if (cursor >= matchStart && cursor <= matchEnd) {
+      return {
+        start: matchStart,
+        end: matchEnd,
+        content: match[2],
+      };
+    }
+  }
+  return null;
+}
+
 /**
  * Get the selected text and replace it with text with or without HTML tags depending on the operation.
  * @param tag sub | sup | b | i | span
@@ -59,21 +98,42 @@ export function setHtmlTag(tag: string, attribute?: string, value?: string, win:
   if (!textarea || textarea.selectionStart == null || textarea.selectionEnd == null)
     return;
 
-  const { selectionStart: start, selectionEnd: end, value: text } = textarea;
+  let { selectionStart: start, selectionEnd: end } = textarea;
+  const text = textarea.value;
   const attributeText = attribute ? ` ${attribute}="${value}"` : "";
   const openTag = `<${tag}${attributeText}>`;
   const closeTag = `</${tag}>`;
-  const wasWrapped = start !== end && isSingleOuterTag(text.slice(start, end), tag, openTag);
+  const openTagRegex = attribute && value
+    ? new RegExp(`<${tag}\\b[^>]*\\b${escapeRegExp(attribute)}\\s*=\\s*["']${escapeRegExp(value)}["'][^>]*>`, "i")
+    : new RegExp(`<${tag}\\b[^>]*>`, "i");
+  const innerTagPairRegex = new RegExp(`${openTagRegex.source}([\\s\\S]*?)<\\/${tag}>`, "gi");
 
-  if (start === end)
-    return;
   let selectedText = text.slice(start, end);
-  if (wasWrapped) {
+  let isActiveAfter = false;
+
+  if (start === end) {
+    const enclosing = findEnclosingTagAtCursor(text, start, tag, openTagRegex);
+    if (!enclosing)
+      return;
+    start = enclosing.start;
+    end = enclosing.end;
+    selectedText = enclosing.content;
+    isActiveAfter = false;
+  }
+  else if (isSingleOuterTag(selectedText, tag, openTag)) {
     selectedText = selectedText.slice(openTag.length, -closeTag.length);
+    isActiveAfter = false;
+  }
+  else if (innerTagPairRegex.test(selectedText)) {
+    innerTagPairRegex.lastIndex = 0;
+    selectedText = selectedText.replace(innerTagPairRegex, "$1");
+    isActiveAfter = false;
   }
   else {
     selectedText = `${openTag}${selectedText}${closeTag}`;
+    isActiveAfter = true;
   }
+
   textarea.setRangeText(selectedText, start, end, "select");
 
   textarea.style.height = "auto";
@@ -88,7 +148,7 @@ export function setHtmlTag(tag: string, attribute?: string, value?: string, win:
   const toolbar = win.document.querySelector(`.${TOOLBAR_CLASS}`);
   if (toolbar) {
     const hookName = tag === "sub" ? "subscript" : tag === "sup" ? "supscript" : tag === "b" ? "bold" : tag === "i" ? "italic" : tag === "span" && attribute === "class" ? "nocase" : "small-caps";
-    toolbar.querySelector(`#metaref-richtext-${hookName}-btn`)?.setAttribute("aria-pressed", String(!wasWrapped));
+    toolbar.querySelector(`#metaref-richtext-${hookName}-btn`)?.setAttribute("aria-pressed", String(isActiveAfter));
   }
 
   textarea.focus();

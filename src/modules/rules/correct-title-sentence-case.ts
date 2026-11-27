@@ -192,6 +192,8 @@ export function toSentenceCase(text: string, locale: string = "en-US") {
     .replace(/[–—]\uFFFD*(?:\s+\uFFFD*)?A\s/g, match => match.toLocaleLowerCase(locale))
     // words, compound words, and acronyms (latter also catches U.S.A.)
     .replace(/([\u{FFFD}\p{L}\p{N}]+([\u{FFFD}\p{L}\p{N}\p{Pc}]*))|(\s(\p{Lu}+\.){2,})?/gu, (word) => {
+      if (!word)
+        return word;
       if (allcaps)
         return scientificTerms.get(word.toLowerCase()) ?? word.toLocaleLowerCase(locale);
 

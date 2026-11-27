@@ -1,4 +1,5 @@
 import type { Identifiers } from "../rules/tool-update-metadata/identifiers";
+import type { ArxivRecord } from "../rules/tool-update-metadata/services/arxiv-service";
 import type { TransformedData } from "../rules/tool-update-metadata/services/base-service";
 import type { IdentifierCandidate, ReviewProposal } from "./policy";
 import { requestCachedGET } from "../../utils/http";
@@ -7,49 +8,47 @@ import { waitForOperation } from "../../utils/rule-execution";
 import { isFieldValidForItemType } from "../../utils/zotero";
 import { normalizeMetadata } from "../rules/tool-update-metadata";
 import { extractIdentifiers } from "../rules/tool-update-metadata/identifiers";
-import { resolveMissingISSN } from "../rules/tool-update-metadata/issn-resolver";
-import { mergeMetadata, metadataIdentity, normalizeDOI } from "../rules/tool-update-metadata/policy";
-import { services } from "../rules/tool-update-metadata/services";
-import { defineService } from "../rules/tool-update-metadata/services/base-service";
-import { CrossrefService, extractCrossrefPublishedDOI } from "../rules/tool-update-metadata/services/crossref-service";
-import { IdentifiersTranslateService } from "../rules/tool-update-metadata/services/translate-service";
+import { markISSNResolutionAttempted, resolveMissingISSN } from "../rules/tool-update-metadata/issn-resolver";
+import { mergeMetadata, metadataIdentity, normalizeDOI, titlesAgree } from "../rules/tool-update-metadata/policy";
+import * as serviceRegistry from "../rules/tool-update-metadata/services";
+import { ArxivService, parseArxiv } from "../rules/tool-update-metadata/services/arxiv-service";
+import { CrossrefService, extractCrossrefPublishedDOI, transformCrossrefWork } from "../rules/tool-update-metadata/services/crossref-service";
+import { OpenAlexService } from "../rules/tool-update-metadata/services/openalex-service";
+import { IdentifiersTranslateService, ItemTranslateService, URLTranslateService } from "../rules/tool-update-metadata/services/translate-service";
 import { identifiersFromText, identityConflicts, isbnEquivalent, normalizeArxiv, normalizeISBN, reviewChanges } from "./policy";
 import { discoverSnapshotIdentifiers, isSnapshotItem, reviveProposal } from "./snapshot-reviver";
+
+export type { ArxivRecord };
+export { parseArxiv };
 
 export async function discoverIdentifiers(item: Zotero.Item, signal?: AbortSignal, scanPDF = true, reviveSnapshots = true): Promise<IdentifierCandidate[]> {
   const existing = extractIdentifiers(item);
   const candidates: IdentifierCandidate[] = [];
+  const sourceItem = getString("review-source-item");
   if (existing.DOI)
-    candidates.push({ kind: "DOI", value: normalizeDOI(existing.DOI), source: getString("review-source-item") });
+    candidates.push({ kind: "DOI", value: normalizeDOI(existing.DOI), source: sourceItem });
   if (!existing.DOI) {
-    const extra = String(item.getField("extra") || "");
-    const match = extra.match(/\b(?:doi:\s*|https?:\/\/doi\.org\/)?(10\.\d{4,9}\/[^\s?#&<>"]+)/i);
-    if (match) {
-      const extracted = normalizeDOI(match[1]);
-      if (extracted) {
-        existing.DOI = extracted;
-        candidates.push({ kind: "DOI", value: extracted, source: getString("review-source-item") });
-      }
+    const match = String(item.getField("extra") || "").match(/\b(?:doi:\s*|https?:\/\/doi\.org\/)?(10\.\d{4,9}\/[^\s?#&<>"]+)/i);
+    const extracted = match ? normalizeDOI(match[1]) : "";
+    if (extracted) {
+      existing.DOI = extracted;
+      candidates.push({ kind: "DOI", value: extracted, source: sourceItem });
     }
   }
   if (existing.arXiv && normalizeArxiv(existing.arXiv))
-    candidates.push({ kind: "arXiv", value: normalizeArxiv(existing.arXiv), source: getString("review-source-item") });
+    candidates.push({ kind: "arXiv", value: normalizeArxiv(existing.arXiv), source: sourceItem });
   if (existing.PMID && /^\d+$/.test(existing.PMID.trim()))
-    candidates.push({ kind: "PMID", value: existing.PMID.trim(), source: getString("review-source-item") });
+    candidates.push({ kind: "PMID", value: existing.PMID.trim(), source: sourceItem });
   if (existing.PMCID && /^PMC\d+$/i.test(existing.PMCID.trim()))
-    candidates.push({ kind: "PMCID", value: existing.PMCID.trim().toUpperCase(), source: getString("review-source-item") });
+    candidates.push({ kind: "PMCID", value: existing.PMCID.trim().toUpperCase(), source: sourceItem });
   if (item.itemType === "book" && existing.ISBN) {
-    const isbn = existing.ISBN.match(/(?:97[89][ -]?)?(?:\d[ -]?){9}[\dX]/gi) || [];
-    for (const value of isbn) {
+    for (const value of existing.ISBN.match(/(?:97[89][ -]?)?(?:\d[ -]?){9}[\dX]/gi) || []) {
       if (normalizeISBN(value))
-        candidates.push({ kind: "ISBN", value: normalizeISBN(value), source: getString("review-source-item") });
+        candidates.push({ kind: "ISBN", value: normalizeISBN(value), source: sourceItem });
     }
   }
-  if (reviveSnapshots && isSnapshotItem(item)) {
-    const snapshotCandidates = await discoverSnapshotIdentifiers(item, signal);
-    if (snapshotCandidates.length)
-      candidates.push(...snapshotCandidates);
-  }
+  if (reviveSnapshots && isSnapshotItem(item))
+    candidates.push(...await discoverSnapshotIdentifiers(item, signal));
   if (candidates.length || !scanPDF)
     return candidates;
   for (const id of item.getAttachments()) {
@@ -60,7 +59,6 @@ export async function discoverIdentifiers(item: Zotero.Item, signal?: AbortSigna
     const path = Zotero.Fulltext.getItemCacheFile(attachment).path;
     if (!await IOUtils.exists(path))
       continue;
-    // The opening pages are more useful than references; never scan or upload the full PDF.
     const text = new TextDecoder().decode(await IOUtils.read(path, { maxBytes: 32_000 }));
     candidates.push(...identifiersFromText(text, `${getString("review-source-pdf")}: ${attachment.getDisplayTitle()}`));
   }
@@ -68,64 +66,15 @@ export async function discoverIdentifiers(item: Zotero.Item, signal?: AbortSigna
   return [...new Map(candidates.map(candidate => [`${candidate.kind}:${candidate.value}`, candidate])).values()].slice(0, 20);
 }
 
-export interface ArxivRecord {
-  id: string;
-  doi: string;
-  data: TransformedData;
-}
-
 function createAbortController(): AbortController {
   const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
   return new Controller();
 }
 
-export function parseArxiv(xml: string, requested: string, latest: boolean): ArxivRecord {
-  const Parser = ((typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.DOMParser) || DOMParser) as typeof DOMParser;
-  const doc = new Parser().parseFromString(xml, "text/xml");
-  const entries = [...doc.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "entry")];
-  const expected = normalizeArxiv(requested);
-  const entry = entries.find((element) => {
-    const returned = normalizeArxiv(element.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "id")[0]?.textContent || "");
-    return returned && (latest || !/v\d+$/.test(expected) ? returned.replace(/v\d+$/, "") === expected.replace(/v\d+$/, "") : returned === expected);
-  });
-  if (!entry)
-    throw new Error(getString("review-arxiv-mismatch"));
-  const atom = (name: string) => entry.getElementsByTagNameNS("http://www.w3.org/2005/Atom", name)[0]?.textContent?.trim().replace(/\s+/g, " ") || "";
-  const id = normalizeArxiv(atom("id"));
-  const doi = normalizeDOI(entry.getElementsByTagNameNS("http://arxiv.org/schemas/atom", "doi")[0]?.textContent || "");
-  const title = atom("title");
-  if (!title || !id)
-    throw new Error(getString("review-no-data"));
-  return {
-    id,
-    doi,
-    data: {
-      itemType: "preprint",
-      title,
-      abstractNote: atom("summary"),
-      date: atom("published").slice(0, 10),
-      url: `https://arxiv.org/abs/${id}`,
-      // arXiv only supplies full names: do not guess which words are family names.
-      creators: [...entry.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "author")].map(author => ({ creatorType: "author" as const, name: (author.getElementsByTagNameNS("http://www.w3.org/2005/Atom", "name")[0]?.textContent || "").trim().replace(/\s+/g, " ") })).filter(creator => creator.name),
-    },
-  };
-}
-
-const arxivReviewService = defineService({
-  id: "arxiv-review-service",
-  name: "arXiv",
-  cooldown: 3000,
-  shouldApply: () => true,
-  async fetch({ identifiers, signal }) {
-    const response = await requestCachedGET(`https://export.arxiv.org/api/query?id_list=${encodeURIComponent(identifiers.arXiv!)}`, {}, signal);
-    return { xml: String(response.response) };
-  },
-});
-
 async function arxivRecord(item: Zotero.Item, value: string, latest: boolean, signal?: AbortSignal) {
   const requested = latest ? value.replace(/v\d+$/, "") : value;
-  const result = await arxivReviewService.fetch!({ item, identifiers: { arXiv: requested }, isPreprint: true, debug: () => {}, signal });
-  return parseArxiv(result!.xml, value, latest);
+  const result = await ArxivService.fetch!({ item, identifiers: { arXiv: requested }, isPreprint: true, debug: () => {}, signal });
+  return parseArxiv(result?.xml || "", value, latest);
 }
 
 async function resolveDOI(value: string, signal?: AbortSignal): Promise<string> {
@@ -149,25 +98,64 @@ async function translateIdentifier(item: Zotero.Item, identifiers: Identifiers, 
   return data;
 }
 
+function lacksJournalKeyFields(matched: TransformedData | undefined, original: TransformedData): boolean {
+  return (["abstractNote", "volume", "issue", "pages", "date", "publicationTitle", "ISSN"] as const)
+    .some(f => !matched?.[f] && !original[f]);
+}
+
+async function searchCrossrefByTitle(original: TransformedData, signal?: AbortSignal): Promise<TransformedData | undefined> {
+  const title = String(original.title || "").trim();
+  if (!title)
+    return undefined;
+  const query = [title, original.publicationTitle || ""].filter(Boolean).join(" ");
+  const res = await requestCachedGET(`https://api.crossref.org/works?query.bibliographic=${encodeURIComponent(query)}&rows=3`, { responseType: "json" }, signal);
+  const items = (res.response as any)?.message?.items;
+  if (!Array.isArray(items))
+    return undefined;
+  for (const work of items) {
+    const transformed = normalizeMetadata(transformCrossrefWork(work));
+    if (transformed?.title && metadataIdentity(original, {}, transformed))
+      return transformed;
+  }
+  return undefined;
+}
+
 export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierCandidate, original: TransformedData, signal?: AbortSignal, reviveSnapshots = true): Promise<ReviewProposal> {
   let candidate: TransformedData;
   let source: string;
   let blocked = false;
   if (identifier.kind === "Title") {
     const controller = createAbortController();
-    const ctx = { item, identifiers: {}, isPreprint: false, debug: () => {}, signal: signal || controller.signal };
+    const url = String(original.url || item.getField("url") || "").trim();
+    const ctx = { item, identifiers: url ? { URL: url } : {}, isPreprint: false, debug: () => {}, signal: signal || controller.signal };
     let matched: TransformedData | undefined;
     let matchedSource = "";
-    for (const service of services.filter(service => !service.lookup && service.fetch && (!service.supportedItemTypes || service.supportedItemTypes.includes(item.itemType)))) {
+    const ordered = "getOrderedMetadataServices" in serviceRegistry && typeof serviceRegistry.getOrderedMetadataServices === "function"
+      ? serviceRegistry.getOrderedMetadataServices(serviceRegistry.services)
+      : serviceRegistry.services;
+    for (const service of ordered.filter(s => (!s.lookup || (s.lookup === "url" && url)) && s.fetch && (!s.supportedItemTypes || s.supportedItemTypes.includes(item.itemType)))) {
       if (!service.shouldApply(ctx))
         continue;
       try {
         const response = await waitForOperation(() => service.fetch!(ctx), ctx.signal, 30_000);
         const result = normalizeMetadata(response && service.transform?.(response));
         if (result?.title && metadataIdentity(original, {}, result)) {
-          matched = result;
-          matchedSource = service.name;
-          break;
+          matched = matched ? mergeMetadata(matched, result) : result;
+          matchedSource ||= service.name;
+          if (!lacksJournalKeyFields(matched, original))
+            break;
+        }
+      }
+      catch {
+        signal?.throwIfAborted();
+      }
+    }
+    if (!matched || lacksJournalKeyFields(matched, original)) {
+      try {
+        const crMatch = await searchCrossrefByTitle(original, ctx.signal);
+        if (crMatch) {
+          matched = matched ? mergeMetadata(matched, crMatch) : crMatch;
+          matchedSource ||= "Crossref";
         }
       }
       catch {
@@ -185,85 +173,60 @@ export async function inspectMetadata(item: Zotero.Item, identifier: IdentifierC
   }
   else if (identifier.kind === "DOI") {
     const value = await resolveDOI(identifier.value, signal);
+    const hasApi = "hasConfiguredSemanticScholarAPI" in serviceRegistry && typeof serviceRegistry.hasConfiguredSemanticScholarAPI === "function" && serviceRegistry.hasConfiguredSemanticScholarAPI();
+    const s2Service = serviceRegistry.services.find(s => s.id === "semantic-scholar-service");
+    const openAlexService = serviceRegistry.services.find(s => s.id === "openalex-service") || OpenAlexService;
+    const itemUrl = String(original.url || item.getField("url") || "").trim();
     let matched: TransformedData | undefined;
     let matchedSource = "";
-    // 1. Try direct authoritative Crossref API first
-    try {
-      const response = await CrossrefService.fetch!({ item, identifiers: { DOI: value }, isPreprint: false, debug: () => {}, signal });
-      const transformed = normalizeMetadata(response && CrossrefService.transform!(response));
-      if (transformed?.title) {
-        matched = transformed;
-        matchedSource = "Crossref";
-      }
-    }
-    catch {
-      signal?.throwIfAborted();
-    }
-    // 2. Fall back to Zotero search translator
-    if (!matched?.title) {
+    let lastError: unknown;
+
+    const tryMerge = (incoming: TransformedData | null | undefined, label: string) => {
+      if (!incoming?.title || (incoming.DOI && normalizeDOI(incoming.DOI) !== value.toLowerCase()))
+        return;
+      matched = matched ? mergeMetadata(matched, incoming) : incoming;
+      matchedSource ||= label;
+    };
+    const fetchService = async (svc: any, label?: string, checkTitle = false, extraIds: Identifiers = {}) => {
+      if (!svc?.fetch)
+        return;
+      const res = await svc.fetch({ item, identifiers: { DOI: value, ...extraIds }, isPreprint: false, debug: () => {}, signal });
+      const data = normalizeMetadata(res && svc.transform?.(res));
+      if (data?.title && (!checkTitle || (data.DOI && normalizeDOI(data.DOI) === value.toLowerCase()) || titlesAgree(original.title || matched?.title || "", data.title)))
+        tryMerge(data, label || data.libraryCatalog || getString("review-source-translator"));
+    };
+    const runTranslator = async () => {
+      const data = await translateIdentifier(item, { DOI: value }, signal);
+      tryMerge(data, data.libraryCatalog || getString("review-source-translator"));
+    };
+    const pipeline = hasApi
+      ? [() => fetchService(s2Service, "Semantic Scholar"), runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve()]
+      : [runTranslator, () => fetchService(CrossrefService, "Crossref"), () => fetchService(ItemTranslateService, undefined, true), () => fetchService(openAlexService, "OpenAlex"), () => itemUrl ? fetchService(URLTranslateService, undefined, true, { URL: itemUrl }) : Promise.resolve(), () => fetchService(s2Service, "Semantic Scholar")];
+    for (const step of pipeline) {
+      if (matched?.title && !lacksJournalKeyFields(matched, original))
+        break;
       try {
-        matched = await translateIdentifier(item, { DOI: value }, signal);
-        matchedSource = matched.libraryCatalog || getString("review-source-translator");
+        await step();
       }
-      catch (error) {
+      catch (err) {
         signal?.throwIfAborted();
-        // 3. Fall back to Semantic Scholar
-        const s2Service = services.find(s => s.id === "semantic-scholar-service");
-        if (s2Service?.fetch) {
-          try {
-            const s2Res = await s2Service.fetch({ item, identifiers: { DOI: value }, isPreprint: false, debug: () => {}, signal });
-            const s2Data = normalizeMetadata(s2Res && s2Service.transform?.(s2Res));
-            if (s2Data?.title) {
-              matched = s2Data;
-              matchedSource = "Semantic Scholar";
-            }
-          }
-          catch {
-            signal?.throwIfAborted();
-          }
-        }
-        if (!matched?.title)
-          throw error;
+        lastError = err;
       }
     }
-    // 4. Supplemental gap-fill: if Crossref/Translator succeeded but lacks key fields (e.g. abstractNote, volume, issue, pages, publicationTitle, ISSN)
-    // and local item also lacks them, merge missing fields from Semantic Scholar without overwriting primary fields.
-    const lacksKeyFields = Boolean(
-      (!matched?.abstractNote && !original.abstractNote)
-      || (!matched?.volume && !original.volume)
-      || (!matched?.issue && !original.issue)
-      || (!matched?.pages && !original.pages)
-      || (!matched?.publicationTitle && !original.publicationTitle)
-      || (!matched?.ISSN && !original.ISSN),
-    );
-    if (matched?.title && lacksKeyFields && matchedSource !== "Semantic Scholar") {
-      const s2Service = services.find(s => s.id === "semantic-scholar-service");
-      if (s2Service?.fetch) {
-        try {
-          const s2Res = await s2Service.fetch({ item, identifiers: { DOI: value }, isPreprint: false, debug: () => {}, signal });
-          const s2Data = normalizeMetadata(s2Res && s2Service.transform?.(s2Res));
-          if (s2Data && (!s2Data.DOI || normalizeDOI(s2Data.DOI) === value.toLowerCase())) {
-            matched = mergeMetadata(matched, s2Data);
-          }
-        }
-        catch {
-          signal?.throwIfAborted();
-        }
-      }
-    }
-    if (matched?.title && !matched.ISSN && !original.ISSN && isFieldValidForItemType("ISSN", item.itemType)) {
-      try {
-        const resolved = await resolveMissingISSN({
-          doi: value,
-          publicationTitle: String(original.publicationTitle || matched.publicationTitle || ""),
-          signal,
-        });
-        if (resolved) {
-          matched.ISSN = resolved.issn;
-        }
-      }
-      catch {
+    if (!matched?.title)
+      throw lastError instanceof Error ? lastError : new Error(getString("review-no-data"));
+    if (!matched.ISSN && !original.ISSN && isFieldValidForItemType("ISSN", item.itemType)) {
+      const pubTitle = String(original.publicationTitle || matched.publicationTitle || "");
+      const resolved = await resolveMissingISSN({ doi: value, publicationTitle: pubTitle, signal }).catch(() => {
         signal?.throwIfAborted();
+        return null;
+      });
+      if (resolved) {
+        matched.ISSN = resolved.issn;
+      }
+      else {
+        markISSNResolutionAttempted(item, value, pubTitle);
+        markISSNResolutionAttempted(item, extractIdentifiers(item).DOI, String(original.publicationTitle || ""));
       }
     }
     candidate = matched;
@@ -294,14 +257,13 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
   let publishedDOI = "";
   let preprintLabel = "";
   let preprintURL = "";
-  let unpublishedData: TransformedData | undefined;
   if (identifier.kind === "DOI" && /^10\.1101\//.test(identifier.value)) {
     const preprintDOI = normalizeDOI(identifier.value);
     const preRes = await CrossrefService.fetch!({ item, identifiers: { DOI: preprintDOI }, isPreprint: true, debug: () => {}, signal });
     publishedDOI = (preRes?.message && extractCrossrefPublishedDOI(preRes.message)) || "";
     preprintLabel = `bioRxiv ${preprintDOI}`;
     preprintURL = `https://doi.org/${preprintDOI}`;
-    unpublishedData = normalizeMetadata(preRes && CrossrefService.transform!(preRes)) || undefined;
+    const unpublishedData = normalizeMetadata(preRes && CrossrefService.transform!(preRes)) || undefined;
     if (!publishedDOI && allowUnpublished && unpublishedData?.title)
       return { itemID: item.id, original, candidate: unpublishedData, identifier, source: preprintLabel, conflicts: identityConflicts(original, unpublishedData, true), blocked: false, changes: reviewChanges(original, unpublishedData) };
     if (!publishedDOI)
@@ -338,15 +300,5 @@ export async function inspectPreprint(item: Zotero.Item, identifier: IdentifierC
   const conflicts = identityConflicts(original, candidate, true);
   if (blocked)
     conflicts.unshift("DOI / itemType");
-  return {
-    itemID: item.id,
-    original,
-    candidate,
-    identifier,
-    source: `${preprintLabel} → ${candidateSource}`,
-    conflicts,
-    blocked,
-    changes: reviewChanges(original, candidate, true),
-    preprintURL,
-  };
+  return { itemID: item.id, original, candidate, identifier, source: `${preprintLabel} → ${candidateSource}`, conflicts, blocked, changes: reviewChanges(original, candidate, true), preprintURL };
 }

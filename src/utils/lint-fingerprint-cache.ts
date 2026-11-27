@@ -66,10 +66,29 @@ function relevantRulePrefsSnapshot(): string {
   const keys = [
     "rule.require-journal-abbr.usefull",
     "rule.require-journal-abbr.usefullZh",
+    "rule.require-journal-abbr.withDots",
+    "rule.require-journal-abbr.infer",
+    "rule.require-journal-abbr.letterCase",
+    "rule.require-journal-abbr.existingPolicy",
+    "rule.require-journal-abbr.matchMode",
+    "rule.require-journal-abbr.profile",
+    "rule.require-journal-abbr.sourceMode",
+    "rule.require-journal-abbr.tagSource",
     "rule.require-journal-abbr.customDataPath",
     "rule.correct-attachment-roles.renameFiles",
+    "rule.correct-attachment-roles.renamePdf",
     "rule.correct-attachment-roles.renameTemplate",
+    "rule.correct-attachment-roles.template",
     "rule.correct-attachment-roles.syncTitle",
+    "rule.require-language.only",
+    "rule.require-language.only.cmn",
+    "rule.require-language.only.eng",
+    "rule.require-language.only.other",
+    "rule.require-language.verify-before",
+    "rule.correct-title-sentence-case.custom-term-path",
+    "rule.correct-title-sentence-case.disabled-languages",
+    "rule.correct-title-chemical-formula.normalize-spaces",
+    "rule.correct-title-punctuation.quotes",
   ];
   return keys.map(key => `${key}=${String(getPref(key as any, ""))}`).join("&");
 }
@@ -96,12 +115,14 @@ export function computeItemLintSignature(
   rules: Rule<any>[],
   optionsMap: Map<string, any>,
   batchRuleSig?: string,
+  precomputedJSON?: Record<string, unknown>,
 ): string {
   const ruleSig = batchRuleSig ?? computeBatchRuleSignature(rules, optionsMap);
   const itemID = item.id || 0;
   const version = item.version || 0;
   const dateModified = typeof item.getField === "function" ? String(item.getField("dateModified" as any) || "") : "";
-  const jsonText = safeSerialize(typeof item.toJSON === "function" ? item.toJSON() : {});
+  const jsonSource = precomputedJSON ?? (typeof item.toJSON === "function" ? item.toJSON() : {});
+  const jsonText = safeSerialize(jsonSource);
   const attachments = attachmentSnapshot(item);
   const stateHash = fnv1a64(`${version}|${dateModified}|${jsonText}|${attachments}`);
   return `${itemID}:${ruleSig}:${stateHash}`;

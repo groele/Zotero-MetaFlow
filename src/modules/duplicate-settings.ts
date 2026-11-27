@@ -45,10 +45,20 @@ export function setupDuplicateSettings(pane: Element) {
       });
     }
   }
+  const syncDuplicatesUI = () => {
+    for (const [id, preference] of [
+      ["default-action", "duplicates.defaultAction"],
+      ["master", "duplicates.masterStrategy"],
+    ] as const) {
+      const current = String(getPref(preference as any) || "");
+      for (const radio of host.querySelectorAll<HTMLInputElement>(`#metaref-duplicates-${id} input[type='radio']`))
+        radio.checked = radio.value === current;
+    }
+  };
   const concurrency = host.querySelector<HTMLInputElement>("#metaref-duplicates-concurrency")!;
   concurrency.value = String(duplicateConcurrency(getPref("duplicates.concurrency" as any, 3)));
   const status = host.querySelector<HTMLElement>("#metaref-duplicates-status")!;
-  listen(concurrency, "change", () => {
+  const validateConcurrency = () => {
     const value = Number(concurrency.value);
     if (Number.isInteger(value) && value >= 1 && value <= 8) {
       setPref("duplicates.concurrency" as any, value);
@@ -60,6 +70,20 @@ export function setupDuplicateSettings(pane: Element) {
       concurrency.setAttribute("aria-invalid", "true");
       status.textContent = getString("duplicates-concurrency-invalid");
     }
+  };
+  listen(concurrency, "input", validateConcurrency);
+  listen(concurrency, "change", validateConcurrency);
+  listen(concurrency, "blur", () => {
+    if (concurrency.hasAttribute("aria-invalid")) {
+      concurrency.value = String(duplicateConcurrency(getPref("duplicates.concurrency" as any, 3)));
+      concurrency.removeAttribute("aria-invalid");
+      status.textContent = "";
+    }
+  });
+  listen(pane, "metaref-preferences-synced", () => {
+    syncDuplicatesUI();
+    if (!concurrency.hasAttribute("aria-invalid"))
+      concurrency.value = String(duplicateConcurrency(getPref("duplicates.concurrency" as any, 3)));
   });
   const action = (id: string, task: () => Promise<unknown>) => {
     const button = host.querySelector<HTMLButtonElement>(`#metaref-duplicates-${id}`)!;

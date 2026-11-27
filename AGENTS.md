@@ -123,7 +123,13 @@ Use `redrawItemValues()` from `src/utils/item-value-refresh.ts` for changed jour
 
 ### Metadata update services
 
-`src/modules/rules/tool-update-metadata/` implements metadata fetching from external APIs (CrossRef via translate, Semantic Scholar, arXiv). Each API is a `MetadataService` (`services/base-service.ts`, defined with `defineService`) with `shouldApply` / `updateIdentifiers` / `fetch` / `transform` methods. This is a mini-plugin architecture nested inside the rule system.
+`src/modules/rules/tool-update-metadata/` implements metadata fetching from external APIs (`ArxivService`, `IdentifiersTranslateService`, `CrossrefService`, `ItemTranslateService`, `OpenAlexService`, `SemanticScholarService`, `URLTranslateService`). Each API is a `MetadataService` (`services/base-service.ts`, defined with `defineService`) with `shouldApply` / `updateIdentifiers` / `fetch` / `transform` methods. `getOrderedMetadataServices()` dynamically prioritizes `SemanticScholarService` when an API key is configured, and falls back to native Zotero Translators, Crossref, and OpenAlex for keyless bibliographic completion.
+
+### Performance, caching, and resource governance standards
+
+- **Shared Host Primitives**: Always use `createAbortController()` and `runWithDeadline()` from `src/utils/rule-execution.ts`, `parseXMLDocument()` from `src/utils/str.ts`, `parseResponseJSON()` from `src/utils/http.ts`, and `readIntPref()` from `src/utils/prefs.ts` instead of duplicating host lookups or parsers.
+- **Batch Signature & Snapshot Reuse**: `LintRunner` precomputes `batchRuleSig` once per batch and passes `precomputedJSON` (`baseline = item.toJSON()`) to `computeItemLintSignature()`. `ItemMutationJournal` reuses consecutive post-write snapshots within the same synchronous tick. Any external item modification (`modify`/`delete`/`trash` in `onNotify`) or preference update (`onPrefsEvent`) must invalidate item fingerprints (`invalidateItemLintFingerprint`) or bump the revision (`bumpLintPrefsRevision`).
+- **Virtual Table (`ItemTree`) $O(1)$ Scroll Path**: Column `dataProvider` callbacks in `src/modules/item-tree.ts` execute synchronously on every scroll frame. They must rely on `WeakMap<Zotero.Item, ...>` memoizers (`cachedJournalInsights`, merged `rankingCache` keyed by `getJournalRankingIndexRevision()`, and `extractTLDRFromItem` keyed by `extra` and child-note version/length fingerprints) and precompiled module-level lookup tables (`ESI_CATEGORY_LOOKUP`, `SPECIAL_WORDS_MAP`, `COMPOUND_SURNAMES`, `INTER_FORMULA_SPACE_RE`, `COLLATOR`). Never construct `Map`/`Set`/`RegExp`/`Intl.Collator` inside per-item `apply()` or `dataProvider()` calls.
 
 ### Built-in data
 

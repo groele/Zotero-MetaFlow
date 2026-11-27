@@ -31,7 +31,8 @@ import { redrawItemValues } from "./utils/item-value-refresh";
 import { closeJournalShareDialogs } from "./utils/journal-card-share";
 import { clearJournalInsights, getJournalInsights, loadJournalInsights } from "./utils/journal-insights";
 import { hasEnabledJournalMetrics } from "./utils/journal-permissions";
-import { flushJournalRankingIndex, loadJournalRankingIndex } from "./utils/journal-ranking-index";
+import { flushJournalRankingIndex, loadJournalRankingIndex, resetJournalRankingIndex } from "./utils/journal-ranking-index";
+import { bumpLintPrefsRevision, clearLintFingerprintCache, invalidateItemLintFingerprint } from "./utils/lint-fingerprint-cache";
 import { initLocale, registerMainWindowLocale, unloadLocale, unregisterMainWindowLocale } from "./utils/locale";
 import { logger } from "./utils/logger";
 import { registerPersistenceShutdown } from "./utils/persistence-shutdown";
@@ -45,6 +46,8 @@ const shortcutCleanups = new Map<Window, () => void>();
 const toolbars = new Map<Window, RichTextToolBar>();
 let unregisterPersistence: (() => void) | undefined;
 const journalRefreshes = new Map<number, Promise<unknown>>();
+const pendingModifyIDs = new Set<number>();
+let pendingModifyFlush: Promise<void> | undefined;
 const automaticItems = new AutomaticItems(processAddedItems, () => {
   const configuredDelay = getPref("lint.delayOnAdded");
   return Number.isFinite(configuredDelay) ? Math.max(500, Math.min(60_000, configuredDelay)) : 500;
@@ -67,14 +70,11 @@ async function onStartup() {
     migrateGreenFrogPreferences();
     initLocale();
     startCacheMaintenance();
-    await registerPrefs();
-    if (!addon.data.alive)
-      return;
+    const prefsReady = registerPrefs();
     registerNotifier();
     registerMenu();
     registerDuplicateStats();
-    await loadJournalInsights();
-    await loadJournalRankingIndex();
+    await Promise.all([prefsReady, loadJournalInsights(), loadJournalRankingIndex()]);
     if (!addon.data.alive)
       return;
     const mainWindows = Zotero.getMainWindows();
@@ -84,7 +84,7 @@ async function onStartup() {
     registerExtraColumns();
     registerJournalPane();
     registerInfoRows();
-    await Promise.all(mainWindows.map(onMainWindowLoad));
+    await Promise.all(mainWindows.map(win => onMainWindowLoad(win, true)));
   }
   catch (error) {
     await onShutdown();
@@ -92,7 +92,7 @@ async function onStartup() {
   }
 }
 
-function onMainWindowLoad(win: Window): Promise<void> {
+function onMainWindowLoad(win: Window, localeRegistered = false): Promise<void> {
   const existing = windowBindings.get(win);
   if (existing)
     return existing.readyPromise;
@@ -102,7 +102,7 @@ function onMainWindowLoad(win: Window): Promise<void> {
     if (binding.closed || win.closed || !addon.data.alive)
       return;
     try {
-      await initializeMainWindow(win);
+      await initializeMainWindow(win, localeRegistered);
       if (binding.closed || win.closed || !addon.data.alive)
         await onMainWindowUnload(win);
     }
@@ -114,10 +114,11 @@ function onMainWindowLoad(win: Window): Promise<void> {
   return binding.readyPromise;
 }
 
-async function initializeMainWindow(win: Window): Promise<void> {
+async function initializeMainWindow(win: Window, localeRegistered = false): Promise<void> {
   if (!addon.data.alive)
     return;
-  registerMainWindowLocale(win);
+  if (!localeRegistered)
+    registerMainWindowLocale(win);
   registerNativeDuplicatePane(win);
   shortcutCleanups.get(win)?.();
   shortcutCleanups.set(win, registerShortcuts(win));
@@ -125,8 +126,6 @@ async function initializeMainWindow(win: Window): Promise<void> {
   const toolbar = new RichTextToolBar(win);
   toolbar.init();
   toolbars.set(win, toolbar);
-  registerInfoRows();
-  refreshTLDRInfoRow();
   placeTLDRBeforeExtra(win.document);
 }
 
@@ -150,11 +149,15 @@ async function onMainWindowUnload(win: Window): Promise<void> {
 async function onShutdown() {
   closeJournalShareDialogs();
   addon.data.alive = false;
+  pendingModifyIDs.clear();
+  pendingModifyFlush = undefined;
+  journalRefreshes.clear();
   await cleanupResources([
     stopCacheMaintenance,
     () => automaticItems.cancelPending(),
     clearRequestCache,
     clearSupplementalJournalCache,
+    clearLintFingerprintCache,
     unregisterNotifier,
     unregisterDuplicateStats,
     clearDuplicateSearchCache,
@@ -169,12 +172,15 @@ async function onShutdown() {
     flushRuntimeData,
     flushServiceCache,
     flushJournalRankingIndex,
+    resetJournalRankingIndex,
     () => {
       unregisterPersistence?.();
       unregisterPersistence = undefined;
+      addon.data.lastAutomaticWorkflow = undefined;
+      addon.data.lastCoreWorkflow = undefined;
+      if (addon.runner)
+        addon.runner.lastResult = undefined;
     },
-    closeReviewPanels,
-    closeAllDialogs,
     unregisterMenu,
     unregisterExtraColumns,
     unregisterJournalPane,
@@ -199,14 +205,37 @@ async function onNotify(
 ) {
   logger.debug("notify", event, type, ids, extraData);
 
+  if (type === "item" && ["modify", "delete", "trash"].includes(event)) {
+    for (const id of ids) {
+      const numericId = Number(id);
+      if (Number.isFinite(numericId) && numericId > 0)
+        invalidateItemLintFingerprint(numericId);
+    }
+  }
+
   if (type === "item" && ["add", "modify", "delete", "trash", "refresh"].includes(event)) {
     clearDuplicateSearchCache();
     invalidateDuplicateStats();
   }
 
   if (event === "modify" && type === "item") {
-    await refreshJournalPane(ids.map(Number));
-    refreshTLDRInfoRow();
+    for (const id of ids) {
+      const numericId = Number(id);
+      if (Number.isFinite(numericId))
+        pendingModifyIDs.add(numericId);
+    }
+    if ((addon.runner as any)?.stats?.phase === "saving")
+      return;
+    pendingModifyFlush ??= Promise.resolve().then(async () => {
+      pendingModifyFlush = undefined;
+      if (!addon.data.alive || !pendingModifyIDs.size)
+        return;
+      const batchIDs = [...pendingModifyIDs];
+      pendingModifyIDs.clear();
+      await refreshJournalPane(batchIDs);
+      refreshTLDRInfoRow();
+    });
+    await pendingModifyFlush;
     return;
   }
 
@@ -230,36 +259,18 @@ async function processAddedItems(ids: number[]) {
   if (!addon.data.alive || !getPref("lint.onAdded"))
     return;
 
-  const items = Zotero.Items.get(ids).filter(
-    (item): item is Zotero.Item => {
-      // skip deleted or non-existent items
-      if (!item || !item.isRegularItem())
-        return false;
-
-      // skip non-editable item
-      if (typeof item.isEditable === "function" && !item.isEditable())
-        return false;
-
-      // skip trash item
-      if (item.deleted)
-        return false;
-
-      // skip feed item
-      if (item.isFeedItem)
-        return false;
-
-      // skip new empty item
-      if (!item.getField("title"))
-        return false;
-
-      // skip group item
-      // @ts-expect-error libraryID is got from item, so get() will never return false
-      if (Zotero.Libraries.get(item.libraryID)?.libraryType === "group" && !getPref("lint.onGroup"))
-        return false;
-
-      return true;
-    },
-  );
+  const items = Zotero.Items.get(ids).filter((item): item is Zotero.Item => {
+    if (!item || !item.isRegularItem() || item.deleted || item.isFeedItem)
+      return false;
+    if (typeof item.isEditable === "function" && !item.isEditable())
+      return false;
+    if (!item.getField("title"))
+      return false;
+    // @ts-expect-error libraryID is got from item, so get() will never return false
+    if (Zotero.Libraries.get(item.libraryID)?.libraryType === "group" && !getPref("lint.onGroup"))
+      return false;
+    return true;
+  });
 
   if (items.length !== 0) {
     const workflow = createAutomaticWorkflow();
@@ -268,9 +279,7 @@ async function processAddedItems(ids: number[]) {
       metadata: async () => getPref("metadata.autoUpdateOnAdded")
         ? runReviewCommand("tool-review-metadata", items, false, { scanPDF: false, searchTitle: true, repairCreators: getPref("metadata.repairCreators", true) === true, overwrite: false })
         : undefined,
-      format: async () => {
-        return addon.hooks.onLintInBatch("standard", items, { automatic: true });
-      },
+      format: async () => addon.hooks.onLintInBatch("standard", items, { automatic: true }),
       journal: async () => {
         const journalItems = items.filter(item => ["journalArticle", "conferencePaper"].includes(item.itemType));
         if (!getPref("easyscholar.autoUpdateOnAdded", false) || !journalItems.length)
@@ -284,27 +293,16 @@ async function processAddedItems(ids: number[]) {
     if (addon.data.alive && getPref("lint.onAdded") && !workflow.stages.some(stage => stage.status === "cancelled"))
       await processImportedDuplicates(items);
   }
-
   logger.debug("automatic batch completed for", ids);
 }
 
 async function onPrefsEvent(type: string, data: { [key: string]: never }) {
-  switch (type) {
-    case "load-script":
-      registerPrefsWindow(data.window);
-      break;
-    case "load":
-      registerPrefsScripts(data.window);
-      break;
-    default:
-  }
+  bumpLintPrefsRevision();
+  if (type === "load-script")
+    registerPrefsWindow(data.window);
+  else if (type === "load")
+    registerPrefsScripts(data.window);
 }
-
-/**
- * 分发批量执行某函数的任务
- * @param ruleIDs 批量处理任务的类别，决定调用的函数
- * @param items 需要批量处理的 Zotero.Item[]，或通过触发批量任务的位置决定 Zotero Item 的获取方式。 "item" | "collection" | XUL.MenuPopup | "menuFile" | "menuEdit" | "menuView" | "menuGo" | "menuTools" | "menuHelp"
- */
 
 function onRefreshJournal(item: Zotero.Item, force = false) {
   if (!item || item.deleted || !["journalArticle", "conferencePaper"].includes(item.itemType))

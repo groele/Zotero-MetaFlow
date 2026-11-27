@@ -214,6 +214,10 @@ describe("settings panel layout and validation in Zotero", function () {
     assert.isNotNull(pane.querySelector(":scope > .metaref-section-card > #metaref-tool-center"));
     const sections = [...pane.querySelectorAll(":scope > .metaref-section-card")];
     assert.lengthOf(pane.querySelectorAll("details details"), 0, "settings expose a single disclosure level");
+    assert.isNotNull(pane.querySelector(".metaref-header #metaref-version-badge"));
+    assert.isNotNull(pane.querySelector(".metaref-header #metaref-prefs-status"));
+    assert.lengthOf(pane.querySelectorAll(".metaref-tabs .metaref-tab-btn[data-metaref-tab]"), 6);
+    assert.isNotNull(pane.querySelector("#metaref-overview-banner"));
     assert.isNotNull(sections[0].querySelector(":scope > summary [data-l10n-id$='section-general']"));
     assert.isNotNull(sections[1].querySelector(":scope > summary [data-l10n-id$='core-workflows-heading']"));
     assert.lengthOf(pane.querySelectorAll("checkbox[preference]"), 0, "all preference checkboxes use the same visible native control");

@@ -101,5 +101,5 @@ export const NoFieldMisuse = defineRule({
 });
 
 function hasEmoji(str: string): boolean {
-  return !!str.match(/\p{Extended_Pictographic}/u);
+  return /\p{Extended_Pictographic}/u.test(str);
 }

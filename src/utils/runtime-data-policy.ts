@@ -1,17 +1,8 @@
+import { readIntPref } from "./prefs";
+
 export const RUNTIME_HISTORY_LIMIT = 200;
 export const RUNTIME_HISTORY_TTL = 30 * 24 * 60 * 60 * 1000;
 export const RUNTIME_HISTORY_BYTES = 2 * 1024 * 1024;
-
-function readIntPref(key: string, fallback: number, min: number, max: number): number {
-  try {
-    const value = (Zotero as any)?.Prefs?.get?.(`extensions.zotero.metaref.${key}`, true);
-    const num = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
-    return Number.isInteger(num) && num >= min && num <= max ? num : fallback;
-  }
-  catch {
-    return fallback;
-  }
-}
 
 export function runtimeHistoryDays(): number {
   return readIntPref("cache.historyDays", 30, 1, 365);

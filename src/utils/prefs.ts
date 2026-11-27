@@ -217,3 +217,14 @@ export function clearPref(key: string) {
   }
   return Zotero.Prefs.clear(`${PREFS_PREFIX}.${key}`, true);
 }
+
+export function readIntPref(key: string, fallback: number, min: number, max: number): number {
+  try {
+    const value = (Zotero as any)?.Prefs?.get?.(`${PREFS_PREFIX}.${key}`, true);
+    const num = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN;
+    return Number.isInteger(num) && num >= min && num <= max ? num : fallback;
+  }
+  catch {
+    return fallback;
+  }
+}

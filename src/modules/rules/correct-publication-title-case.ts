@@ -4,6 +4,9 @@ import { functionWords, isFullUpperCase } from "../../utils/str";
 import { SpecialWords } from "./correct-publication-title-case-data";
 import { defineRule } from "./rule-base";
 
+const SPECIAL_WORDS_MAP = new Map(SpecialWords.map(w => [w.toLowerCase(), w]));
+const FUNCTION_WORDS_SET = new Set(functionWords);
+
 export const CorrectPublicationTitleCase = defineRule({
   id: "correct-publication-title-case",
   scope: "field",
@@ -50,7 +53,7 @@ export function capitalizePublicationTitle(publicationTitle: string) {
     const capitalizeVariant = word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
 
     // Functions words: use lowercase
-    if (functionWords.includes(lowerCaseVariant)) {
+    if (FUNCTION_WORDS_SET.has(lowerCaseVariant)) {
       // but if it's the first word, use capitalize variant
       if (index === 0)
         return capitalizeVariant;
@@ -59,11 +62,9 @@ export function capitalizePublicationTitle(publicationTitle: string) {
 
     // Special words: build-in words use its own case
     // e.g. publisher name like "ACS", "IEEE", "npj"
-    for (const specialWord of SpecialWords) {
-      if (lowerCaseVariant === specialWord.toLowerCase()) {
-        return specialWord;
-      }
-    }
+    const specialWord = SPECIAL_WORDS_MAP.get(lowerCaseVariant);
+    if (specialWord !== undefined)
+      return specialWord;
 
     // If all words are uppercase, use capitalize variant
     if (isFullStringUpperCase) {

@@ -4,7 +4,7 @@ import { journalNumericDisplayValue, journalNumericSortValue } from "../utils/jo
 import { cachedJournalInsights } from "../utils/journal-insights";
 import { presentJournalInsights } from "../utils/journal-insights-presentation";
 import { isJournalIndexEnabled } from "../utils/journal-permissions";
-import { readJournalRankingIndex } from "../utils/journal-ranking-index";
+import * as journalRankingIndex from "../utils/journal-ranking-index";
 import { readJournalRankingValues } from "../utils/journal-ranking-rows";
 import { getString } from "../utils/locale";
 import { logger } from "../utils/logger";
@@ -14,17 +14,35 @@ import { extractTLDRFromItem } from "./rules/tool-update-metadata/tldr";
 const registeredColumns: string[] = [];
 const indexColumns = new Map<string, string>();
 const easyScholarColumns = new Map<string, { id: string; main: boolean }>();
-let rankingCache = new WeakMap<Zotero.Item, { extra: string; values: ReturnType<typeof readJournalRankingValues> }>();
+let rankingCache = new WeakMap<Zotero.Item, {
+  extra: string;
+  issn: string;
+  title: string;
+  revision: number;
+  values: ReturnType<typeof readJournalRankingValues>;
+  merged: ReturnType<typeof journalRankingIndex.readJournalRankingIndex>;
+}>();
 const numericFields = new Set(["impactFactor", "impactFactor5Year", "jci", "compoundIF", "comprehensiveIF"]);
 
-function savedRankings(item: Zotero.Item) {
+function mergedRankings(item: Zotero.Item) {
   const extra = String(item.getField("extra") || "");
+  const issn = String(item.getField("ISSN") || "");
+  const title = String(
+    item.itemType === "conferencePaper"
+      ? item.getField("proceedingsTitle") || item.getField("conferenceName") || ""
+      : item.getField("publicationTitle") || "",
+  );
+  const revision = "getJournalRankingIndexRevision" in journalRankingIndex && typeof journalRankingIndex.getJournalRankingIndexRevision === "function"
+    ? journalRankingIndex.getJournalRankingIndexRevision()
+    : 0;
   let cached = rankingCache.get(item);
-  if (!cached || cached.extra !== extra) {
-    cached = { extra, values: readJournalRankingValues(extra) };
+  if (!cached || cached.extra !== extra || cached.issn !== issn || cached.title !== title || cached.revision !== revision) {
+    const values = cached && cached.extra === extra ? cached.values : readJournalRankingValues(extra);
+    const merged = journalRankingIndex.readJournalRankingIndex(item, values);
+    cached = { extra, issn, title, revision, values, merged };
     rankingCache.set(item, cached);
   }
-  return cached.values;
+  return cached.merged;
 }
 
 export function registerExtraColumns() {
@@ -131,7 +149,7 @@ export function registerEasyScholarColumns() {
       dataProvider: (item: Zotero.Item) => {
         if (!addon.data.alive || !isEasyScholarFieldEnabled(field.key) || !["journalArticle", "conferencePaper"].includes(item.itemType) || (field.key === "esi" && item.itemType !== "journalArticle"))
           return "";
-        const saved = readJournalRankingIndex(item, savedRankings(item)).get(field.key) || "";
+        const saved = mergedRankings(item).get(field.key) || "";
         return field.key === "esi" ? cachedJournalInsights(item)?.esi || saved : numericFields.has(field.key) ? journalNumericSortValue(saved) : saved;
       },
       ...numericFields.has(field.key) && { renderCell: (_index: number, value: string, column: { className: string }, _first: boolean, doc: Document) => {

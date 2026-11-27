@@ -5,6 +5,7 @@ import { flushServiceCache, getServiceCacheStatus } from "./service-cache-storag
 
 const logger = createLogger("cache-maintenance");
 let interval: ReturnType<typeof setInterval> | undefined;
+let initialTimer: ReturnType<typeof setTimeout> | undefined;
 let maintenance: Promise<void> | undefined;
 
 const OWNED_CACHE_FILES = [
@@ -69,10 +70,15 @@ export function startCacheMaintenance() {
     return;
   const run = () => void cleanExpiredCaches().catch(error => logger.debug("Cache maintenance failed", error));
   interval = setInterval(run, 10 * 60_000);
-  run();
+  initialTimer = setTimeout(() => {
+    initialTimer = undefined;
+    run();
+  }, 15_000);
 }
 
 export async function stopCacheMaintenance() {
+  clearTimeout(initialTimer);
+  initialTimer = undefined;
   clearInterval(interval);
   interval = undefined;
   await maintenance?.catch(error => logger.debug("Cache maintenance stopped after failure", error));

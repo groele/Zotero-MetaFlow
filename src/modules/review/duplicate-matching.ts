@@ -17,11 +17,19 @@ export interface DuplicatePair {
 
 export type DuplicateMatchEvent = { kind: "checkpoint"; stage: "index" | "match"; processed: number } | { kind: "pair"; pair: DuplicatePair };
 
-function titleKey(data: TransformedData): string {
-  const title = (data.title || "").normalize("NFKC").replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+function normalizeComparisonTitle(title?: string): string {
+  return (title || "").normalize("NFKC").replace(/<[^>]*>/g, "").toLowerCase().replace(/[^\p{L}\p{N}]/gu, "");
+}
+
+function titleKey(data: TransformedData, selectedTitles?: Set<string>): string {
+  const normalizedTitle = normalizeComparisonTitle(data.title);
   const year = data.date?.match(/\b\d{4}\b/)?.[0] || "";
+  if (normalizedTitle.length < 12 || !year)
+    return "";
+  if (selectedTitles && !selectedTitles.has(`${normalizedTitle}::${year}`))
+    return "";
   const creator = firstCreator(data);
-  return title.length >= 12 && year && creator ? `${title}:${year}:${creator}` : "";
+  return creator ? `${normalizedTitle}:${year}:${creator}` : "";
 }
 
 export function duplicatePairs(selected: Set<number>, records: DuplicateRecord[]): DuplicatePair[] {
@@ -40,11 +48,23 @@ export interface DuplicateMatchOptions {
 }
 
 export function* duplicateMatchEvents(selected: Set<number>, records: DuplicateRecord[], options: DuplicateMatchOptions = {}): Generator<DuplicateMatchEvent> {
+  let selectedTitles: Set<string> | undefined;
+  if (selected.size > 0 && selected.size < records.length && records.length > 64) {
+    selectedTitles = new Set<string>();
+    for (const record of records) {
+      if (!selected.has(record.id))
+        continue;
+      const normalizedTitle = normalizeComparisonTitle(record.data.title);
+      const year = record.data.date?.match(/\b\d{4}\b/)?.[0] || "";
+      if (normalizedTitle.length >= 12 && year)
+        selectedTitles.add(`${normalizedTitle}::${year}`);
+    }
+  }
   const indexed: { record: DuplicateRecord; doi: string; arxiv: string; keys: string[] }[] = [];
   const buckets = new Map<string, typeof indexed>();
   for (const record of records) {
     const doi = normalizeDOI(record.data.DOI);
-    const title = titleKey(record.data);
+    const title = titleKey(record.data, selected.has(record.id) ? undefined : selectedTitles);
     const arxiv = normalizeArxiv(record.data.url || "") || normalizeArxiv(record.data.DOI || "");
     const keys = [doi && `doi:${doi}`, title && `title:${title}`, arxiv && `arxiv:${arxiv.replace(/v\d+$/, "")}`].filter(Boolean).map(key => `${record.libraryID}:${key}`);
     const entry = { record, doi, arxiv, keys };

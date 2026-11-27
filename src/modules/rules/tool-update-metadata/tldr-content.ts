@@ -64,13 +64,31 @@ export function extractTLDRFromNote(noteContent: string): string | undefined {
   return unescapeHTML(plain);
 }
 
+const tldrItemCache = new WeakMap<Zotero.Item, { cacheKey: string; value: string | undefined }>();
+
 export function extractTLDRFromItem(item: Zotero.Item): string | undefined {
   if (!item)
     return undefined;
   if (typeof item.isRegularItem === "function" && !item.isRegularItem())
     return undefined;
-  if (typeof item.getNotes === "function" && typeof Zotero !== "undefined" && Zotero.Items?.get) {
-    const noteIDs = item.getNotes();
+  const extra = typeof item.getField === "function" ? String(item.getField("extra") || "") : "";
+  const canReadNotes = typeof item.getNotes === "function" && typeof Zotero !== "undefined" && Boolean(Zotero.Items?.get);
+  const noteIDs = canReadNotes ? item.getNotes() : [];
+  const noteKey = canReadNotes
+    ? noteIDs.map((id) => {
+        const n = Zotero.Items?.get?.(id) || undefined;
+        return `${id}:${(n as any)?.version ?? 0}:${n?.deleted ? 1 : 0}:${typeof n?.getNote === "function" ? n.getNote().length : 0}`;
+      }).join(",")
+    : "";
+  const cacheKey = `${extra}\0${noteKey}`;
+  if (typeof item === "object") {
+    const cached = tldrItemCache.get(item);
+    if (cached && cached.cacheKey === cacheKey)
+      return cached.value;
+  }
+
+  let resolved: string | undefined;
+  if (canReadNotes) {
     let fallbackNote: string | undefined;
     for (const id of noteIDs) {
       const note = Zotero.Items.get(id);
@@ -78,8 +96,10 @@ export function extractTLDRFromItem(item: Zotero.Item): string | undefined {
         const rawNote = note.getNote();
         if (rawNote.includes("data-metaflow-tldr") || rawNote.includes("Semantic Scholar")) {
           const fromNote = extractTLDRFromNote(rawNote);
-          if (fromNote)
-            return fromNote;
+          if (fromNote) {
+            resolved = fromNote;
+            break;
+          }
         }
         else if (!fallbackNote) {
           const fromNote = extractTLDRFromNote(rawNote);
@@ -88,16 +108,15 @@ export function extractTLDRFromItem(item: Zotero.Item): string | undefined {
         }
       }
     }
-    if (fallbackNote)
-      return fallbackNote;
+    if (!resolved && fallbackNote)
+      resolved = fallbackNote;
   }
-  if (typeof item.getField === "function") {
-    const extra = String(item.getField("extra") || "");
-    const fromExtra = extractTLDRFromExtra(extra);
-    if (fromExtra)
-      return fromExtra;
+  if (!resolved && extra) {
+    resolved = extractTLDRFromExtra(extra);
   }
-  return undefined;
+  if (typeof item === "object")
+    tldrItemCache.set(item, { cacheKey, value: resolved });
+  return resolved;
 }
 
 export function resolvePaperIDForTLDR(item: Zotero.Item, identifiers?: Partial<Identifiers>): string | undefined {

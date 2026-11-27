@@ -8,6 +8,7 @@ import { hasEnabledJournalMetrics } from "../utils/journal-permissions";
 import { getString } from "../utils/locale";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
+import { createAbortController } from "../utils/rule-execution";
 import { beginRuntimeOperation, beginRuntimeStage, finishRuntimeStage, recordRuntimeResult } from "../utils/runtime-data-storage";
 import { REMOTE_STANDARD_RULES } from "../utils/workflow-policy";
 import { combineWorkflowResults, CoreWorkflowQueue } from "../utils/workflow-result";
@@ -82,8 +83,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
   };
   const stages: { stage: CoreStage; result: BatchResult }[] = [];
   const plan = coreWorkflowPlan(command, options);
-  const Controller = (typeof Zotero !== "undefined" && typeof Zotero.getMainWindow === "function" && (Zotero.getMainWindow() as any)?.AbortController) || AbortController;
-  const controller = new Controller();
+  const controller = createAbortController();
   const state = { command, stage: undefined as CoreStage | undefined, index: 0, total: plan.length, cancelled: false, cancel: () => {
     state.cancelled = true;
     controller.abort(new Error("Core workflow cancelled"));
@@ -93,7 +93,7 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
   const overwrite = getPref("rule.tool-update-metadata.option.mode") === "all";
   const reviewOptions = {
     scanPDF: pref("workflow.scanPDF", false),
-    searchTitle: pref("workflow.searchTitle", false),
+    searchTitle: pref("workflow.searchTitle", true),
     repairCreators: pref("metadata.repairCreators", true),
     reviveSnapshots: pref("workflow.reviveSnapshots", true),
     overwrite,
@@ -124,6 +124,25 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
       const journals = current.filter(item => ["journalArticle", "conferencePaper"].includes(item.itemType));
       if (!journals.length)
         return;
+      const hasEasyScholarKey = Boolean(String(getPref("easyscholar.secretKey") || "").trim());
+      if (!hasEasyScholarKey) {
+        try {
+          const unique = [...new Map(journals.filter(item => !item.deleted && item.itemType === "journalArticle").map(item => [JSON.stringify(["publicationTitle", "ISSN", "journalAbbreviation"].map(field => item.getField(field as any))), item])).values()];
+          for (const item of unique) {
+            if (!addon.data.alive || state.cancelled)
+              break;
+            await getJournalInsights(item, { queryAPI: false, signal: controller.signal });
+          }
+          if (addon.data.alive && !state.cancelled) {
+            await redrawItemValues(journals.map(item => item.id));
+            await refreshJournalPane(journals.map(item => item.id));
+          }
+        }
+        catch (error) {
+          createLogger("core-workflow").error("Cannot refresh local journal insights", error);
+        }
+        return;
+      }
       const mode = overwrite ? "all" : "blank";
       const result = await addon.runner.add({ items: journals, rules: [{ ...ToolUpdateEasyScholar, prepare: () => ({ mode }) }], silent: true, history: false, signal: controller.signal });
       try {

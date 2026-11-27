@@ -3,7 +3,6 @@ import type { IdentifierCandidate, ReviewProposal } from "./policy";
 import { requestGET } from "../../utils/http";
 import { getString } from "../../utils/locale";
 import { isFieldValidForItemType } from "../../utils/zotero";
-import { extractDOIFromUrl } from "../rules/tool-update-metadata/identifiers";
 import { normalizeDOI } from "../rules/tool-update-metadata/policy";
 import { normalizeArxiv, reviewChanges } from "./policy";
 
@@ -31,15 +30,6 @@ export function isSnapshotItem(item?: { itemType?: string }): boolean {
   return !!item?.itemType && (SNAPSHOT_ITEM_TYPES as readonly string[]).includes(item.itemType);
 }
 
-function cleanDOI(value: string): string {
-  const raw = value.trim().replace(/^doi:\s*/i, "");
-  let doi = extractDOIFromUrl(raw) || "";
-  doi = doi.replace(/[.,;:]+$/, "");
-  while (doi.endsWith(")") && (doi.match(/\)/g)?.length || 0) > (doi.match(/\(/g)?.length || 0))
-    doi = doi.slice(0, -1);
-  return normalizeDOI(doi);
-}
-
 /** Identifiers that are structurally encoded in a page URL. */
 export function identifiersFromURL(value: string, source: string): IdentifierCandidate[] {
   const result: IdentifierCandidate[] = [];
@@ -54,7 +44,7 @@ export function identifiersFromURL(value: string, source: string): IdentifierCan
     return result;
   const host = url.hostname.toLowerCase().replace(/^www\./, "");
   const path = decodeURIComponent(url.pathname);
-  const doi = cleanDOI(url.href);
+  const doi = normalizeDOI(url.href);
   if (doi)
     result.push({ kind: "DOI", value: doi, source });
   const arxiv = (host.endsWith("arxiv.org") || host.endsWith("ar5iv.org")) ? normalizeArxiv(url.href.replace(/^http:/, "https:")) : "";
@@ -102,11 +92,11 @@ export function identifiersFromHTML(html: string, source: string): IdentifierCan
     if (!name || !content)
       continue;
     if (DOI_META.has(name)) {
-      add("DOI", cleanDOI(content));
+      add("DOI", normalizeDOI(content));
     }
     else if (GENERIC_IDENTIFIER_META.has(name)) {
       if (/^(?:doi:|https?:\/\/(?:dx\.)?doi\.org\/|10\.\d{4,9}\/)/i.test(content))
-        add("DOI", cleanDOI(content));
+        add("DOI", normalizeDOI(content));
     }
     else if (name === "citation_arxiv_id") {
       add("arXiv", normalizeArxiv(content));

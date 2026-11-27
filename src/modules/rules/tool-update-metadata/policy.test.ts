@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI, titlesAgree } from "./policy";
+import { hasMissingJournalBiblio, isDateRefinement, mergeMetadata, metadataIdentity, metadataMissing, metadataValuesEqual, normalizeDOI, titlesAgree } from "./policy";
+import { getOrderedMetadataServices, hasConfiguredSemanticScholarAPI, transformOpenAlexWork } from "./services";
 
 describe("metadata identity and completion", () => {
   it("normalizes resolver forms and rejects a different DOI even for an identical title", () => {
     expect(normalizeDOI("https://doi.org/10.1234/ABC")).toBe("10.1234/abc");
+    expect(normalizeDOI("doi: 10.1234/abc(foo)).")).toBe("10.1234/abc(foo)");
     expect(metadataIdentity({ title: "Same title" }, { DOI: "10.1234/abc" }, { title: "Same title", DOI: "10.9999/wrong" }, "identifier")).toBe(false);
     expect(metadataIdentity({}, { DOI: "10.1234/ABC" }, { DOI: "https://doi.org/10.1234/abc" })).toBe("identifier");
   });
@@ -36,6 +38,36 @@ describe("metadata identity and completion", () => {
       .toEqual({ title: "First", date: "2026", creators: [{ creatorType: "author", lastName: "Doe" }] });
     expect(metadataMissing({ DOI: "10.1234/a" }, { title: "Original" }, "blank", "journalArticle"))
       .toEqual(["date", "creators", "publicationTitle"]);
+    expect(isDateRefinement("2024", "2024-07-28")).toBe(true);
+    expect(isDateRefinement("2024-07", "2024-07-28")).toBe(true);
+    expect(isDateRefinement("2024", "2025-01-01")).toBe(false);
+    expect(mergeMetadata({ title: "First", date: "2024" }, { date: "2024-07-28", volume: "15", issue: "3", pages: "101-110" }))
+      .toEqual({ title: "First", date: "2024-07-28", volume: "15", issue: "3", pages: "101-110" });
+    expect(hasMissingJournalBiblio({ title: "First", date: "2024", publicationTitle: "Journal" }, {}, "blank", "journalArticle")).toBe(true);
+    expect(hasMissingJournalBiblio({ title: "First", date: "2024", publicationTitle: "Journal", volume: "1", issue: "2", pages: "3-4", ISSN: "1234-5678" }, {}, "blank", "journalArticle")).toBe(false);
+  });
+
+  it("extracts volume, issue, pages, and year from OpenAlex and prioritizes native translators without API key", () => {
+    const oa = transformOpenAlexWork({
+      doi: "https://doi.org/10.1038/s41567-024-00001-1",
+      title: "Quantum transport in 2D materials",
+      publication_date: "2024-08-15",
+      type: "article",
+      biblio: { volume: "20", issue: "8", first_page: "120", last_page: "128" },
+      primary_location: { source: { display_name: "Nature Physics", issn_l: "1745-2473", type: "journal" } },
+      authorships: [{ author: { display_name: "Jane Doe" } }],
+    });
+    expect(oa.volume).toBe("20");
+    expect(oa.issue).toBe("8");
+    expect(oa.pages).toBe("120-128");
+    expect(oa.date).toBe("2024-08-15");
+    expect(oa.publicationTitle).toBe("Nature Physics");
+    expect(oa.ISSN).toBe("1745-2473");
+    expect(hasConfiguredSemanticScholarAPI()).toBe(false);
+    const orderedIds = getOrderedMetadataServices().map(s => s.id);
+    expect(orderedIds.indexOf("identifiers-translate-service")).toBeLessThan(orderedIds.indexOf("semantic-scholar-service"));
+    expect(orderedIds.indexOf("crossref-service")).toBeLessThan(orderedIds.indexOf("semantic-scholar-service"));
+    expect(orderedIds.indexOf("openalex-service")).toBeLessThan(orderedIds.indexOf("semantic-scholar-service"));
   });
 });
 

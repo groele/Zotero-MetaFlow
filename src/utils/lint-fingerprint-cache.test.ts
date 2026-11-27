@@ -126,4 +126,18 @@ describe("lint fingerprint cache (Incremental Dirty-Checking)", () => {
     await runner.add({ items: [item], rules: [toolRule], silent: true, history: false });
     expect(toolCalls).toBe(2);
   });
+
+  it("calls item.toJSON only once per unmodified clean item during lintItem", async () => {
+    const rule = defineRule({
+      id: "correct-title-trailing-dot" as any,
+      scope: "item",
+      category: "rule",
+      apply() {},
+    });
+    const runner = new LintRunner();
+    const item = createMockItem(301, "Clean Title");
+    const toJSONSpy = vi.spyOn(item, "toJSON");
+    await runner.add({ items: [item], rules: [rule], silent: true, history: false });
+    expect(toJSONSpy).toHaveBeenCalledTimes(1);
+  });
 });

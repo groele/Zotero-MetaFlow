@@ -1,3 +1,5 @@
+import { setupHorizontalTabs } from "./settings-tabs";
+
 /** Move functional modules before any renderer consumes their headings. */
 export function organizeSettingsModules(pane: Element) {
   // These are independent tasks, not formatting rules.
@@ -79,4 +81,5 @@ export function setupFunctionCards(pane: Element) {
   [...pane.querySelectorAll<HTMLDetailsElement>(":scope > .metaref-section-card")].forEach((card, index) => {
     card.open = index === 0;
   });
+  setupHorizontalTabs(pane);
 }

@@ -21,7 +21,7 @@ export interface DuplicateDecision {
 }
 
 export function duplicateRecord(item: Zotero.Item): DuplicateRecord {
-  return { id: item.id, libraryID: item.libraryID, data: JSON.parse(JSON.stringify(item.toJSON())) as TransformedData, preprint: isPreprint(item, extractIdentifiers(item)) };
+  return { id: item.id, libraryID: item.libraryID, data: item.toJSON() as TransformedData, preprint: isPreprint(item, extractIdentifiers(item)) };
 }
 
 export async function findDuplicates(items: Zotero.Item[], signal?: AbortSignal, compact = false): Promise<DuplicatePair[]> {

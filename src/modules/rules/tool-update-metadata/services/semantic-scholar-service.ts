@@ -1,5 +1,5 @@
 import type { Identifiers } from "../identifiers";
-import { clearServiceRequestCache, rememberServiceAliases, requestServiceGET } from "../../../../utils/http";
+import { clearServiceRequestCache, parseResponseJSON, rememberServiceAliases, requestServiceGET } from "../../../../utils/http";
 import { getPref } from "../../../../utils/prefs";
 import { abortableDelay } from "../../../../utils/rule-execution";
 import { defineService } from "./base-service";
@@ -42,7 +42,7 @@ async function request(paperID: string, _fields: (keyof Result)[], signal?: Abor
     },
   };
   const res = await requestServiceGET("semantic-scholar", url, options, signal);
-  const parsed = typeof res.response === "object" && res.response !== null ? res.response : JSON.parse(typeof res.response === "string" ? res.response : (res as any).responseText || "{}");
+  const parsed = parseResponseJSON(res);
   const data = { _status: res.status, ...parsed } as RequestResult;
   if (data._status === 200) {
     const aliases = [data.paperId, data.externalIds?.DOI && `DOI:${data.externalIds.DOI}`, data.externalIds?.ArXiv && `ARXIV:${data.externalIds.ArXiv}`, data.externalIds?.PubMed && `PMID:${data.externalIds.PubMed}`].filter(Boolean).map(String);

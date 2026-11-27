@@ -3,6 +3,7 @@ import type { Rule } from "./rules/rule-base";
 import type { BatchResult } from "./runner/types";
 import { toArray } from "../utils/general";
 import { isWritableItem } from "../utils/item-write-policy";
+import { computeBatchRuleSignature, isEligibleForLintFingerprint } from "../utils/lint-fingerprint-cache";
 import { createLogger } from "../utils/logger";
 import { getPref } from "../utils/prefs";
 import { normalizedConcurrency } from "../utils/rule-execution";
@@ -125,6 +126,9 @@ export class LintRunner extends BatchPersistence {
       this.stats.phase = "linting";
       this.updateProgress(this.stats.current, this.stats.total);
 
+      const batchRuleSig = isEligibleForLintFingerprint(rules, optionsMap)
+        ? computeBatchRuleSignature(rules, optionsMap)
+        : undefined;
       let next = 0;
       const worker = async () => {
         while (!this.cancelled && next < items.length) {
@@ -133,7 +137,7 @@ export class LintRunner extends BatchPersistence {
             break;
           const item = items[next++];
           try {
-            await this.lintItem(item, rules, optionsMap);
+            await this.lintItem(item, rules, optionsMap, batchRuleSig);
           }
           catch (error) {
             this.failedItems.add(item.id || item);

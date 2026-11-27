@@ -166,4 +166,23 @@ describe("transformTitle", () => {
       expect(formatChemicalFormula(first)).toBe(first);
     }
   });
+
+  it("formats hyphenated modifiers, crystal-phase prefixes and Greek prefixes", () => {
+    expect(formatChemicalFormula("TiO2-based CO2-induced H2O2-mediated photocatalysis"))
+      .toBe("TiO<sub>2</sub>-based CO<sub>2</sub>-induced H<sub>2</sub>O<sub>2</sub>-mediated photocatalysis");
+    expect(formatChemicalFormula("1T-MoS2 2H-WSe2 3R-MoS2 g-C3N4 α-Fe2O3 γ-Al2O3"))
+      .toBe("1T-MoS<sub>2</sub> 2H-WSe<sub>2</sub> 3R-MoS<sub>2</sub> g-C<sub>3</sub>N<sub>4</sub> α-Fe<sub>2</sub>O<sub>3</sub> γ-Al<sub>2</sub>O<sub>3</sub>");
+  });
+
+  it("formats core-shell, en-dash composites and bracketed formulas", () => {
+    expect(formatChemicalFormula("Fe3O4@SiO2 and MoS2–WS2 heterostructures"))
+      .toBe("Fe<sub>3</sub>O<sub>4</sub>@SiO<sub>2</sub> and MoS<sub>2</sub>–WS<sub>2</sub> heterostructures");
+    expect(formatChemicalFormula("Study on (TiO2), (MoS2/WS2) and (CO2) conversion"))
+      .toBe("Study on (TiO<sub>2</sub>), (MoS<sub>2</sub>/WS<sub>2</sub>) and (CO<sub>2</sub>) conversion");
+  });
+
+  it("formats doping stoichiometry, Unicode scripts/minus and coordination ions", () => {
+    expect(formatChemicalFormula("MoS2-x and TiO2-δ with H₂O, CO₂, Fe³⁺, O2− and [Fe(CN)6]3-"))
+      .toBe("MoS<sub>2-x</sub> and TiO<sub>2-δ</sub> with H<sub>2</sub>O, CO<sub>2</sub>, Fe<sup>3+</sup>, O<sup>2−</sup> and [Fe(CN)<sub>6</sub>]<sup>3-</sup>");
+  });
 });

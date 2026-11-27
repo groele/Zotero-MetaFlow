@@ -9,8 +9,8 @@ export function hasLocalCorroboration(original: TransformedData, kind?: Identifi
   if (!original.title?.trim())
     return false;
   if (kind === "Title")
-    return Boolean(firstCreator(original));
-  return Boolean(original.date?.match(/\b\d{4}\b/) || firstCreator(original));
+    return Boolean(firstCreator(original) || original.publicationTitle?.trim() || original.proceedingsTitle?.trim() || original.url?.trim());
+  return Boolean(original.date?.match(/\b\d{4}\b/) || firstCreator(original) || original.publicationTitle?.trim() || original.proceedingsTitle?.trim());
 }
 
 /** PDF references and multiple editions are not resolved by candidate order. */
@@ -34,7 +34,7 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
   const originalDOI = normalizeDOI(
     proposal.original.DOI
     || extractDOIFromUrl(proposal.original.url || "")
-    || (typeof proposal.original.extra === "string" ? proposal.original.extra.match(/\b(?:doi:\s*|10\.)(10\.\d{4,9}\/[^\s?#&<>"]+)/i)?.[1] : ""),
+    || (typeof proposal.original.extra === "string" ? extractDOIFromUrl(proposal.original.extra) || "" : ""),
   );
   const returnedDOI = normalizeDOI(proposal.candidate.DOI);
   if (!proposal.preprintURL && originalDOI && returnedDOI && !originalDOI.startsWith("10/") && originalDOI !== returnedDOI)
@@ -72,9 +72,12 @@ export function automaticSelection(proposal: ReviewProposal, overwrite = false, 
       && (proposal.candidate.creators || []).some(c => c && !isPlaceholderCreator(c)));
     const authorsMatch = hasAuthors && Boolean(firstAuthorMatch || creatorsAgree(proposal.original, proposal.candidate));
     const yearsMatch = Boolean(beforeYear && afterYear && beforeYear === afterYear);
+    const localJournal = String(proposal.original.publicationTitle || proposal.original.proceedingsTitle || "").trim();
+    const candidateJournal = String(proposal.candidate.publicationTitle || proposal.candidate.proceedingsTitle || "").trim();
+    const journalMatch = Boolean(!author && localJournal && candidateJournal && titlesAgree(localJournal, candidateJournal));
     if (!proposal.original.title || !proposal.candidate.title || !titlesAgree(proposal.original.title, proposal.candidate.title))
       return { reason: "evidence" };
-    if (proposal.identifier.kind === "Title" ? !firstAuthorMatch : (!yearsMatch && !authorsMatch))
+    if (proposal.identifier.kind === "Title" ? (!firstAuthorMatch && !journalMatch) : (!yearsMatch && !authorsMatch))
       return { reason: "evidence" };
   }
   const related = !!proposal.preprintURL;
