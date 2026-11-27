@@ -1,4 +1,5 @@
 import { config } from "../../package.json";
+import { resolveAddonHost } from "../kernel/host-globals";
 
 const PREFS_PREFIX = config.prefsPrefix;
 
@@ -197,7 +198,7 @@ export const DEFAULT_PREFS: Partial<PluginPrefsMap> = {
 
 export function getPref<K extends keyof PluginPrefsMap>(key: K, fallback?: PluginPrefsMap[K]) {
   const effectiveFallback = (fallback !== undefined ? fallback : DEFAULT_PREFS[key]) as PluginPrefsMap[K];
-  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  const kernelPrefs = resolveAddonHost()?.kernel?.prefs;
   if (kernelPrefs)
     return kernelPrefs.get(key, effectiveFallback) as PluginPrefsMap[K];
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {
@@ -208,7 +209,7 @@ export function getPref<K extends keyof PluginPrefsMap>(key: K, fallback?: Plugi
 }
 
 export function setPref<K extends keyof PluginPrefsMap>(key: K, value: PluginPrefsMap[K]) {
-  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  const kernelPrefs = resolveAddonHost()?.kernel?.prefs;
   if (kernelPrefs)
     return kernelPrefs.set(key, value);
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {
@@ -218,7 +219,7 @@ export function setPref<K extends keyof PluginPrefsMap>(key: K, value: PluginPre
 }
 
 export function clearPref(key: string) {
-  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  const kernelPrefs = resolveAddonHost()?.kernel?.prefs;
   if (kernelPrefs)
     return kernelPrefs.clear(key);
   if (typeof Zotero === "undefined" || !Zotero.Prefs) {

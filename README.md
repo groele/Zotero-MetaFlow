@@ -8,12 +8,12 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.0-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.0)
+[![Version](https://img.shields.io/badge/version-17.3.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.1)
 
-17.3.0 全面完成对标 BridgeFlow 的五层微内核业务下沉迁移（100% 生产代码收敛至 `kernel` / `services` / `domains` / `bridges` / `utils`，`src/modules/` 仅保留 7 个面向外部 E2E 测试与构建脚本的单行纯重导出兼容垫片），修复生命周期重入与集中观察者回退等 8 项深度审计问题，并新增隔离 Profile 无头 Zotero 进程真实启动与清理冒烟验证（`pnpm run smoke:launch`）。详见[v17.3.0 发布说明](docs/releases/metaflow-v17.3.0.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.3.1 修复 Gecko `loadSubScript` 沙箱作用域下「查重与合并 → 去重设置」面板控件未渲染与跨域端口解析问题并升级至 22 项架构守卫；继承 17.3.0 对标 BridgeFlow 的五层微内核全量业务下沉与隔离 Profile 无头 Zotero 真实启动冒烟验证（`pnpm run smoke:launch`）。详见[v17.3.1 发布说明](docs/releases/metaflow-v17.3.1.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
-[![Tests Passing](https://img.shields.io/badge/tests-840%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
+[![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
 
 [📦 下载安装](#installation) · [✨ 核心亮点](#highlights) · [🛠️ 功能矩阵](#features) · [🚀 快速开始](#quick-start) · [⚙️ 设置详解](#settings) · [🛡️ 架构与安全](#architecture) · [🌐 运行环境](#compatibility) · [❓ 常见问题](#troubleshooting) · [🔗 系列插件](#series) · [📄 致谢与许可](#license)
 

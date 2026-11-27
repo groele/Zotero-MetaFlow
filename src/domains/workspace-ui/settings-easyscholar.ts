@@ -1,3 +1,4 @@
+import { resolveAddonHost } from "../../kernel/host-globals";
 import {
   EASYSCHOLAR_DEFAULT_FIELDS,
   EASYSCHOLAR_FIELD_DEFINITIONS,
@@ -46,7 +47,7 @@ export function setupEasyScholarSettings(pane: Element) {
       if (pref === "duplicates.showStats")
         void Zotero.Notifier.trigger("redraw", "collection", [], {}, true).catch(error => logger.error(error));
       if (pref.startsWith("easyscholar.columns.") || pref.startsWith("easyscholar.fields.") || pref === "insights.natureEnabled") {
-        (globalThis as any).addon?.kernel?.ports?.get?.("journal-insights")?.syncExtraColumns();
+        resolveAddonHost()?.kernel?.ports?.get?.("journal-insights")?.syncExtraColumns();
         for (const field of EASYSCHOLAR_FIELD_DEFINITIONS) {
           const column = columnsHost!.querySelector<HTMLInputElement>(`input[preference$='.easyscholar.columns.${field.key}']`);
           if (column)

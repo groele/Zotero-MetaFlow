@@ -1,4 +1,5 @@
 import { homepage } from "../../../package.json";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { dedupeAndRegisterPreferencePane, unregisterPluginPreferencePanes } from "../../services/host";
 import { setupBatchFeedback } from "../../services/lint/batch-feedback";
 import { clearSemanticScholarCache } from "../../services/metadata/tool-update-metadata/services/semantic-scholar-service";
@@ -100,7 +101,7 @@ export function registerPrefsScripts(_window: Window) {
   setupEasyScholarSettings(pane);
   setupWorkflowSettings(pane);
   setupToolCenter(pane);
-  (globalThis as any).addon?.kernel?.ports?.get?.("review-duplicates")?.setupSettingsPane?.(pane);
+  resolveAddonHost()?.kernel?.ports?.get?.("review-duplicates")?.setupSettingsPane?.(pane);
   setupFunctionCards(pane);
   setupCustomDataReset(pane);
   setupCustomDataFiles(pane);
@@ -123,8 +124,9 @@ export function registerPrefsScripts(_window: Window) {
       (cacheButton as HTMLButtonElement).disabled = true;
       status.textContent = getString("api-cache-clearing");
       try {
-        const cacheService = (globalThis as any).addon?.services?.cache;
-        const kernelBus = (globalThis as any).addon?.kernel?.bus;
+        const hostAddon = resolveAddonHost();
+        const cacheService = hostAddon?.services?.cache;
+        const kernelBus = hostAddon?.kernel?.bus;
         if (cacheService) {
           await cacheService.clearApiCaches();
           if (kernelBus?.emit)

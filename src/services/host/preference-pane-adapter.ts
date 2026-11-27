@@ -1,3 +1,5 @@
+import { resolveZoteroHost } from "../../kernel/host-globals";
+
 export interface PreferencePaneSpec {
   id: string;
   pluginID: string;
@@ -21,7 +23,7 @@ function getPreferencePanesAPI(): {
   register?: (options: Record<string, unknown>) => Promise<string> | string;
   unregister?: (id: string) => void;
 } | undefined {
-  return (globalThis as any).Zotero?.PreferencePanes;
+  return resolveZoteroHost()?.PreferencePanes;
 }
 
 export function unregisterPluginPreferencePanes(pluginID: string): void {
@@ -75,5 +77,5 @@ export async function dedupeAndRegisterPreferencePane(spec: PreferencePaneSpec):
 export function tileProgressWindow(popup: Window | undefined): void {
   if (!popup || popup.closed)
     return;
-  (globalThis as any).Zotero?.ProgressWindowSet?.tile?.(popup);
+  resolveZoteroHost()?.ProgressWindowSet?.tile?.(popup);
 }

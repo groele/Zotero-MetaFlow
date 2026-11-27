@@ -1,4 +1,5 @@
 import type { Disposable } from "../kernel/types";
+import { resolveZoteroHost } from "../kernel/host-globals";
 import { startCacheMaintenance, stopCacheMaintenance } from "../utils/cache-maintenance";
 import { clearDuplicateSearchCache } from "../utils/duplicate-search-cache";
 import { clearEasyScholarCache } from "../utils/easyscholar";
@@ -80,7 +81,7 @@ export class CacheCoordinatorService {
       flushServiceCache(),
       flushJournalRankingIndex(),
     ]);
-    const debug = (globalThis as any).Zotero?.debug;
+    const debug = resolveZoteroHost()?.debug;
     for (const result of results) {
       if (result.status === "rejected" && typeof debug === "function")
         debug(`[MetaFlow shutdown persistence] ${String(result.reason)}`);

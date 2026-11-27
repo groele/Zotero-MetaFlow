@@ -99,6 +99,10 @@ async function onStartup(): Promise<void> {
       version: "",
       rootURI: typeof rootURI === "string" ? rootURI : "",
     });
+    modules.workspaceUi.ensurePortRegistered();
+    modules.journalInsights.ensurePortRegistered();
+    modules.reviewDuplicates.ensurePortRegistered();
+    modules.lintEngine.ensurePortRegistered();
     services.cache.startMaintenance();
     services.init();
     const prefsReady = modules.workspaceUi.startEarly();

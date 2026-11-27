@@ -1,4 +1,5 @@
 import type { RuleForRegularScopeField } from "../../services/lint/rule-base";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { Rules } from "../../services/lint/rule-registry";
 import { cleanupResourcesSync } from "../../utils/cleanup";
 import { showZoteroDirectory } from "../../utils/directories";
@@ -164,7 +165,7 @@ function registerItemMenus() {
           const journals = items.filter(item => item.isRegularItem() && !item.deleted && item.itemType === "journalArticle");
           await Promise.all(journals.map(item => getJournalInsights(item, { queryAPI: true })));
           await redrawItemValues(journals.map(item => item.id));
-          await (globalThis as any).addon?.kernel?.ports?.get?.("journal-insights")?.refreshPane(journals.map(item => item.id));
+          await resolveAddonHost()?.kernel?.ports?.get?.("journal-insights")?.refreshPane(journals.map(item => item.id));
           return;
         }
         const rules = key === "correct-date-format"

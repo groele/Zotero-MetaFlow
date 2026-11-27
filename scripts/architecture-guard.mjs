@@ -205,6 +205,17 @@ test("EventBus closure (zero dead or half-open events)", () => {
   });
   assert.deepEqual(broken, []);
 });
+test("Gecko loadSubScript sandbox global safety", () => {
+  const violations = [];
+  for (const file of prodTsFiles) {
+    const rel = relSrc(file);
+    if (rel === "kernel/host-globals.ts")
+      continue;
+    if (/\bglobalThis\b[^\n;]*\.\s*(?:addon|Zotero)\b/.test(read(file)))
+      violations.push(`${rel} (must use resolveAddonHost/resolveZoteroHost instead of globalThis.addon/Zotero)`);
+  }
+  assert.deepEqual(violations, []);
+});
 test("host contract and headless launch smoke script integrity", () => {
   assert.ok(existsSync("scripts/smoke-zotero.mjs"), "Missing scripts/smoke-zotero.mjs");
   assert.ok(existsSync("scripts/smoke-launch.mjs"), "Missing scripts/smoke-launch.mjs");

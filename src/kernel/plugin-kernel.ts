@@ -4,6 +4,7 @@ import { CommandRegistry } from "./command-registry";
 import { AsyncDisposableStack } from "./disposable";
 import { DomainPortRegistry } from "./domain-ports";
 import { TypedEventBus } from "./event-bus";
+import { resolveZoteroHost } from "./host-globals";
 import { NativeRuntime } from "./native-runtime";
 import { UnifiedNotifierHub } from "./notifier-hub";
 import { UnifiedPrefService } from "./pref-service";
@@ -125,7 +126,7 @@ export class PluginKernel {
     if (this.disposed || gen !== this.generation)
       return;
 
-    const zot = (globalThis as any).Zotero;
+    const zot = resolveZoteroHost();
     const existing = zot?.getMainWindows?.() as Window[] | undefined;
     if (Array.isArray(existing) && existing.length > 0) {
       for (const win of existing) {

@@ -1,5 +1,6 @@
 import type { TypedEventBus } from "./event-bus";
 import type { Disposable } from "./types";
+import { resolveAddonHost, resolveZoteroHost } from "./host-globals";
 
 export interface HostPrefsAdapter {
   get: (key: string, global?: boolean) => unknown;
@@ -21,7 +22,7 @@ type ObserverToken = symbol | string | number;
 const UNSET_PREF = Symbol("unset-pref");
 
 function resolveHostAdapter(): HostPrefsAdapter | null {
-  const host = (globalThis as any).Zotero?.Prefs;
+  const host = resolveZoteroHost()?.Prefs;
   return host && typeof host.get === "function" ? host : null;
 }
 
@@ -60,7 +61,7 @@ export class UnifiedPrefService {
       return this.prefixOption();
     if (typeof this.prefixOption === "string")
       return this.prefixOption;
-    return (globalThis as any).addon?.data?.config?.prefsPrefix || "extensions.zotero.metaref";
+    return resolveAddonHost()?.data?.config?.prefsPrefix || "extensions.zotero.metaref";
   }
 
   fullKey(key: string): string {
@@ -250,7 +251,7 @@ export class UnifiedPrefService {
 }
 
 const fallbackHostPrefService = new UnifiedPrefService({
-  prefix: () => (globalThis as any).addon?.data?.config?.prefsPrefix || "extensions.zotero.metaref",
+  prefix: () => resolveAddonHost()?.data?.config?.prefsPrefix || "extensions.zotero.metaref",
 });
 
 export function observeHostPrefs(
@@ -258,7 +259,7 @@ export function observeHostPrefs(
   onChange: (key: string, value: unknown) => void,
   signal?: AbortSignal,
 ): Disposable {
-  const kernelPrefs = (globalThis as any).addon?.kernel?.prefs;
+  const kernelPrefs = resolveAddonHost()?.kernel?.prefs;
   if (kernelPrefs && typeof kernelPrefs.observeKeys === "function")
     return kernelPrefs.observeKeys(keys, onChange, signal);
   return fallbackHostPrefService.observeKeys(keys, onChange, signal);

@@ -1,4 +1,5 @@
 import type { JournalDatasetKind } from "../../utils/journal-datasets";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { observeHostPrefs } from "../../kernel/pref-service";
 import { journalDatabaseErrorMessage } from "../../utils/journal-database-error";
 import {
@@ -12,7 +13,7 @@ import { preferenceLifetime, preferenceListeners } from "../../utils/preference-
 import { getPref, setPref } from "../../utils/prefs";
 
 async function triggerJournalInsightsRefresh() {
-  const kernel = (globalThis as any).addon?.kernel;
+  const kernel = resolveAddonHost()?.kernel;
   const port = kernel?.ports?.get?.("journal-insights");
   if (port?.refreshInsights) {
     await port.refreshInsights();

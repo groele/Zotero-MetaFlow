@@ -1,11 +1,12 @@
 import type { NativeRuntime } from "../../kernel/native-runtime";
 import type { Disposable } from "../../kernel/types";
+import { resolveZoteroHost } from "../../kernel/host-globals";
 
 export function patchCollectionTreeDuplicateStats(
   runtime: NativeRuntime | undefined,
   formatSuffix: (libraryID: number | undefined) => string | null,
 ): Disposable {
-  const prototype = (globalThis as any).Zotero?.CollectionTreeRow?.prototype as
+  const prototype = resolveZoteroHost()?.CollectionTreeRow?.prototype as
     | { getName?: (...args: any[]) => unknown }
     | undefined;
   if (!prototype || typeof prototype.getName !== "function")

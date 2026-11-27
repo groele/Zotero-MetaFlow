@@ -1,3 +1,5 @@
+import { resolveZoteroHost } from "../../kernel/host-globals";
+
 export type HostCapabilityId
   = | "itemTreeColumns"
     | "itemPaneSections"
@@ -52,7 +54,7 @@ function checkCapability(
 }
 
 export function probeHostCapabilities(win?: Window | null): HostCapabilitiesSnapshot {
-  const zotero = safeRead(() => (globalThis as any).Zotero);
+  const zotero = safeRead(() => resolveZoteroHost());
   const z = zotero.ok ? zotero.value : undefined;
   const versionRead = safeRead(() => (z?.version ? String(z.version) : "unknown"));
   const hostVersion = versionRead.ok ? versionRead.value : "unknown";

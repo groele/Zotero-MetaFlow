@@ -1,3 +1,4 @@
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { patchCollectionTreeDuplicateStats } from "../../services/host";
 import { duplicateSearchRevision } from "../../utils/duplicate-search-cache";
 import { createLogger } from "../../utils/logger";
@@ -13,7 +14,7 @@ export function registerDuplicateStats() {
   if (restore)
     return;
   restore = patchCollectionTreeDuplicateStats(
-    (globalThis as any).addon?.kernel?.runtime,
+    resolveAddonHost()?.kernel?.runtime,
     (libraryID) => {
       if (libraryID === undefined)
         return null;

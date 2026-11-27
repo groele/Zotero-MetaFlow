@@ -1,3 +1,4 @@
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { observeHostPrefs } from "../../kernel/pref-service";
 import {
   extractTLDRFromExtra,
@@ -79,7 +80,7 @@ export function registerInfoRows() {
         void saveTLDRToItem(item, value)
           .then((saved) => {
             if (saved && item.id) {
-              const kernel = (globalThis as any).addon?.kernel;
+              const kernel = resolveAddonHost()?.kernel;
               if (kernel?.bus)
                 kernel.bus.emit("tldr:updated", { itemIDs: [item.id] });
             }

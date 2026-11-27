@@ -1,6 +1,7 @@
 import type { PluginKernel } from "../../kernel/plugin-kernel";
 import type { Disposable, DomainModule } from "../../kernel/types";
 import type { BatchResult } from "../../services/lint/runner";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { ToolUpdateEasyScholar } from "../../services/metadata/easyscholar-rule";
 import { cleanupResourcesSync } from "../../utils/cleanup";
 import { invalidateEasyScholarTitle } from "../../utils/easyscholar";
@@ -109,7 +110,7 @@ export class JournalInsightsDomainModule implements DomainModule {
         : getPref("rule.tool-update-metadata.option.mode") === "all"
           ? ("all" as const)
           : ("blank" as const);
-      const runner = (globalThis as { addon?: typeof addon }).addon?.runner;
+      const runner = resolveAddonHost()?.runner;
       const result = (hasEnabledJournalMetrics() && item.isEditable() && runner?.add)
         ? await runner.add({
             items: [item],

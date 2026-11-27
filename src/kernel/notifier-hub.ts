@@ -1,5 +1,6 @@
 import type { TypedEventBus } from "./event-bus";
 import type { Disposable, NotifierEventPayload } from "./types";
+import { resolveZoteroHost } from "./host-globals";
 
 type NotifierCallback = (payload: NotifierEventPayload) => void | Promise<void>;
 
@@ -41,7 +42,7 @@ export class UnifiedNotifierHub {
   start(): void {
     if (this.started)
       return;
-    const notifier = (globalThis as any).Zotero?.Notifier;
+    const notifier = resolveZoteroHost()?.Notifier;
     if (!notifier?.registerObserver)
       return;
     const id = notifier.registerObserver(
@@ -121,7 +122,7 @@ export class UnifiedNotifierHub {
   stop(): void {
     if (this.started && this.registeredID !== null) {
       try {
-        (globalThis as any).Zotero?.Notifier?.unregisterObserver?.(this.registeredID);
+        resolveZoteroHost()?.Notifier?.unregisterObserver?.(this.registeredID);
       }
       catch {
         // ignore unregister error

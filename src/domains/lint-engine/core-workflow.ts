@@ -1,5 +1,6 @@
 import type { BatchResult } from "../../services/lint/runner";
 import type { CoreCommand, CoreStage } from "../../utils/core-workflow";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { showCoreCompletionToast, updateBatchFeedback } from "../../services/lint/batch-feedback";
 import { ToolUpdateEasyScholar } from "../../services/metadata/easyscholar-rule";
 import { runMetadataReview } from "../../services/metadata/review-rules";
@@ -108,8 +109,8 @@ async function executeWorkflow(command: CoreCommand, items: Zotero.Item[]) {
     const current = items.filter(item => isWritableItem(item));
     if (!current.length)
       return;
-    const reviewPort = (globalThis as any).addon?.kernel?.ports?.get?.("review-duplicates");
-    const journalPort = (globalThis as any).addon?.kernel?.ports?.get?.("journal-insights");
+    const reviewPort = resolveAddonHost()?.kernel?.ports?.get?.("review-duplicates");
+    const journalPort = resolveAddonHost()?.kernel?.ports?.get?.("journal-insights");
     if (stage === "metadata" || stage === "authors") {
       const stageOpts = {
         ...reviewOptions,

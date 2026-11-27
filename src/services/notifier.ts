@@ -1,4 +1,5 @@
 import { TypedEventBus } from "../kernel/event-bus";
+import { resolveAddonHost } from "../kernel/host-globals";
 import { UnifiedNotifierHub } from "../kernel/notifier-hub";
 import { logger } from "../utils/logger";
 
@@ -6,7 +7,7 @@ let fallbackHub: UnifiedNotifierHub | undefined;
 let fallbackDispose: (() => void) | undefined;
 
 export function registerNotifier() {
-  const kernelNotifier = (globalThis as any).addon?.kernel?.notifier;
+  const kernelNotifier = resolveAddonHost()?.kernel?.notifier;
   if (kernelNotifier) {
     kernelNotifier.restart();
     return;
@@ -24,7 +25,7 @@ export function registerNotifier() {
 }
 
 export function unregisterNotifier() {
-  const kernelNotifier = (globalThis as any).addon?.kernel?.notifier;
+  const kernelNotifier = resolveAddonHost()?.kernel?.notifier;
   if (kernelNotifier) {
     kernelNotifier.stop();
     return;

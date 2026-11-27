@@ -1,5 +1,6 @@
 import type { FieldChange } from "./reporter";
 import type { BatchResult } from "./runner";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { redrawItemValues } from "../../utils/item-value-refresh";
 import { isWritableItem } from "../../utils/item-write-policy";
 import { isFieldValidForItemType } from "../../utils/zotero";
@@ -98,7 +99,7 @@ export async function undoLastBatch(result = addon?.runner?.lastResult): Promise
     undoneResults.add(result);
     if (touchedIDs.length && addon?.data?.alive) {
       await redrawItemValues(touchedIDs);
-      await (globalThis as any).addon?.kernel?.ports?.get?.("journal-insights")?.refreshPane(touchedIDs);
+      await resolveAddonHost()?.kernel?.ports?.get?.("journal-insights")?.refreshPane(touchedIDs);
     }
     return { restored, skipped };
   };

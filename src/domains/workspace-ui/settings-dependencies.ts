@@ -1,9 +1,9 @@
 import { observeHostPrefs } from "../../kernel/pref-service";
 import { builtinAbbreviationPath } from "../../utils/builtin-abbreviation-file";
-import { defaultMetaFlowCacheDirectory } from "../../utils/cache-paths";
 import { preferenceLifetime, preferenceListeners } from "../../utils/preference-listeners";
 import { getPref, setPref } from "../../utils/prefs";
 import { resetServiceCacheSession } from "../../utils/service-cache-storage";
+import { refreshCacheUsage, syncCachePathDisplay } from "./cache-settings";
 
 export function setupCustomDataReset(pane: Element) {
   const listen = preferenceListeners(pane);
@@ -34,8 +34,8 @@ export function setupCustomDataReset(pane: Element) {
         else if (key === "cache.customDirectory") {
           setPref("cache.customDirectory", "");
           resetServiceCacheSession();
-          input.value = defaultMetaFlowCacheDirectory();
-          input.title = input.value;
+          syncCachePathDisplay(pane);
+          void refreshCacheUsage(pane);
         }
         else { setPref(key as any, ""); }
       });

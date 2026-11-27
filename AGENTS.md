@@ -28,7 +28,7 @@ pnpm lint:fix            # eslint . --fix && autocorrect --fix
 pnpm test                 # unit (vitest) then e2e (zotero-plugin test)
 pnpm test:unit            # Run vitest unit tests (files matching **/*.test.ts)
 pnpm test:e2e             # Build production XPI, run live Zotero tests, then install and validate the XPI
-pnpm run guard            # Run 21 architecture guard assertions
+pnpm run guard            # Run 22 architecture guard assertions
 pnpm run smoke:host       # Verify real Zotero omni.ja host contracts without launching GUI
 pnpm run smoke:launch     # Launch isolated headless Zotero (-headless -no-remote) to verify live startup & cleanup
 pnpm coverage             # vitest run --coverage (covers src/domains/ and src/services/)
@@ -52,7 +52,7 @@ Two test tiers exist because plugin code depends on the Zotero global runtime:
 
 ### Five-Layer Microkernel Architecture (Aligned with Zotero BridgeFlow)
 
-MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-BridgeFlow`, guarded by 21 automated checks in `scripts/architecture-guard.mjs`:
+MetaFlow adopts the same unidirectional five-layer architecture as `Zotero-BridgeFlow`, guarded by 22 automated checks in `scripts/architecture-guard.mjs`:
 
 1. **Bootstrap & Entry (`addon/bootstrap.js`, `src/index.ts`, `src/addon.ts`, `src/hooks.ts`, `src/api.ts`)**: `Addon` instantiates `PluginKernel`, `ServiceContainer`, 4 `DomainModule`s (`workspace-ui`, `journal-insights`, `review-duplicates`, `lint-engine`), and 2 `BridgeModule`s (`item-sync`, `automatic-ingest`). `src/hooks.ts` delegates Zotero lifecycle callbacks (`onStartup`, `onMainWindowLoad`, `onMainWindowUnload`, `onShutdown`, `onNotify`, `onRefreshJournal`) to the kernel and domain ports.
 2. **Microkernel (`src/kernel/`)**: Zero external domain/service dependencies. Houses `PluginKernel` (with `revive()` and concurrent window load deduplication), `DisposableStack` / `AsyncDisposableStack`, `TypedEventBus` (`MetaFlowEventMap`), `DomainPortRegistry`, `CommandRegistry`, `NativeRuntime` (WeakMap-safe prototype patch chains), `UnifiedNotifierHub`, and `UnifiedPrefService` / `observeHostPrefs()`.

@@ -2,6 +2,7 @@ import type { PluginKernel } from "../../kernel/plugin-kernel";
 import type { Disposable, DomainModule } from "../../kernel/types";
 import type { BatchResult } from "../../services/lint/runner";
 import type { ServiceContainer } from "../../services/service-container";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { clearSemanticScholarCache } from "../../services/metadata/tool-update-metadata/services/semantic-scholar-service";
 import { AutomaticItems } from "../../utils/automatic-items";
 import { createAutomaticWorkflow, runAutomaticWorkflow } from "../../utils/automatic-workflow";
@@ -18,10 +19,7 @@ function isAddonAlive(): boolean {
 function dispatchLintInBatch(
   ...args: Parameters<typeof onLintInBatch>
 ): ReturnType<typeof onLintInBatch> {
-  const hostBatch = (globalThis as { addon?: { hooks?: { onLintInBatch?: typeof onLintInBatch } } })
-    .addon
-    ?.hooks
-    ?.onLintInBatch;
+  const hostBatch = resolveAddonHost()?.hooks?.onLintInBatch as typeof onLintInBatch | undefined;
   return (hostBatch ?? onLintInBatch)(...args);
 }
 
@@ -64,10 +62,7 @@ export class LintEngineDomainModule implements DomainModule {
       enqueueAddedItems: ids => this.automaticItems.enqueue([...ids]),
       cancelAddedItems: () => this.automaticItems.cancelPending(),
       drainAddedItems: () => this.automaticItems.drain(),
-      isSavingPhase: () => (
-        ((globalThis as { addon?: { runner?: { stats?: { phase?: string } } } }).addon?.runner?.stats?.phase)
-        === "saving"
-      ),
+      isSavingPhase: () => resolveAddonHost()?.runner?.stats?.phase === "saving",
     });
   }
 
@@ -108,7 +103,7 @@ export class LintEngineDomainModule implements DomainModule {
   private async stopAll(): Promise<void> {
     await Promise.all([
       stopCoreWorkflows(),
-      (globalThis as { addon?: { runner?: { stop?: () => Promise<void> | void } } }).addon?.runner?.stop?.(),
+      resolveAddonHost()?.runner?.stop?.(),
     ]);
   }
 
@@ -132,7 +127,7 @@ export class LintEngineDomainModule implements DomainModule {
 
     if (items.length !== 0) {
       const workflow = createAutomaticWorkflow();
-      const hostAddon = (globalThis as { addon?: typeof addon }).addon;
+      const hostAddon = resolveAddonHost() as typeof addon | undefined;
       if (hostAddon?.data)
         hostAddon.data.lastAutomaticWorkflow = workflow;
       const reviewPort = this.kernel.ports.get("review-duplicates");

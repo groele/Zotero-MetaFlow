@@ -1,5 +1,6 @@
 import type { Arrayable } from "../../utils/types";
 import { REVIEW_COMMANDS } from "../../kernel/domain-ports";
+import { resolveAddonHost } from "../../kernel/host-globals";
 import { ToolUpdateEasyScholar } from "../../services/metadata/easyscholar-rule";
 import { runMetadataReview } from "../../services/metadata/review-rules";
 import { toArray } from "../../utils/general";
@@ -43,7 +44,7 @@ export async function onLintInBatch(
   const requested = [...toArray(ruleIDs)];
   if (!context.automatic && ((context.core && requested.includes("standard")) || ((context.core || context.review) && requested.includes("tool-update-metadata"))))
     return runCoreWorkflow(requested.includes("standard") ? "check" : "update", items);
-  const reviewPort = (globalThis as any).addon?.kernel?.ports?.get?.("review-duplicates");
+  const reviewPort = resolveAddonHost()?.kernel?.ports?.get?.("review-duplicates");
   for (const command of REVIEW_COMMANDS) {
     if (requested.includes(command as ID)) {
       if (reviewPort?.runReview)
@@ -92,7 +93,7 @@ export async function onLintInBatch(
     await Promise.all(items.filter(item => item.itemType === "journalArticle").map(item => getJournalInsights(item, { queryAPI: true })));
     await redrawItemValues(items.map(item => item.id));
   }
-  const journalPort = (globalThis as any).addon?.kernel?.ports?.get?.("journal-insights");
+  const journalPort = resolveAddonHost()?.kernel?.ports?.get?.("journal-insights");
   if (rules.some(rule => ["tool-query-esi", "tool-query-nature-index"].includes(rule.id))) {
     await redrawItemValues(items.map(item => item.id));
     await journalPort?.refreshPane(items.map(item => item.id));
