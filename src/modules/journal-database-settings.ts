@@ -1,13 +1,19 @@
 import type { JournalDatasetKind } from "../utils/journal-datasets";
 import { journalDatabaseErrorMessage } from "../utils/journal-database-error";
-import { exportJournalDatabase, validateJournalDatabase } from "../utils/journal-database-file";
+import {
+  builtinJournalDatabasePath,
+  exportJournalDatabase,
+  validateJournalDatabase,
+  writeBuiltinJournalDatabaseFile,
+} from "../utils/journal-database-file";
 import { getString } from "../utils/locale";
-import { preferenceListeners } from "../utils/preference-listeners";
+import { preferenceLifetime, preferenceListeners } from "../utils/preference-listeners";
 import { getPref, setPref } from "../utils/prefs";
 import { refreshJournalInsights } from "./journal-pane";
 
 export function setupJournalDatabases(pane: Element) {
   const listen = preferenceListeners(pane);
+  const signal = preferenceLifetime(pane);
   const syncIndexSelects = () => {
     for (const select of pane.querySelectorAll<HTMLSelectElement>("select[data-index-policy]")) {
       const key = `insights.${select.dataset.indexPolicy}SourcePriority`;
@@ -26,6 +32,28 @@ export function setupJournalDatabases(pane: Element) {
     const status = group.querySelector<HTMLElement>(".journal-database-status")!;
     const buttons = [...group.querySelectorAll<HTMLButtonElement>("button")];
     const pathInput = group.querySelector<HTMLInputElement>("input[readonly]")!;
+    const effectiveSourceLabel = (customPath: string) => customPath || `${getString("journal-database-builtin")} (${builtinJournalDatabasePath(kind)})`;
+    const syncPathInput = () => {
+      const customPath = String(getPref(key) || "");
+      const displayPath = customPath || builtinJournalDatabasePath(kind);
+      pathInput.value = displayPath;
+      pathInput.title = displayPath;
+    };
+    syncPathInput();
+    void writeBuiltinJournalDatabaseFile(kind).then(() => {
+      if (!signal.aborted && pane.isConnected && addon.data.alive)
+        syncPathInput();
+    }).catch(() => {});
+    listen(pathInput, "syncfrompreference", () => {
+      void Promise.resolve().then(() => {
+        if (!signal.aborted && pane.isConnected && addon.data.alive)
+          syncPathInput();
+      });
+    });
+    listen(pane, "metaref-preferences-synced", syncPathInput);
+    const observer = Zotero.Prefs.registerObserver(`${addon.data.config.prefsPrefix}.${key}`, syncPathInput, true);
+    signal.addEventListener("abort", () => Zotero.Prefs.unregisterObserver(observer), { once: true });
+
     let busy = false;
     for (const action of ["choose", "validate", "export", "reload", "reset"] as const) {
       const button = action === "reset"
@@ -42,10 +70,11 @@ export function setupJournalDatabases(pane: Element) {
         try {
           if (action === "reset") {
             const result = await validateJournalDatabase(kind, "");
+            await writeBuiltinJournalDatabaseFile(kind);
             setPref(key, "");
-            pathInput.value = "";
+            syncPathInput();
             await refreshJournalInsights();
-            status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: getString("journal-database-builtin") } });
+            status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: effectiveSourceLabel("") } });
           }
           else if (action === "export") {
             const path = await new ztoolkit.FilePicker(getString("journal-database-export-title"), "save", [["JSON", "*.json"]], `metaref-${kind}-journals.json`).open();
@@ -69,10 +98,10 @@ export function setupJournalDatabases(pane: Element) {
             const result = await validateJournalDatabase(kind, path);
             if (action === "choose") {
               setPref(key, path);
-              pathInput.value = path;
+              syncPathInput();
             }
             await refreshJournalInsights();
-            status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: path || getString("journal-database-builtin") } });
+            status.textContent = getString("journal-database-valid", { args: { count: result.journals, source: effectiveSourceLabel(path) } });
           }
         }
         catch (error) {
@@ -84,7 +113,7 @@ export function setupJournalDatabases(pane: Element) {
           busy = false;
           group.removeAttribute("data-busy");
           group.removeAttribute("aria-busy");
-          buttons.forEach(button => button.disabled = pathInput.disabled || (button.dataset.resetPath === "true" && !pathInput.value));
+          buttons.forEach(button => button.disabled = pathInput.disabled || (button.dataset.resetPath === "true" && !getPref(key)));
         }
       });
     }

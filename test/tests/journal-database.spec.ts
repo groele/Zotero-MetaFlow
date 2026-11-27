@@ -154,8 +154,9 @@ describe("user-defined journal databases in Zotero", function () {
       assert.isTrue(reset.disabled, "a built-in database has no custom path to clear");
       assert.isFalse((group.querySelector("#metaref-nature-choose-custom-data-button") as HTMLButtonElement).disabled);
       assert.equal(Zotero.Prefs.get(`${config.prefsPrefix}.insights.natureCustomDataPath`, true), "");
-      assert.equal((group.querySelector("input[readonly]") as HTMLInputElement).value, "");
+      assert.isTrue((group.querySelector("input[readonly]") as HTMLInputElement).value.endsWith("nature-index-journals.json"));
       assert.include(status.textContent!, "177");
+      assert.include(status.textContent!, "nature-index-journals.json");
       assert.isTrue((await plugin().api.getJournalInsights(builtinItem)).natureIndex, "reset restores the built-in journal matches");
       assert.isEmpty(choices);
     }

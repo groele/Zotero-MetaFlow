@@ -22,9 +22,17 @@ export function setupCustomDataFiles(pane: Element) {
     row.appendChild(status);
     input.setAttribute("aria-describedby", status.id);
     const syncPath = () => {
-      input.value = String(getPref(key as any, "")) || (kind === "abbr" ? builtinAbbreviationPath() : "");
+      const displayPath = String(getPref(key as any, "")) || (kind === "abbr" ? builtinAbbreviationPath() : "");
+      input.value = displayPath;
+      input.title = displayPath;
     };
     syncPath();
+    listen(input, "syncfrompreference", () => {
+      void Promise.resolve().then(() => {
+        if (!preferenceLifetime(pane).aborted && pane.isConnected && addon.data.alive)
+          syncPath();
+      });
+    });
     if (kind === "abbr") {
       const builtin = doc.createXULElement("button");
       builtin.id = "metaref-abbr-use-builtin-button";
