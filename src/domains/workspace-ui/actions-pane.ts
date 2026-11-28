@@ -164,6 +164,12 @@ function buildActionButton(
   return button;
 }
 
+function ensureOpenHeightUnlocked(body: HTMLElement) {
+  const section = body.closest?.("collapsible-section") as HTMLElement | null;
+  if (section?.hasAttribute?.("open"))
+    section.style?.setProperty?.("--open-height", "auto");
+}
+
 function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item) {
   ensureActionsPaneStyles(doc);
   body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
@@ -175,6 +181,7 @@ function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item)
 
   const wrap = doc.createElementNS(XHTML_NS, "div");
   wrap.className = "metaref-actions-pane-wrap";
+  wrap.setAttribute("data-item-id", String(item.id));
 
   const busy = activeActions.has(item.id);
   const disabled = busy || !canEditItem(item);
@@ -210,6 +217,7 @@ function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item)
 
   wrap.append(checkBtn, updateBtn, status);
   body.replaceChildren(wrap);
+  ensureOpenHeightUnlocked(body);
 }
 
 export function registerActionsPane() {
@@ -225,6 +233,20 @@ export function registerActionsPane() {
   const baseURI = typeof rootURI === "string" ? rootURI : "";
   const icon = `${baseURI}content/icons/metaref-actions.svg`;
   const headingL10nID = getLocaleID("actions-pane-heading") || "metaref-actions-pane-heading";
+  const resolveDoc = (body: HTMLElement, doc?: Document) => doc || body.ownerDocument || hostZotero.getMainWindow()?.document;
+  const ensureRendered = (body: HTMLElement, item?: Zotero.Item, doc?: Document, setEnabled?: (enabled: boolean) => void) => {
+    const activeItem = item || actionsPaneItem(body);
+    const enabled = supportsActionsPane(activeItem);
+    if (activeItem || item !== undefined)
+      setEnabled?.(enabled);
+    const targetDoc = resolveDoc(body, doc);
+    if (!targetDoc) {
+      if (!enabled)
+        body.replaceChildren();
+      return;
+    }
+    renderActionsPane(body, targetDoc, activeItem);
+  };
   const id = hostZotero.ItemPaneManager.registerSection({
     paneID: ACTIONS_PANE_ID,
     pluginID: hostAddon.data.config.addonID,
@@ -238,27 +260,22 @@ export function registerActionsPane() {
         setEnabled(supportsActionsPane(item));
         await refresh();
       });
+      // Reordering in Zotero triggers disconnectedCallback -> connectedCallback, wiping DOM children while preserving section.item.
+      const currentItem = actionsPaneItem(body);
+      if (currentItem)
+        ensureRendered(body, currentItem, doc, setEnabled);
     },
     onDestroy({ body }) {
       refreshers.delete(body);
     },
     onItemChange({ item, body, doc, setEnabled }) {
-      body.replaceChildren();
-      body.style.cssText = "padding:0;margin:0;box-sizing:border-box;";
-      setEnabled(supportsActionsPane(item));
-      ensureActionsPaneStyles(doc || body.ownerDocument);
-      hideEmptySummary(body, doc || body.ownerDocument);
+      ensureRendered(body, item, doc, setEnabled);
     },
     onRender({ body, item, doc, setEnabled }) {
-      const enabled = supportsActionsPane(item);
-      setEnabled(enabled);
-      const targetDoc = doc || body.ownerDocument || hostZotero.getMainWindow()?.document;
-      if (!targetDoc) {
-        if (!enabled)
-          body.replaceChildren();
-        return;
-      }
-      renderActionsPane(body, targetDoc, item);
+      ensureRendered(body, item, doc, setEnabled);
+    },
+    onToggle({ body, item, doc, setEnabled }) {
+      ensureRendered(body, item, doc, setEnabled);
     },
   });
   if (id)
@@ -271,6 +288,7 @@ export function registerActionsPane() {
         resolveAddonHost()?.data?.config?.addonID,
         getPref("workflow.actionsPanePosition", "after-journal"),
       );
+      void Promise.resolve().then(() => refreshActionsPane());
       return;
     }
     void refreshActionsPane();
@@ -280,6 +298,10 @@ export function registerActionsPane() {
 export async function refreshActionsPane(itemIDs?: number[]) {
   if (resolveAddonHost()?.data?.alive === false)
     return;
+  for (const body of [...refreshers.keys()]) {
+    if (!body.isConnected)
+      refreshers.delete(body);
+  }
   await Promise.all([...refreshers].filter(([body]) => {
     const item = actionsPaneItem(body);
     return !itemIDs || (item && itemIDs.includes(item.id));

@@ -120,6 +120,24 @@ describe("actions pane and settings toggle in Zotero", function () {
         await Zotero.Promise.delay(50);
       assert.isTrue(String(Zotero.Prefs.get("sidenav.order")).startsWith("metaflow\\@groele-metaref-actions"), "top position moves actions pane first in sidenav.order");
 
+      // Reordering DOM (disconnectedCallback -> connectedCallback) must still leave the expanded body populated and tall
+      await Zotero.Promise.delay(150);
+      const reorderedSection = win.document.querySelector("item-pane-custom-section[data-pane*='metaref-actions']") as any;
+      const reorderedCollapsible = reorderedSection.querySelector("collapsible-section") as any;
+      const reorderedBody = reorderedSection.querySelector("[data-type='body']") as HTMLElement;
+      assert.isTrue(reorderedCollapsible.open, "actions section remains open after reordering");
+      assert.isNotNull(reorderedBody.querySelector("[data-metaref-action='check']"), "body keeps check button after DOM reorder");
+      assert.isAbove(reorderedBody.getBoundingClientRect().height, 40, "reordered expanded body has real visible height");
+
+      // Collapsing then re-expanding via real header click must expand cleanly with real body height
+      reorderedCollapsible._head.click();
+      await Zotero.Promise.delay(250);
+      assert.isFalse(reorderedCollapsible.open, "section collapses on header click");
+      reorderedCollapsible._head.click();
+      await Zotero.Promise.delay(250);
+      assert.isTrue(reorderedCollapsible.open, "section expands back on second header click");
+      assert.isAbove(reorderedBody.getBoundingClientRect().height, 40, "re-expanded body has real visible height");
+
       toggle.click();
       for (let attempt = 0; attempt < 60 && (!section.hidden || !sidenavBtn.parentElement!.hidden); attempt++)
         await Zotero.Promise.delay(50);

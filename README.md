@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.4.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.1)
+[![Version](https://img.shields.io/badge/version-17.4.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.2)
 
-17.4.1 为右侧条目侧边栏“Zotero MetaFlow 元数据操作”面板配备独立矢量图标 `metaref-actions.svg` 并自动邻近“期刊索引”图标排序，同时完善只读条目兼容展示；详见[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.4.2 强化右侧条目侧边栏“Zotero MetaFlow 元数据操作”面板在重排位置、展开折叠与切换条目时的生命周期渲染稳定性（补全 `onInit` 重挂载恢复、`onToggle` 展开补渲染及 `[open]` 状态可见性锁），并支持自定义侧栏位置与 `D` 套矢量图标；详见[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

@@ -61,9 +61,21 @@ export function ensureActionsPaneStyles(doc?: Document | null) {
     collapsible-section[data-pane*="${ACTIONS_PANE_ID}"]:not([open]) [data-type="body"],
     collapsible-section:not([open]) > [data-type="body"]:has(> .metaref-actions-pane-wrap) {
       max-height: 0 !important;
+      opacity: 0 !important;
+      visibility: hidden !important;
       padding: 0 !important;
       margin: 0 !important;
       overflow: hidden !important;
+    }
+    item-pane-custom-section[data-pane*="${ACTIONS_PANE_ID}"] collapsible-section[open] > [data-type="body"],
+    collapsible-section[data-pane*="${ACTIONS_PANE_ID}"][open] > [data-type="body"],
+    collapsible-section[open] > [data-type="body"]:has(> .metaref-actions-pane-wrap) {
+      display: block !important;
+      max-height: none !important;
+      height: auto !important;
+      opacity: 1 !important;
+      visibility: visible !important;
+      overflow: visible !important;
     }
     item-pane-custom-section[data-pane*="${ACTIONS_PANE_ID}"] .head .title-box .summary:empty,
     item-pane-custom-section[data-pane*="${ACTIONS_PANE_ID}"] collapsible-section > .head .title-box .summary:empty,

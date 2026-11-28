@@ -315,6 +315,16 @@ describe("actions-pane module", () => {
     await vi.waitFor(() => expect(setEnabled).toHaveBeenLastCalledWith(true));
     expect(body.querySelector("[data-metaref-action='check']")).not.toBeNull();
 
+    // Re-init after DOM reorder (disconnectedCallback wipes body while section.item stays set)
+    body.replaceChildren();
+    sectionOpts.onInit({ body, doc, item: undefined, refresh, setEnabled });
+    expect(body.querySelector("[data-metaref-action='check']")).not.toBeNull();
+
+    // Expanding collapsed section recovers missing content via onToggle
+    body.replaceChildren();
+    sectionOpts.onToggle({ body, doc, item: undefined, setEnabled });
+    expect(body.querySelector("[data-metaref-action='update']")).not.toBeNull();
+
     unregisterActionsPane();
     expect(mocks.sections.size).toBe(0);
     expect(mocks.prefObservers.size).toBe(0);
