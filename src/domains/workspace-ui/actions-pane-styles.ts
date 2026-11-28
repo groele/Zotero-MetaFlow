@@ -5,17 +5,21 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 
 export type ActionIconKind = "check" | "update";
 
+const HEX_BADGE_PATH = "M16.2 2.4C17.3 1.75 18.7 1.75 19.8 2.4L30.2 8.4C31.3 9.05 32 10.25 32 11.55V24.45C32 25.75 31.3 26.95 30.2 27.6L19.8 33.6C18.7 34.25 17.3 34.25 16.2 33.6L5.8 27.6C4.7 26.95 4 25.75 4 24.45V11.55C4 10.25 4.7 9.05 5.8 8.4Z";
+
 const ACTION_ICON_SHAPES: Record<ActionIconKind, ReadonlyArray<readonly ["rect" | "path", Record<string, string>]>> = {
-  // Offline padlock + check: highlights zero-network local rule repair.
+  // Soft-tinted hexagon + offline padlock with check: highlights zero-network local rule repair.
   check: [
-    ["rect", { "x": "4", "y": "8.5", "width": "12", "height": "8.5", "rx": "2.2", "fill": "#6366F1", "fill-opacity": "0.12", "stroke": "#6366F1", "stroke-width": "1.7" }],
-    ["path", { "d": "M6.8 8.5V6.2A3.2 3.2 0 0 1 13.2 6.2V8.5", "stroke": "#6366F1", "stroke-width": "1.7", "stroke-linecap": "round" }],
-    ["path", { "d": "M7.6 12.8L9.3 14.5L12.6 11.1", "stroke": "#6366F1", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { "d": HEX_BADGE_PATH, "fill": "#6366F1", "fill-opacity": "0.11", "stroke": "#6366F1", "stroke-opacity": "0.3", "stroke-width": "1.4" }],
+    ["rect", { "x": "12.5", "y": "16.5", "width": "11", "height": "8", "rx": "2", "fill": "#6366F1", "fill-opacity": "0.14", "stroke": "#6366F1", "stroke-width": "1.6" }],
+    ["path", { "d": "M15 16.5V14.4A3 3 0 0 1 21 14.4V16.5", "stroke": "#6366F1", "stroke-width": "1.6", "stroke-linecap": "round" }],
+    ["path", { "d": "M15.8 20.5L17.3 22L20.4 18.9", "stroke": "#6366F1", "stroke-width": "1.7", "stroke-linecap": "round", "stroke-linejoin": "round" }],
   ],
-  // Bidirectional pull/push arrows: highlights online verification & field enrichment.
+  // Soft-tinted hexagon + bidirectional pull/push arrows: highlights online verification & enrichment.
   update: [
-    ["path", { "d": "M6.8 4.2V14.5M6.8 14.5L4.3 12M6.8 14.5L9.3 12", "stroke": "#06B6D4", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" }],
-    ["path", { "d": "M13.2 15.8V5.5M13.2 5.5L10.7 8M13.2 5.5L15.7 8", "stroke": "#3B82F6", "stroke-width": "1.8", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { "d": HEX_BADGE_PATH, "fill": "#0EA5E9", "fill-opacity": "0.11", "stroke": "#0EA5E9", "stroke-opacity": "0.3", "stroke-width": "1.4" }],
+    ["path", { "d": "M14.8 12.2V22.5M14.8 22.5L12.4 20.1M14.8 22.5L17.2 20.1", "stroke": "#06B6D4", "stroke-width": "1.7", "stroke-linecap": "round", "stroke-linejoin": "round" }],
+    ["path", { "d": "M21.2 23.8V13.5M21.2 13.5L18.8 15.9M21.2 13.5L23.6 15.9", "stroke": "#3B82F6", "stroke-width": "1.7", "stroke-linecap": "round", "stroke-linejoin": "round" }],
   ],
 };
 
@@ -28,15 +32,34 @@ function createSvgNode(doc: Document, tag: "svg" | "rect" | "path", attrs: Recor
 
 export function createActionIconSvg(doc: Document, kind: ActionIconKind): SVGElement {
   const svg = createSvgNode(doc, "svg", {
-    "viewBox": "0 0 20 20",
-    "width": "18",
-    "height": "18",
+    "viewBox": "0 0 36 36",
+    "width": "34",
+    "height": "34",
     "fill": "none",
     "class": "metaref-action-icon",
     "aria-hidden": "true",
   });
   for (const [tag, attrs] of ACTION_ICON_SHAPES[kind])
     svg.append(createSvgNode(doc, tag, attrs));
+  return svg;
+}
+
+export function createActionChevronSvg(doc: Document): SVGElement {
+  const svg = createSvgNode(doc, "svg", {
+    "viewBox": "0 0 16 16",
+    "width": "14",
+    "height": "14",
+    "fill": "none",
+    "class": "metaref-action-chevron",
+    "aria-hidden": "true",
+  });
+  svg.append(createSvgNode(doc, "path", {
+    "d": "M6 4L10 8L6 12",
+    "stroke": "currentColor",
+    "stroke-width": "1.5",
+    "stroke-linecap": "round",
+    "stroke-linejoin": "round",
+  }));
   return svg;
 }
 
@@ -114,27 +137,39 @@ export function ensureActionsPaneStyles(doc?: Document | null) {
     }
     .metaref-actions-pane-wrap .metaref-action-btn {
       appearance: none;
+      -moz-appearance: none;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 11px;
       width: 100%;
       min-width: 0;
       height: auto !important;
       min-height: 0 !important;
       max-height: none !important;
       margin: 0 !important;
-      padding: 9px 10px !important;
-      border-radius: 8px;
-      border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
-      background: color-mix(in srgb, currentColor 3%, transparent);
+      padding: 10px 11px !important;
+      border-radius: 10px !important;
+      border: 1px solid color-mix(in srgb, var(--fill-primary, currentColor) 11%, transparent) !important;
+      background: var(--material-background, #ffffff) !important;
+      background-image: none !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
       color: var(--fill-primary);
       text-align: left;
       cursor: pointer;
       font: inherit;
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
     }
     .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) {
-      background: color-mix(in srgb, currentColor 7%, transparent);
-      border-color: color-mix(in srgb, var(--accent-blue, #245ac7) 40%, transparent);
+      transform: translateY(-1px);
+      background: var(--material-background, #ffffff) !important;
+      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07) !important;
+      border-color: rgba(99, 102, 241, 0.36) !important;
+    }
+    .metaref-actions-pane-wrap .metaref-action-btn[data-metaref-action="update"]:hover:not(:disabled) {
+      border-color: rgba(14, 165, 233, 0.38) !important;
+    }
+    .metaref-actions-pane-wrap .metaref-action-btn:active:not(:disabled) {
+      transform: translateY(0);
     }
     .metaref-actions-pane-wrap .metaref-action-btn:focus-visible {
       outline: 2px solid var(--accent-blue, #245ac7);
@@ -145,10 +180,27 @@ export function ensureActionsPaneStyles(doc?: Document | null) {
       cursor: progress;
     }
     .metaref-action-icon {
-      width: 18px;
-      height: 18px;
-      flex: 0 0 18px;
+      width: 34px;
+      height: 34px;
+      flex: 0 0 34px;
       display: block;
+      transition: transform 0.18s ease;
+    }
+    .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) .metaref-action-icon {
+      transform: scale(1.05);
+    }
+    .metaref-action-chevron {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 14px;
+      display: block;
+      color: var(--fill-secondary);
+      opacity: 0.42;
+      transition: transform 0.16s ease, opacity 0.16s ease;
+    }
+    .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) .metaref-action-chevron {
+      opacity: 0.9;
+      transform: translateX(2px);
     }
     .metaref-action-text {
       display: flex;

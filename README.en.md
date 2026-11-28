@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.4.2-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.2)
+[![Version](https://img.shields.io/badge/version-17.4.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.3)
 
-17.4.2 hardens expand/collapse and DOM-reorder stability for the "Zotero MetaFlow Metadata Actions" sidebar section (`onInit` remount recovery, `onToggle` render safety, explicit `[open]` body visibility, and custom sidebar positioning). See the [architecture migration plan](docs/architecture-migration-plan.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.4.3 refines the "Zotero MetaFlow Metadata Actions" sidebar section with a soft elevated card aesthetic (soft-tinted rounded hexagon icon badges, crisp light/dark card surfaces, subtle hover elevation, and right-aligned chevron cues). See the [architecture migration plan](docs/architecture-migration-plan.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

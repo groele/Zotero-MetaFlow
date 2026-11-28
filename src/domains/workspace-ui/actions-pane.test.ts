@@ -257,8 +257,10 @@ describe("actions-pane module", () => {
     const updateBtn = body.querySelector("[data-metaref-action='update']");
     expect(checkBtn).not.toBeNull();
     expect(updateBtn).not.toBeNull();
-    expect(checkBtn.children[0]?.children).toHaveLength(3);
-    expect(updateBtn.children[0]?.children).toHaveLength(2);
+    expect(checkBtn.children[0]?.children).toHaveLength(4);
+    expect(updateBtn.children[0]?.children).toHaveLength(3);
+    expect(checkBtn.children[2]?.className).toBe("metaref-action-chevron");
+    expect(updateBtn.children[2]?.className).toBe("metaref-action-chevron");
     expect(doc.head.children.find((el: any) => el.id === "metaref-actions-pane-styles")?.textContent).toContain("max-height: none !important");
 
     checkBtn.click();

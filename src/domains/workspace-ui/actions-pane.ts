@@ -8,7 +8,7 @@ import { getLocaleID, getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
 import { getPref } from "../../utils/prefs";
 import { applyActionsPaneSidenavPosition, ensureActionsPaneSidenavOrder } from "./actions-pane-order";
-import { ACTIONS_PANE_ID, createActionIconSvg, ensureActionsPaneStyles } from "./actions-pane-styles";
+import { ACTIONS_PANE_ID, createActionChevronSvg, createActionIconSvg, ensureActionsPaneStyles } from "./actions-pane-styles";
 
 export { type ActionsPanePosition, applyActionsPaneSidenavPosition, ensureActionsPaneSidenavOrder };
 
@@ -154,8 +154,9 @@ function buildActionButton(
   hint.className = "metaref-action-hint";
   hint.textContent = hintText;
   textWrap.append(label, hint);
+  const chevron = createActionChevronSvg(doc);
 
-  button.append(icon, textWrap);
+  button.append(icon, textWrap, chevron);
   button.addEventListener("click", (event) => {
     event.stopPropagation();
     if (!button.disabled)
