@@ -33,8 +33,8 @@ function createSvgNode(doc: Document, tag: "svg" | "rect" | "path", attrs: Recor
 export function createActionIconSvg(doc: Document, kind: ActionIconKind): SVGElement {
   const svg = createSvgNode(doc, "svg", {
     "viewBox": "0 0 36 36",
-    "width": "34",
-    "height": "34",
+    "width": "26",
+    "height": "26",
     "fill": "none",
     "class": "metaref-action-icon",
     "aria-hidden": "true",
@@ -61,6 +61,63 @@ export function createActionChevronSvg(doc: Document): SVGElement {
     "stroke-linejoin": "round",
   }));
   return svg;
+}
+
+export function createActionTileButton(
+  doc: Document,
+  opts: { kind: ActionIconKind; label: string; mode: string; tooltip: string; disabled: boolean; busy: boolean; onRun: () => void },
+): HTMLButtonElement {
+  const btn = doc.createElementNS(XHTML_NS, "button") as HTMLButtonElement;
+  btn.type = "button";
+  btn.className = "metaref-action-btn";
+  btn.setAttribute("data-metaref-action", opts.kind);
+  btn.setAttribute("title", opts.tooltip);
+  btn.disabled = opts.disabled;
+  if (opts.busy)
+    btn.setAttribute("aria-busy", "true");
+  const textWrap = doc.createElementNS(XHTML_NS, "span");
+  textWrap.className = "metaref-action-text";
+  const label = doc.createElementNS(XHTML_NS, "span");
+  label.className = "metaref-action-label";
+  label.textContent = opts.label;
+  const hint = doc.createElementNS(XHTML_NS, "span");
+  hint.className = "metaref-action-hint";
+  hint.textContent = opts.mode;
+  textWrap.append(label, hint);
+  btn.append(createActionIconSvg(doc, opts.kind), textWrap);
+  btn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!btn.disabled)
+      opts.onRun();
+  });
+  return btn;
+}
+
+export function createStatusCardButton(
+  doc: Document,
+  opts: { level: string; message: string; disabled: boolean; onRecheck: () => void },
+): HTMLButtonElement {
+  const card = doc.createElementNS(XHTML_NS, "button") as HTMLButtonElement;
+  card.type = "button";
+  card.className = "metaref-actions-status-card";
+  card.setAttribute("data-level", opts.level);
+  card.setAttribute("role", "status");
+  card.setAttribute("aria-live", "polite");
+  card.disabled = opts.disabled;
+  const dot = doc.createElementNS(XHTML_NS, "span");
+  dot.className = "metaref-status-dot";
+  dot.setAttribute("aria-hidden", "true");
+  const text = doc.createElementNS(XHTML_NS, "span");
+  text.className = "metaref-status-text";
+  text.setAttribute("data-actions-status", "true");
+  text.textContent = opts.message;
+  card.append(dot, text, createActionChevronSvg(doc));
+  card.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!card.disabled)
+      opts.onRecheck();
+  });
+  return card;
 }
 
 export function ensureActionsPaneStyles(doc?: Document | null) {
@@ -122,10 +179,10 @@ export function ensureActionsPaneStyles(doc?: Document | null) {
       box-sizing: border-box !important;
     }
     .metaref-actions-pane-wrap {
-      padding: 10px 12px 12px;
+      padding: 6px 12px 10px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 7px;
       width: 100%;
       min-width: 0;
       max-width: 100%;
@@ -135,104 +192,156 @@ export function ensureActionsPaneStyles(doc?: Document | null) {
     .metaref-actions-pane-wrap * {
       box-sizing: border-box;
     }
+    .metaref-actions-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 7px;
+      width: 100%;
+      min-width: 0;
+    }
     .metaref-actions-pane-wrap .metaref-action-btn {
       appearance: none;
       -moz-appearance: none;
       display: flex;
       align-items: center;
-      gap: 11px;
+      gap: 8px;
       width: 100%;
       min-width: 0;
       height: auto !important;
       min-height: 0 !important;
       max-height: none !important;
       margin: 0 !important;
-      padding: 10px 11px !important;
-      border-radius: 10px !important;
+      padding: 8px 10px !important;
+      border-radius: 8px !important;
       border: 1px solid color-mix(in srgb, var(--fill-primary, currentColor) 11%, transparent) !important;
       background: var(--material-background, #ffffff) !important;
       background-image: none !important;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
       color: var(--fill-primary);
       text-align: left;
       cursor: pointer;
       font: inherit;
-      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+      transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     }
     .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) {
-      transform: translateY(-1px);
-      background: var(--material-background, #ffffff) !important;
-      box-shadow: 0 4px 14px rgba(15, 23, 42, 0.07) !important;
-      border-color: rgba(99, 102, 241, 0.36) !important;
+      background: color-mix(in srgb, var(--material-background, #ffffff) 95%, var(--fill-primary, #000000) 5%) !important;
+      border-color: rgba(99, 102, 241, 0.34) !important;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.05) !important;
     }
     .metaref-actions-pane-wrap .metaref-action-btn[data-metaref-action="update"]:hover:not(:disabled) {
-      border-color: rgba(14, 165, 233, 0.38) !important;
+      border-color: rgba(14, 165, 233, 0.36) !important;
     }
-    .metaref-actions-pane-wrap .metaref-action-btn:active:not(:disabled) {
-      transform: translateY(0);
-    }
-    .metaref-actions-pane-wrap .metaref-action-btn:focus-visible {
+    .metaref-actions-pane-wrap .metaref-action-btn:focus-visible,
+    .metaref-actions-pane-wrap .metaref-actions-status-card:focus-visible {
       outline: 2px solid var(--accent-blue, #245ac7);
       outline-offset: 2px;
     }
-    .metaref-actions-pane-wrap .metaref-action-btn:disabled {
+    .metaref-actions-pane-wrap .metaref-action-btn:disabled,
+    .metaref-actions-pane-wrap .metaref-actions-status-card:disabled {
       opacity: 0.6;
       cursor: progress;
     }
     .metaref-action-icon {
-      width: 34px;
-      height: 34px;
-      flex: 0 0 34px;
+      width: 26px;
+      height: 26px;
+      flex: 0 0 26px;
       display: block;
-      transition: transform 0.18s ease;
-    }
-    .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) .metaref-action-icon {
-      transform: scale(1.05);
-    }
-    .metaref-action-chevron {
-      width: 14px;
-      height: 14px;
-      flex: 0 0 14px;
-      display: block;
-      color: var(--fill-secondary);
-      opacity: 0.42;
-      transition: transform 0.16s ease, opacity 0.16s ease;
-    }
-    .metaref-actions-pane-wrap .metaref-action-btn:hover:not(:disabled) .metaref-action-chevron {
-      opacity: 0.9;
-      transform: translateX(2px);
     }
     .metaref-action-text {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 1px;
       min-width: 0;
       flex: 1;
     }
     .metaref-action-label {
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 600;
-      line-height: 1.35;
-      overflow-wrap: anywhere;
+      line-height: 1.3;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .metaref-action-hint {
-      font-size: 11.5px;
-      line-height: 1.4;
+      font-size: 11px;
+      line-height: 1.3;
       color: var(--fill-secondary);
-      overflow-wrap: anywhere;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .metaref-actions-status {
+    .metaref-actions-pane-wrap .metaref-actions-status-card {
+      appearance: none;
+      -moz-appearance: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      min-width: 0;
+      height: auto !important;
+      min-height: 0 !important;
+      margin: 0 !important;
+      padding: 7px 10px !important;
+      border-radius: 8px !important;
+      border: 1px solid color-mix(in srgb, var(--fill-primary, currentColor) 11%, transparent) !important;
+      background: var(--material-background, #ffffff) !important;
+      background-image: none !important;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03) !important;
+      color: var(--fill-secondary);
+      text-align: left;
+      cursor: pointer;
+      font: inherit;
+      transition: background-color 0.15s ease, border-color 0.15s ease;
+    }
+    .metaref-actions-pane-wrap .metaref-actions-status-card:hover:not(:disabled) {
+      background: color-mix(in srgb, var(--material-background, #ffffff) 95%, var(--fill-primary, #000000) 5%) !important;
+      border-color: color-mix(in srgb, var(--fill-primary, currentColor) 20%, transparent) !important;
+    }
+    .metaref-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      flex: 0 0 7px;
+      background: color-mix(in srgb, var(--fill-secondary, currentColor) 55%, transparent);
+    }
+    .metaref-actions-status-card[data-level="running"] .metaref-status-dot {
+      background: #0EA5E9;
+    }
+    .metaref-actions-status-card[data-level="success"] .metaref-status-dot,
+    .metaref-actions-status-card[data-level="info"] .metaref-status-dot {
+      background: #16A34A;
+    }
+    .metaref-actions-status-card[data-level="warning"] .metaref-status-dot {
+      background: #D97706;
+    }
+    .metaref-actions-status-card[data-level="error"] .metaref-status-dot {
+      background: #DC2626;
+    }
+    .metaref-status-text {
+      flex: 1;
+      min-width: 0;
       font-size: 12px;
-      line-height: 1.45;
+      line-height: 1.35;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .metaref-actions-status-card[data-level="warning"] .metaref-status-text,
+    .metaref-actions-status-card[data-level="error"] .metaref-status-text {
+      color: var(--accent-orange, #D97706);
+    }
+    .metaref-action-chevron {
+      width: 13px;
+      height: 13px;
+      flex: 0 0 13px;
+      display: block;
       color: var(--fill-secondary);
-      overflow-wrap: anywhere;
+      opacity: 0.5;
+      transition: transform 0.15s ease, opacity 0.15s ease;
     }
-    .metaref-actions-status:empty {
-      display: none;
-    }
-    .metaref-actions-status[data-level="warning"],
-    .metaref-actions-status[data-level="error"] {
-      color: var(--accent-orange);
+    .metaref-actions-pane-wrap .metaref-actions-status-card:hover:not(:disabled) .metaref-action-chevron {
+      opacity: 0.95;
+      transform: translateX(2px);
     }
   `;
   (doc.head || doc.documentElement)?.append(style);

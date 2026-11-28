@@ -8,15 +8,28 @@ import { getLocaleID, getString } from "../../utils/locale";
 import { createLogger } from "../../utils/logger";
 import { getPref } from "../../utils/prefs";
 import { applyActionsPaneSidenavPosition, ensureActionsPaneSidenavOrder } from "./actions-pane-order";
-import { ACTIONS_PANE_ID, createActionChevronSvg, createActionIconSvg, ensureActionsPaneStyles } from "./actions-pane-styles";
+import { ACTIONS_PANE_ID, createActionTileButton, createStatusCardButton, ensureActionsPaneStyles } from "./actions-pane-styles";
 
 export { type ActionsPanePosition, applyActionsPaneSidenavPosition, ensureActionsPaneSidenavOrder };
 
 type ActionKind = "check" | "update";
 
 interface ActionStatus {
-  level: "info" | "warning" | "error";
+  level: "idle" | "running" | "success" | "warning" | "error";
   message: string;
+}
+
+function formatClockTime(date = new Date()): string {
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mm = String(date.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function formatDoneStatus(kind: ActionKind, summaryKey: "clean" | "saved" | "cancelled" | "failed"): string {
+  const key = kind === "check" ? "actions-pane-status-last-check" : "actions-pane-status-last-update";
+  const summary = getString(`actions-pane-summary-${summaryKey}`);
+  const time = formatClockTime();
+  return getString(key, { args: { time, summary } });
 }
 
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
@@ -91,7 +104,7 @@ async function runSidebarAction(kind: ActionKind, item: Zotero.Item): Promise<vo
 
   activeActions.set(item.id, kind);
   setStatusMessage(item.id, {
-    level: "info",
+    level: "running",
     message: getString(kind === "check" ? "actions-pane-running-check" : "actions-pane-running-update"),
   });
   await refreshActionsPane([item.id]);
@@ -107,62 +120,24 @@ async function runSidebarAction(kind: ActionKind, item: Zotero.Item): Promise<vo
     if (resolveAddonHost()?.data?.alive === false)
       return;
     if (result?.cancelled)
-      setStatusMessage(item.id, { level: "warning", message: getString("actions-pane-done-cancelled") });
+      setStatusMessage(item.id, { level: "warning", message: formatDoneStatus(kind, "cancelled") });
     else if ((result?.failed ?? 0) > 0 || (result?.preparationFailed ?? 0) > 0)
-      setStatusMessage(item.id, { level: "error", message: getString("actions-pane-done-failed") });
+      setStatusMessage(item.id, { level: "error", message: formatDoneStatus(kind, "failed") });
     else if ((result?.saved ?? 0) > 0)
-      setStatusMessage(item.id, { level: "info", message: getString("actions-pane-done-saved") });
+      setStatusMessage(item.id, { level: "success", message: formatDoneStatus(kind, "saved") });
     else
-      setStatusMessage(item.id, { level: "info", message: getString("actions-pane-done-clean") });
+      setStatusMessage(item.id, { level: "success", message: formatDoneStatus(kind, "clean") });
   }
   catch (error) {
     logger.error(`Sidebar action (${kind}) failed:`, error);
     if (resolveAddonHost()?.data?.alive !== false)
-      setStatusMessage(item.id, { level: "error", message: getString("actions-pane-done-failed") });
+      setStatusMessage(item.id, { level: "error", message: formatDoneStatus(kind, "failed") });
   }
   finally {
     activeActions.delete(item.id);
     if (resolveAddonHost()?.data?.alive !== false)
       await refreshActionsPane([item.id]);
   }
-}
-
-function buildActionButton(
-  doc: Document,
-  kind: ActionKind,
-  labelText: string,
-  hintText: string,
-  disabled: boolean,
-  busy: boolean,
-  onRun: () => void,
-): HTMLButtonElement {
-  const button = doc.createElementNS(XHTML_NS, "button") as HTMLButtonElement;
-  button.type = "button";
-  button.className = "metaref-action-btn";
-  button.setAttribute("data-metaref-action", kind);
-  button.disabled = disabled;
-  if (busy)
-    button.setAttribute("aria-busy", "true");
-
-  const icon = createActionIconSvg(doc, kind);
-  const textWrap = doc.createElementNS(XHTML_NS, "span");
-  textWrap.className = "metaref-action-text";
-  const label = doc.createElementNS(XHTML_NS, "span");
-  label.className = "metaref-action-label";
-  label.textContent = labelText;
-  const hint = doc.createElementNS(XHTML_NS, "span");
-  hint.className = "metaref-action-hint";
-  hint.textContent = hintText;
-  textWrap.append(label, hint);
-  const chevron = createActionChevronSvg(doc);
-
-  button.append(icon, textWrap, chevron);
-  button.addEventListener("click", (event) => {
-    event.stopPropagation();
-    if (!button.disabled)
-      onRun();
-  });
-  return button;
 }
 
 function ensureOpenHeightUnlocked(body: HTMLElement) {
@@ -186,37 +161,38 @@ function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item)
 
   const busy = activeActions.has(item.id);
   const disabled = busy || !canEditItem(item);
-  const checkBtn = buildActionButton(
-    doc,
-    "check",
-    getString("actions-pane-check-label"),
-    getString("actions-pane-check-hint"),
-    disabled,
-    busy,
-    () => { void runSidebarAction("check", item); },
-  );
-  const updateBtn = buildActionButton(
-    doc,
-    "update",
-    getString("actions-pane-update-label"),
-    getString("actions-pane-update-hint"),
-    disabled,
-    busy,
-    () => { void runSidebarAction("update", item); },
+  const grid = doc.createElementNS(XHTML_NS, "div");
+  grid.className = "metaref-actions-grid";
+  grid.append(
+    createActionTileButton(doc, {
+      kind: "check",
+      label: getString("actions-pane-check-short"),
+      mode: getString("actions-pane-check-mode"),
+      tooltip: getString("actions-pane-check-hint"),
+      disabled,
+      busy,
+      onRun: () => { void runSidebarAction("check", item); },
+    }),
+    createActionTileButton(doc, {
+      kind: "update",
+      label: getString("actions-pane-update-short"),
+      mode: getString("actions-pane-update-mode"),
+      tooltip: getString("actions-pane-update-hint"),
+      disabled,
+      busy,
+      onRun: () => { void runSidebarAction("update", item); },
+    }),
   );
 
-  const status = doc.createElementNS(XHTML_NS, "div");
-  status.className = "metaref-actions-status";
-  status.setAttribute("data-actions-status", "true");
-  status.setAttribute("role", "status");
-  status.setAttribute("aria-live", "polite");
   const statusInfo = statusMessages.get(item.id);
-  if (statusInfo) {
-    status.setAttribute("data-level", statusInfo.level);
-    status.textContent = statusInfo.message;
-  }
+  const statusCard = createStatusCardButton(doc, {
+    level: statusInfo?.level || "idle",
+    message: statusInfo?.message || getString("actions-pane-status-idle"),
+    disabled,
+    onRecheck: () => { void runSidebarAction("check", item); },
+  });
 
-  wrap.append(checkBtn, updateBtn, status);
+  wrap.append(grid, statusCard);
   body.replaceChildren(wrap);
   ensureOpenHeightUnlocked(body);
 }

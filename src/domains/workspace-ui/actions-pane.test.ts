@@ -259,15 +259,16 @@ describe("actions-pane module", () => {
     expect(updateBtn).not.toBeNull();
     expect(checkBtn.children[0]?.children).toHaveLength(4);
     expect(updateBtn.children[0]?.children).toHaveLength(3);
-    expect(checkBtn.children[2]?.className).toBe("metaref-action-chevron");
-    expect(updateBtn.children[2]?.className).toBe("metaref-action-chevron");
+    const statusText = body.querySelector("[data-actions-status='true']");
+    expect(statusText?.textContent).toBe("actions-pane-status-idle");
+    expect(statusText?.parentElement?.children[2]?.className).toBe("metaref-action-chevron");
     expect(doc.head.children.find((el: any) => el.id === "metaref-actions-pane-styles")?.textContent).toContain("max-height: none !important");
 
     checkBtn.click();
     await vi.waitFor(() => expect(mocks.runBatch).toHaveBeenCalledTimes(1));
     expect(mocks.runBatch).toHaveBeenCalledWith("standard", [item], { core: true });
     await vi.waitFor(() => {
-      expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-done-saved");
+      expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-status-last-check");
     });
 
     let resolveUpdate!: (value: unknown) => void;
@@ -284,7 +285,7 @@ describe("actions-pane module", () => {
 
     resolveUpdate({ saved: 0, failed: 0, preparationFailed: 0, cancelled: false });
     await vi.waitFor(() => {
-      expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-done-clean");
+      expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-status-last-update");
     });
   });
 
