@@ -10,6 +10,7 @@ import { logger } from "../../utils/logger";
 import { getPref } from "../../utils/prefs";
 import { onLintInBatch } from "./batch-dispatch";
 import { stopCoreWorkflows } from "./core-workflow";
+import { inspectItemDefects } from "./item-diagnostics";
 import { Rules } from "./rules";
 
 function isAddonAlive(): boolean {
@@ -63,6 +64,7 @@ export class LintEngineDomainModule implements DomainModule {
       cancelAddedItems: () => this.automaticItems.cancelPending(),
       drainAddedItems: () => this.automaticItems.drain(),
       isSavingPhase: () => resolveAddonHost()?.runner?.stats?.phase === "saving",
+      inspectDefects: item => inspectItemDefects(item),
     });
   }
 

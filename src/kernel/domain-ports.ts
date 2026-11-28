@@ -14,6 +14,11 @@ export interface LintEnginePort {
   cancelAddedItems: () => void;
   drainAddedItems: () => Promise<void>;
   isSavingPhase: () => boolean;
+  inspectDefects?: (item: Zotero.Item) => ReadonlyArray<{
+    level: "error" | "warning" | "suggestion";
+    message: string;
+    fixAction?: "update" | "format";
+  }>;
 }
 
 export interface JournalInsightsPort {
@@ -41,6 +46,7 @@ export interface WorkspaceUiPort {
   refreshTldrRow: (rowID?: string) => void;
   placeTldrRow: (doc?: Document) => void;
   executeShortcut: (hookName: string, win: Window) => void;
+  refreshActionsPane?: (itemIDs?: readonly number[], invalidateStatus?: boolean) => Promise<void>;
 }
 
 export interface DomainPortMap {

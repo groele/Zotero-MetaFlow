@@ -15,8 +15,44 @@ export { type ActionsPanePosition, applyActionsPaneSidenavPosition, ensureAction
 type ActionKind = "check" | "update";
 
 interface ActionStatus {
-  level: "idle" | "running" | "success" | "warning" | "error";
+  level: "idle" | "readonly" | "running" | "success" | "warning" | "error";
   message: string;
+  tooltip?: string;
+  recommendedAction?: ActionKind;
+}
+
+const XHTML_NS = "http://www.w3.org/1999/xhtml";
+const MAX_STATUS_ENTRIES = 64;
+
+const logger = createLogger("actions-pane");
+const refreshers = new Map<HTMLElement, () => Promise<void>>();
+const activeActions = new Map<number, ActionKind>();
+const statusMessages = new Map<number, ActionStatus>();
+
+function resolveIdleStatus(item: Zotero.Item, editable: boolean): ActionStatus {
+  if (!editable)
+    return { level: "readonly", message: getString("actions-pane-status-readonly") };
+  const inspect = resolveAddonHost()?.kernel?.ports?.get?.("lint-engine")?.inspectDefects;
+  if (typeof inspect === "function") {
+    try {
+      const defects = inspect(item) as ReadonlyArray<{ fixAction?: "update" | "format"; message?: string }>;
+      if (defects.length > 0) {
+        const hasFormat = defects.some(d => d.fixAction === "format");
+        const hasUpdate = defects.some(d => d.fixAction === "update");
+        return {
+          level: "warning",
+          message: getString("actions-pane-status-defects", { args: { count: defects.length } }),
+          tooltip: defects.map(d => d.message).filter(Boolean).join("\n"),
+          recommendedAction: !hasFormat && hasUpdate ? "update" : "check",
+        };
+      }
+      return { level: "success", message: getString("actions-pane-status-healthy"), recommendedAction: "check" };
+    }
+    catch (error) {
+      logger.debug("Item defect inspection skipped:", error);
+    }
+  }
+  return { level: "idle", message: getString("actions-pane-status-idle"), recommendedAction: "check" };
 }
 
 function formatClockTime(date = new Date()): string {
@@ -31,14 +67,6 @@ function formatDoneStatus(kind: ActionKind, summaryKey: "clean" | "saved" | "can
   const time = formatClockTime();
   return getString(key, { args: { time, summary } });
 }
-
-const XHTML_NS = "http://www.w3.org/1999/xhtml";
-const MAX_STATUS_ENTRIES = 64;
-
-const logger = createLogger("actions-pane");
-const refreshers = new Map<HTMLElement, () => Promise<void>>();
-const activeActions = new Map<number, ActionKind>();
-const statusMessages = new Map<number, ActionStatus>();
 
 let sectionID: string | undefined;
 let stopPrefObserver: (() => void) | undefined;
@@ -159,8 +187,9 @@ function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item)
   wrap.className = "metaref-actions-pane-wrap";
   wrap.setAttribute("data-item-id", String(item.id));
 
+  const editable = canEditItem(item);
   const busy = activeActions.has(item.id);
-  const disabled = busy || !canEditItem(item);
+  const disabled = busy || !editable;
   const grid = doc.createElementNS(XHTML_NS, "div");
   grid.className = "metaref-actions-grid";
   grid.append(
@@ -184,12 +213,14 @@ function renderActionsPane(body: HTMLElement, doc: Document, item?: Zotero.Item)
     }),
   );
 
-  const statusInfo = statusMessages.get(item.id);
+  const statusInfo = statusMessages.get(item.id) || resolveIdleStatus(item, editable);
+  const statusAction = statusInfo.recommendedAction || "check";
   const statusCard = createStatusCardButton(doc, {
-    level: statusInfo?.level || "idle",
-    message: statusInfo?.message || getString("actions-pane-status-idle"),
+    level: statusInfo.level,
+    message: statusInfo.message,
+    tooltip: statusInfo.tooltip,
     disabled,
-    onRecheck: () => { void runSidebarAction("check", item); },
+    onRecheck: () => { void runSidebarAction(statusAction, item); },
   });
 
   wrap.append(grid, statusCard);
@@ -272,9 +303,23 @@ export function registerActionsPane() {
   });
 }
 
-export async function refreshActionsPane(itemIDs?: number[]) {
+export async function refreshActionsPane(itemIDs?: number[], invalidateStatus = false) {
   if (resolveAddonHost()?.data?.alive === false)
     return;
+  if (invalidateStatus) {
+    if (itemIDs) {
+      for (const id of itemIDs) {
+        if (!activeActions.has(id))
+          statusMessages.delete(id);
+      }
+    }
+    else {
+      for (const id of [...statusMessages.keys()]) {
+        if (!activeActions.has(id))
+          statusMessages.delete(id);
+      }
+    }
+  }
   for (const body of [...refreshers.keys()]) {
     if (!body.isConnected)
       refreshers.delete(body);

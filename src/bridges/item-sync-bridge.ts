@@ -56,8 +56,11 @@ export class ItemSyncBridge implements BridgeModule {
       const batchIDs = [...this.pendingModifyIDs];
       this.pendingModifyIDs.clear();
       await this.kernel.ports.get("journal-insights")?.refreshPane(batchIDs);
-      if (this.active && isAddonAlive())
-        this.kernel.ports.get("workspace-ui")?.refreshTldrRow();
+      if (this.active && isAddonAlive()) {
+        const uiPort = this.kernel.ports.get("workspace-ui");
+        uiPort?.refreshTldrRow();
+        await uiPort?.refreshActionsPane?.(batchIDs, true);
+      }
     });
     return this.pendingModifyFlush;
   }

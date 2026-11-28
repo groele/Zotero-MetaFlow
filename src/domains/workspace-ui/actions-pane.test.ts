@@ -50,11 +50,7 @@ function createMockDom() {
         if (name === "class")
           node.className = value;
       },
-      getAttribute(name: string) {
-        if (name === "id" && node.id)
-          return node.id;
-        return attributes.get(name) ?? null;
-      },
+      getAttribute: (name: string) => (name === "id" && node.id ? node.id : attributes.get(name) ?? null),
       append(...children: any[]) {
         for (const child of children) {
           child.parentElement = node;
@@ -75,21 +71,15 @@ function createMockDom() {
         for (const fn of listeners.get(ev.type) ?? [])
           fn(ev);
       },
-      click() {
-        node.dispatchEvent({ type: "click" });
-      },
+      click: () => node.dispatchEvent({ type: "click" }),
       closest(selector: string) {
-        let cur: any = node;
-        while (cur) {
+        for (let cur: any = node; cur; cur = cur.parentElement) {
           if (selector === "item-pane-custom-section" && cur.tagName === "item-pane-custom-section")
             return cur;
-          cur = cur.parentElement;
         }
         return null;
       },
-      querySelector(selector: string) {
-        return node.querySelectorAll(selector)[0] ?? null;
-      },
+      querySelector: (selector: string) => node.querySelectorAll(selector)[0] ?? null,
       querySelectorAll(selector: string) {
         const out: any[] = [];
         const visit = (cur: any) => {
@@ -152,32 +142,18 @@ describe("actions-pane module", () => {
     mocks.onLintInBatch.mockReset().mockResolvedValue({ saved: 1, failed: 0, preparationFailed: 0, cancelled: false });
     vi.stubGlobal("rootURI", "chrome://zoterometaflow/");
     vi.stubGlobal("addon", {
-      data: {
-        alive: true,
-        config: { addonID: "metaflow@groele", prefsPrefix: "extensions.zotero.metaref" },
-      },
-      hooks: {
-        onLintInBatch: mocks.onLintInBatch,
-      },
-      kernel: {
-        ports: {
-          get: (id: string) => id === "lint-engine" ? { runBatch: mocks.runBatch } : undefined,
-        },
-      },
+      data: { alive: true, config: { addonID: "metaflow@groele", prefsPrefix: "extensions.zotero.metaref" } },
+      hooks: { onLintInBatch: mocks.onLintInBatch },
+      kernel: { ports: { get: (id: string) => id === "lint-engine" ? { runBatch: mocks.runBatch } : undefined } },
     });
     vi.stubGlobal("Zotero", {
-      Items: {
-        get: () => undefined,
-      },
+      Items: { get: () => undefined },
       ItemPaneManager: {
         registerSection: (options: any) => {
           mocks.sections.set(options.paneID, options);
           return options.paneID;
         },
-        unregisterSection: vi.fn((id: string) => {
-          mocks.sections.delete(id);
-          return true;
-        }),
+        unregisterSection: vi.fn((id: string) => mocks.sections.delete(id)),
       },
       Prefs: {
         get: vi.fn(),
@@ -186,10 +162,7 @@ describe("actions-pane module", () => {
           mocks.prefObservers.set(id, { pref, callback });
           return id;
         },
-        unregisterObserver: (id: symbol) => {
-          mocks.prefObservers.delete(id);
-          return true;
-        },
+        unregisterObserver: (id: symbol) => mocks.prefObservers.delete(id),
       },
     });
   });
@@ -331,5 +304,41 @@ describe("actions-pane module", () => {
     unregisterActionsPane();
     expect(mocks.sections.size).toBe(0);
     expect(mocks.prefObservers.size).toBe(0);
+  });
+
+  it("shows readonly status for non-editable items and live defect diagnostics via lint-engine port", async () => {
+    const inspectDefects = vi.fn(() => [{ level: "warning", message: "Missing DOI", fixAction: "update" as const }]);
+    vi.stubGlobal("addon", {
+      data: { alive: true, config: { addonID: "metaflow@groele", prefsPrefix: "extensions.zotero.metaref" } },
+      hooks: { onLintInBatch: mocks.onLintInBatch },
+      kernel: { ports: { get: (id: string) => id === "lint-engine" ? { runBatch: mocks.runBatch, inspectDefects } : undefined } },
+    });
+    registerActionsPane();
+    const sectionOpts = mocks.sections.get("metaref-actions");
+    const { doc, section, body } = createMockDom();
+    const setEnabled = vi.fn();
+
+    const readonlyItem = makeItem({ id: 202, isEditable: () => false });
+    section.item = readonlyItem;
+    sectionOpts.onRender({ body, doc, item: readonlyItem, setEnabled });
+    expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-status-readonly");
+    expect(body.querySelector("[data-actions-status='true']")?.parentElement?.getAttribute("data-level")).toBe("readonly");
+
+    const defectItem = makeItem({ id: 203 });
+    section.item = defectItem;
+    sectionOpts.onRender({ body, doc, item: defectItem, setEnabled });
+    const statusText = body.querySelector("[data-actions-status='true']");
+    expect(statusText?.textContent).toBe("actions-pane-status-defects");
+    expect(statusText?.parentElement?.getAttribute("data-level")).toBe("warning");
+    expect(statusText?.parentElement?.getAttribute("title")).toBe("Missing DOI");
+    statusText?.parentElement?.click();
+    await vi.waitFor(() => expect(mocks.runBatch).toHaveBeenCalledWith("tool-update-metadata", [defectItem], { review: true }));
+
+    inspectDefects.mockReturnValueOnce([]);
+    const cleanItem = makeItem({ id: 204 });
+    section.item = cleanItem;
+    sectionOpts.onRender({ body, doc, item: cleanItem, setEnabled });
+    expect(body.querySelector("[data-actions-status='true']")?.textContent).toBe("actions-pane-status-healthy");
+    expect(body.querySelector("[data-actions-status='true']")?.parentElement?.getAttribute("data-level")).toBe("success");
   });
 });

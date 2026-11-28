@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.4.4-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.4)
+[![Version](https://img.shields.io/badge/version-17.4.5-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.5)
 
-17.4.4 将右侧条目侧边栏“Zotero MetaFlow 元数据操作”面板重构为双栏操作瓷砖 + 底部状态白卡布局（左右并排离线修复与联网更新瓷砖、柔彩圆角六边形图标、时间戳状态圆点行与一键复检）；详见[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.4.5 为侧边栏“Zotero MetaFlow 元数据操作”面板接入零开销实时离线诊断（发现待优化项时直接提示数量与详情并智能分流修复/补全）、`ItemSyncBridge` 外部编辑联动刷新、只读条目专属提示、窄侧栏自动折行及执行态无障碍脉冲动效；详见[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
