@@ -8,6 +8,9 @@ type PluginPrefsMap = _ZoteroTypes.Prefs["PluginPrefsMap"];
 export const DEFAULT_PREFS: Partial<PluginPrefsMap> = {
   "menu.compact": true,
   "workflow.remoteAuthorsOnCheck": false,
+  "workflow.showActionsPane": true,
+  "workflow.actionsPanePosition": "after-journal",
+  "workflow.actionsPaneOrderSynced": false,
   "workflow.updateBibliographic": true,
   "workflow.updateVersions": true,
   "workflow.reviveSnapshots": true,

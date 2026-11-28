@@ -60,6 +60,13 @@ export function setupDependencies(pane: Element) {
   const importSteps = controls.filter(control => ["lint.onGroup", "metadata.autoUpdateOnAdded", "easyscholar.autoUpdateOnAdded"].includes(key(control)));
   const tldrParent = controls.find(control => key(control) === "workflow.tldrEnabled");
   const tldrChild = controls.find(control => key(control) === "workflow.tldrShowInInfoPane");
+  const actionsPaneParent = controls.find(control => key(control) === "workflow.showActionsPane");
+  const actionsPanePositionSelect = typeof pane.querySelector === "function"
+    ? pane.querySelector<HTMLSelectElement>("#metaref-actions-pane-position")
+    : null;
+  const actionsPanePositionRow = typeof pane.querySelector === "function"
+    ? pane.querySelector<HTMLElement>("#metaref-actions-pane-position-row")
+    : null;
   const update = () => {
     if (signal.aborted || !pane.isConnected || !addon.data.alive)
       return;
@@ -73,6 +80,10 @@ export function setupDependencies(pane: Element) {
     }
     if (tldrParent && tldrChild)
       tldrChild.disabled = !tldrParent.checked;
+    if (actionsPaneParent && actionsPanePositionSelect) {
+      actionsPanePositionSelect.disabled = !actionsPaneParent.checked;
+      actionsPanePositionRow?.classList.toggle("is-disabled", !actionsPaneParent.checked);
+    }
     for (const button of pane.querySelectorAll<HTMLButtonElement>("hbox button")) {
       if (button.closest("[data-busy='true']")) {
         button.disabled = true;

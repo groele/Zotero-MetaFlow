@@ -69,6 +69,56 @@
       data-l10n-id="workflow-compact-description"
       class="metaref-pref-description"
     />
+    <checkbox
+      data-l10n-id="workflow-show-actions-pane"
+      preference="workflow.showActionsPane"
+      native="true"
+    />
+    <description
+      data-l10n-id="workflow-show-actions-pane-description"
+      class="indented-pref metaref-pref-description"
+    />
+    <hbox
+      id="metaref-actions-pane-position-row"
+      class="indented-pref subordinate-row"
+      align="center"
+    >
+      <label
+        id="metaref-actions-pane-position-label"
+        data-l10n-id="workflow-actions-pane-position"
+        control="metaref-actions-pane-position"
+      />
+      <html:select
+        id="metaref-actions-pane-position"
+        aria-labelledby="metaref-actions-pane-position-label"
+      >
+        <html:option value="top" data-l10n-id="workflow-actions-pane-pos-top" />
+        <html:option
+          value="after-info"
+          data-l10n-id="workflow-actions-pane-pos-after-info"
+        />
+        <html:option
+          value="after-abstract"
+          data-l10n-id="workflow-actions-pane-pos-after-abstract"
+        />
+        <html:option
+          value="before-journal"
+          data-l10n-id="workflow-actions-pane-pos-before-journal"
+        />
+        <html:option
+          value="after-journal"
+          data-l10n-id="workflow-actions-pane-pos-after-journal"
+        />
+        <html:option
+          value="after-tags"
+          data-l10n-id="workflow-actions-pane-pos-after-tags"
+        />
+        <html:option
+          value="bottom"
+          data-l10n-id="workflow-actions-pane-pos-bottom"
+        />
+      </html:select>
+    </hbox>
 
     <html:section
       id="metaref-additional-menu-options"

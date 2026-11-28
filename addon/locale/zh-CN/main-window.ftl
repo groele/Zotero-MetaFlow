@@ -116,3 +116,17 @@ journal-refresh-local-only = 已刷新「{ $title }」的本地期刊索引
 editorial-notice-retracted = ⚠️ 学术预警：该文献已被撤稿 (Retracted)
 editorial-notice-concern = ⚠️ 学术预警：该文献存在关切声明 (Expression of Concern)
 editorial-notice-correction = ℹ️ 该文献存在官方勘误/更正记录 (Correction)
+
+actions-pane-heading =
+    .label = Zotero MetaFlow 元数据操作
+    .tooltiptext = 检查并修复元数据 / 更新元数据
+actions-pane-check-label = 检查并修复元数据
+actions-pane-check-hint = 纯本地离线规范标题、作者、刊名缩写与格式
+actions-pane-update-label = 更新元数据
+actions-pane-update-hint = 联网核验补全书目、转正预印本及期刊指标
+actions-pane-running-check = 正在检查并修复元数据…
+actions-pane-running-update = 正在更新元数据…
+actions-pane-done-saved = 已完成，已保存最新元数据。
+actions-pane-done-clean = 已完成检查，当前条目无需修改。
+actions-pane-done-cancelled = 本次操作已停止。
+actions-pane-done-failed = 执行遇到问题，可在设置页查看最近报告。

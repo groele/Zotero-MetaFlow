@@ -285,6 +285,9 @@ declare namespace _ZoteroTypes {
       "menu.primary.tool-review-duplicates": boolean;
       "menu.compact": boolean;
       "workflow.remoteAuthorsOnCheck": boolean;
+      "workflow.showActionsPane": boolean;
+      "workflow.actionsPanePosition": string;
+      "workflow.actionsPaneOrderSynced": boolean;
       "workflow.updateBibliographic": boolean;
       "workflow.updateVersions": boolean;
       "workflow.reviveSnapshots": boolean;

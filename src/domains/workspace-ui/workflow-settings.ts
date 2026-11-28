@@ -260,6 +260,14 @@ export function setupWorkflowSettings(pane: Element) {
     });
   }
 
+  const actionsPanePosSelect = pane.querySelector<HTMLSelectElement>("#metaref-actions-pane-position");
+  if (actionsPanePosSelect) {
+    actionsPanePosSelect.value = String(getPref("workflow.actionsPanePosition" as any, "after-journal"));
+    listen(actionsPanePosSelect, "change", () => {
+      setPref("workflow.actionsPanePosition" as any, actionsPanePosSelect.value);
+    });
+  }
+
   const tldrCheckbox = pane.querySelector<HTMLInputElement>("#metaref-metadata-update-tldr-info-pane");
   const tldrOptions = pane.querySelector<HTMLElement>("#metaref-tldr-options");
   const getTldrEnabled = () => {
@@ -304,6 +312,8 @@ export function setupWorkflowSettings(pane: Element) {
     syncRadioUI();
     if (tldrTargetSelect)
       tldrTargetSelect.value = String(getPref("workflow.tldrTarget" as any, "note"));
+    if (actionsPanePosSelect)
+      actionsPanePosSelect.value = String(getPref("workflow.actionsPanePosition" as any, "after-journal"));
     updateDependencies();
   });
   updateDependencies();

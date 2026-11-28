@@ -116,3 +116,17 @@ journal-refresh-local-only = Refreshed local journal indexing for “{ $title }�
 editorial-notice-retracted = ⚠️ Academic Alert: This paper has been Retracted
 editorial-notice-concern = ⚠️ Academic Alert: Expression of Concern issued
 editorial-notice-correction = ℹ️ Official Correction / Erratum on record
+
+actions-pane-heading =
+    .label = Zotero MetaFlow Metadata Actions
+    .tooltiptext = Check and Fix Metadata / Update Metadata
+actions-pane-check-label = Check and Fix Metadata
+actions-pane-check-hint = 100% offline local formatting, abbreviations & repair
+actions-pane-update-label = Update Metadata
+actions-pane-update-hint = Online verification, enrichment, preprints & rankings
+actions-pane-running-check = Checking and fixing metadata…
+actions-pane-running-update = Updating metadata…
+actions-pane-done-saved = Completed; item metadata updated.
+actions-pane-done-clean = Check complete; no changes needed.
+actions-pane-done-cancelled = Operation stopped.
+actions-pane-done-failed = Completed with issues; check the latest report in Settings.

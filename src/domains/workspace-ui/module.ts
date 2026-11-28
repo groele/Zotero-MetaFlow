@@ -7,6 +7,7 @@ import { closeAllDialogs } from "../../utils/dialog";
 import { closeJournalShareDialogs } from "../../utils/journal-card-share";
 import { initLocale, registerMainWindowLocale, unloadLocale, unregisterMainWindowLocale } from "../../utils/locale";
 import { logger } from "../../utils/logger";
+import { registerActionsPane, unregisterActionsPane } from "./actions-pane";
 import { placeTLDRBeforeExtra, refreshTLDRInfoRow, registerInfoRows, unregisterInfoRows } from "./item-info-row";
 import { registerMenu, unregisterMenu } from "./menu";
 import { registerPrefs, unregisterPrefsWindows } from "./preference";
@@ -68,6 +69,7 @@ export class WorkspaceUiDomainModule implements DomainModule {
     if (this.infoRowsStarted || !this.active)
       return;
     this.infoRowsStarted = true;
+    registerActionsPane();
     registerInfoRows();
   }
 
@@ -137,6 +139,7 @@ export class WorkspaceUiDomainModule implements DomainModule {
       closeCompletionNotices,
       closeAllDialogs,
       unregisterMenu,
+      unregisterActionsPane,
       unregisterInfoRows,
       () => {
         if (typeof ztoolkit !== "undefined")

@@ -1046,20 +1046,24 @@ groupbox:has(#metaref) > label:first-child {
   margin-block: 2px 6px;
 }
 
-#metaref #metaref-tldr-target-row {
+#metaref #metaref-tldr-target-row,
+#metaref #metaref-actions-pane-position-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-block: 4px;
+  margin-block: 4px 8px;
 }
 
-#metaref #metaref-tldr-target-row > label {
+#metaref #metaref-tldr-target-row > label,
+#metaref #metaref-actions-pane-position-row > label {
   font-size: 13px;
   color: inherit;
   margin: 0;
 }
 
-#metaref #metaref-tldr-target-row > select {
+#metaref #metaref-tldr-target-row > select,
+#metaref #metaref-actions-pane-position-row > select {
   font-size: 13px;
   padding: 3px 8px;
   border-radius: 4px;

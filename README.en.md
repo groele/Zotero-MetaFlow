@@ -8,9 +8,9 @@ _Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.3)
+[![Version](https://img.shields.io/badge/version-17.4.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.1)
 
-17.3.3 enforces kernel lifecycle gating in `onNotify`, defers Notifier registration until `kernel.start()`, tightens headless smoke launch pass criteria, fixes DOI fallback when translators omit DOI and retries Semantic Scholar after transient errors, restricts `URLTranslateService` to HTTP(S), and guards inactive-domain refresh paths. See the [v17.3.3 release notes](docs/releases/metaflow-v17.3.3.md), [architecture migration plan](docs/architecture-migration-plan.md), and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
+17.4.1 adds a dedicated `metaref-actions.svg` sidebar icon for the "Zotero MetaFlow Metadata Actions" section, places it adjacent to Journal Insights in existing `sidenav.order` profiles, and keeps the section accessible on read-only regular items. See the [architecture migration plan](docs/architecture-migration-plan.md) and [cache and operation-record policy](docs/automatic-metadata-and-runtime-cache.md).
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)

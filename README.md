@@ -8,9 +8,9 @@ _让研究的每一步衔接起来。 / Connect each step of research._
 
 [简体中文](README.md) · [English](README.en.md)
 
-[![Version](https://img.shields.io/badge/version-17.3.3-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.3.3)
+[![Version](https://img.shields.io/badge/version-17.4.1-245ac7?style=flat-square)](https://github.com/groele/Zotero-MetaFlow/releases/tag/v17.4.1)
 
-17.3.3 修复 `onNotify` 绕过内核门控与 Notifier 过早注册、收紧 `smoke:launch` 扩展加载与清理验收判据、完善 DOI 回退链与 `triedS2` 瞬时失败重试、`URLTranslateService` 协议白名单校验及域停用防护；详见[v17.3.3 发布说明](docs/releases/metaflow-v17.3.3.md)、[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
+17.4.1 为右侧条目侧边栏“Zotero MetaFlow 元数据操作”面板配备独立矢量图标 `metaref-actions.svg` 并自动邻近“期刊索引”图标排序，同时完善只读条目兼容展示；详见[架构演进方案](docs/architecture-migration-plan.md)与[缓存与操作记录策略](docs/automatic-metadata-and-runtime-cache.md)。
 [![Zotero Compatibility](https://img.shields.io/badge/Zotero-10.0--12.*-brightgreen?style=flat-square)](https://www.zotero.org/)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-orange?style=flat-square)](LICENSE)
 [![Tests Passing](https://img.shields.io/badge/tests-842%20unit%20%7C%2023%20scoped%20e2e-success?style=flat-square)](https://github.com/groele/Zotero-MetaFlow)
